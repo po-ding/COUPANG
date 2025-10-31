@@ -52,9 +52,11 @@
         .income { color: green; font-weight: bold; }
         .cost { color: red; font-weight: bold; }
         .hidden { display: none; }
-        .action-buttons { display: flex; gap: 1em; margin-top: 2em; }
-        .action-buttons button { flex: 1; margin-top: 0; }
-        #export-btn { background-color: #28a745; }
+        .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin-top: 2em; }
+        .action-buttons button { width: 100%; margin: 0; }
+        #export-csv-btn { background-color: #28a745; }
+        #export-json-btn { background-color: #6c757d; }
+        #import-json-btn { background-color: #fd7e14; }
         #clear-btn { background-color: #dc3545; }
     </style>
 </head>
@@ -192,16 +194,22 @@
         </div>
         
         <div class="action-buttons">
-            <button id="export-btn">엑셀(CSV)로 저장</button>
+            <button id="export-csv-btn">엑셀(CSV)로 저장</button>
+            <button id="export-json-btn">JSON으로 저장 (백업)</button>
+            <button id="import-json-btn">JSON 불러오기 (복원)</button>
             <button id="clear-btn">모든 기록 삭제하기</button>
         </div>
+        <input type="file" id="import-file-input" class="hidden" accept=".json">
     </div>
 
     <script>
         // --- DOM 요소 ---
         const recordForm = document.getElementById('record-form');
         const clearBtn = document.getElementById('clear-btn');
-        const exportBtn = document.getElementById('export-btn');
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        const exportJsonBtn = document.getElementById('export-json-btn');
+        const importJsonBtn = document.getElementById('import-json-btn');
+        const importFileInput = document.getElementById('import-file-input');
         const dateInput = document.getElementById('date');
         const timeInput = document.getElementById('time');
         const typeSelect = document.getElementById('type');
@@ -560,7 +568,7 @@
             alert(`총 주행거리가 ${parseInt(newMileage).toLocaleString()} km로 저장되었습니다.`);
             updateAllDisplays();
         });
-
+        
         function exportToCsv() {
             const records = JSON.parse(localStorage.getItem('records')) || [];
             if (records.length === 0) {
@@ -599,7 +607,66 @@
             URL.revokeObjectURL(url);
             alert('모든 기록이 엑셀(CSV) 파일로 성공적으로 저장(다운로드)되었습니다!');
         }
-        exportBtn.addEventListener('click', exportToCsv);
+        exportCsvBtn.addEventListener('click', exportToCsv);
+
+        function exportToJson() {
+            const records = localStorage.getItem('records');
+            if (!records || records === '[]') {
+                alert('저장할 기록이 없습니다.');
+                return;
+            }
+
+            const blob = new Blob([records], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const today = new Date().toISOString().slice(0, 10);
+            a.download = `운행기록_백업_${today}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('모든 기록이 JSON 파일로 성공적으로 저장(다운로드)되었습니다!');
+        }
+        exportJsonBtn.addEventListener('click', exportToJson);
+
+        function importFromJson(event) {
+            if (!confirm('경고!\n현재 앱의 모든 기록이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
+                event.target.value = '';
+                return;
+            }
+            
+            const file = event.target.files[0];
+            if (!file) {
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    const data = JSON.parse(content);
+
+                    if (!Array.isArray(data)) {
+                        alert('오류: 올바른 형식의 백업 파일(.json)이 아닙니다.');
+                        return;
+                    }
+
+                    localStorage.setItem('records', JSON.stringify(data));
+                    alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
+                    location.reload();
+
+                } catch (error) {
+                    alert('오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.');
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+        importJsonBtn.addEventListener('click', () => importFileInput.click());
+        importFileInput.addEventListener('change', importFromJson);
 
         clearBtn.addEventListener('click', () => {
             if (confirm('정말로 모든 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {

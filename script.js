@@ -544,6 +544,3 @@ function initialSetup() {
     updateAllDisplays();
 }
 initialSetup();
-    </script>
-</body>
-</html>

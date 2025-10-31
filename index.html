@@ -12,11 +12,12 @@
         form, fieldset { display: flex; flex-direction: column; gap: 1em; }
         fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 1em; margin-bottom: 1em; }
         legend { font-weight: bold; color: #555; }
-        .input-group { display: flex; gap: 0.5em; }
+        .input-group { display: flex; flex-direction: column; gap: 0.8em; }
+        .input-group.row { flex-direction: row; gap: 0.5em; }
         .input-group > * { flex: 1; }
-        input, select, button { padding: 0.8em; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input, select, button { padding: 0.8em; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; width: 100%; }
         button { background-color: #007bff; color: white; font-weight: bold; cursor: pointer; border: none; transition: background-color 0.2s; margin-top: 0.5em; }
-        button.setting-save-btn { background-color: #28a745; margin-top: 0;}
+        button.setting-save-btn { background-color: #28a745; margin-top: 0.5em; }
         button:hover { opacity: 0.8; }
         
         #start-gps-btn { background-color: #17a2b8; }
@@ -64,41 +65,14 @@
         #clear-btn { background-color: #dc3545; }
 
         @media screen and (max-width: 768px) {
-            .responsive-table thead {
-                display: none;
-            }
-            .responsive-table, .responsive-table tbody, .responsive-table tr, .responsive-table td {
-                display: block;
-                width: 100%;
-            }
-            .responsive-table tr {
-                margin-bottom: 1em;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-            }
-            .responsive-table td {
-                text-align: right;
-                padding-left: 50%;
-                position: relative;
-                border: none;
-                border-bottom: 1px solid #eee;
-            }
-            .responsive-table td:before {
-                content: attr(data-label);
-                position: absolute;
-                left: 0;
-                width: 45%;
-                padding-left: 1em;
-                font-weight: bold;
-                text-align: left;
-            }
-            .responsive-table tr td:last-child {
-                border-bottom: none;
-            }
-            .yearly-summary-table {
-                display: block;
-                overflow-x: auto; /* 연도별 테이블은 가로 스크롤 허용 */
-            }
+            .responsive-table thead { display: none; }
+            .responsive-table, .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
+            .responsive-table tr { margin-bottom: 1em; border: 1px solid #ddd; border-radius: 4px; }
+            .responsive-table td { text-align: right; padding-left: 50%; position: relative; border: none; border-bottom: 1px solid #eee; }
+            .responsive-table td:before { content: attr(data-label); position: absolute; left: 0; width: 45%; padding-left: 1em; font-weight: bold; text-align: left; }
+            .responsive-table tr td:last-child { border-bottom: none; }
+            #yearly-view { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .yearly-summary-table { width: auto; white-space: nowrap; }
         }
     </style>
 </head>
@@ -109,7 +83,7 @@
         <form id="record-form">
             <fieldset>
                 <legend>기본 정보</legend>
-                <div class="input-group">
+                <div class="input-group row">
                     <input type="date" id="date" required>
                     <input type="time" id="time" required>
                 </div>
@@ -123,15 +97,15 @@
             </fieldset>
             <fieldset id="transport-details">
                 <legend>운송 정보</legend>
-                <div class="input-group">
+                <div class="input-group row">
                     <select id="from-center"></select>
                     <select id="to-center"></select>
                 </div>
-                <div class="input-group">
+                <div class="input-group row">
                     <input type="text" id="from-custom" class="hidden" placeholder="출발지 직접 입력">
                     <input type="text" id="to-custom" class="hidden" placeholder="도착지 직접 입력">
                 </div>
-                <div class="input-group">
+                <div class="input-group row">
                     <button type="button" id="start-gps-btn">출발 GPS 등록</button>
                     <button type="button" id="end-gps-btn">도착 GPS 등록</button>
                 </div>
@@ -143,7 +117,7 @@
 
             <fieldset id="fuel-details" class="hidden">
                 <legend>주유 정보</legend>
-                <div class="input-group">
+                <div class="input-group row">
                     <input type="number" step="0.01" id="fuel-unit-price" placeholder="단가 (원/L)">
                     <input type="number" step="0.01" id="fuel-liters" placeholder="주유량 (L)">
                 </div>
@@ -620,7 +594,7 @@
             alert(`총 주행거리가 ${parseInt(newMileage).toLocaleString()} km로 저장되었습니다.`);
             updateAllDisplays();
         });
-
+        
         function exportToCsv() {
             const records = JSON.parse(localStorage.getItem('records')) || [];
             if (records.length === 0) {
@@ -767,7 +741,7 @@
             }
         }
         fuelUnitPriceInput.addEventListener('input', calculateCost);
-        fuelLitersInput.addEventListener('input', calculateLiters);
+        fuelLitersInput.addEventListener('input', calculateCost);
         costInput.addEventListener('input', calculateLiters);
         typeSelect.addEventListener('change', () => toggleUI(typeSelect.value));
         fromSelect.addEventListener('change', () => fromCustom.classList.toggle('hidden', fromSelect.value !== 'direct'));

@@ -63,3 +63,19 @@ th { background-color: #f2f2f2; }
     .responsive-table thead { display: none; }
     .responsive-table, .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
     .responsive-table tr { margin-bottom: 1em; border: 1px s
+
+
+/* --- 로고 스타일 --- */
+.logo {
+    font-family: 'Helvetica Neue', Arial, sans-serif; /* 현대적인 폰트 적용 */
+    font-weight: 300; /* 얇은 글씨체로 세련미 강조 */
+    font-size: 2.5em; /* 글자 크기 */
+    color: #333; /* 기본 글자 색상 */
+    letter-spacing: 1px; /* 자간 조절 */
+    margin: 0.5em 0; /* 위아래 여백 조절 */
+}
+
+.logo-point {
+    font-weight: 600; /* 'note' 부분만 굵게 */
+    color: #007bff; /* 파란색으로 포인트 */
+}

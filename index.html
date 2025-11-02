@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cargonote</title>
+    <title>운송 기록부</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1 class="logo">cargo<span class="logo-point">note</span></h1>
-
+        <h1>운송 기록부</h1>
         
         <form id="record-form">
             <fieldset>
@@ -44,6 +43,13 @@
                 <input type="hidden" id="start-coords">
                 <input type="hidden" id="end-coords">
                 <input type="number" id="manual-distance" placeholder="또는, 운행거리(km) 직접입력">
+                <hr>
+                <div class="input-group row">
+                    <button type="button" id="start-wait-btn">대기 시작</button>
+                    <button type="button" id="end-wait-btn">대기 종료</button>
+                </div>
+                <div id="wait-status">대기 상태: 대기 중</div>
+                <input type="hidden" id="waiting-time">
             </fieldset>
 
             <fieldset id="fuel-details" class="hidden">

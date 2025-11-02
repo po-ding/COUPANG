@@ -19,6 +19,10 @@ button:hover { opacity: 0.8; }
 #end-gps-btn { background-color: #ffc107; color: #333; }
 #gps-status { text-align: center; font-size: 0.9em; color: #555; background-color: #e9ecef; padding: 0.5em; border-radius: 4px; margin-top: 0.5em; line-height: 1.5;}
 
+#start-wait-btn { background-color: #6c757d; }
+#end-wait-btn { background-color: #dc3545; }
+#wait-status { text-align: center; font-size: 0.9em; color: #555; background-color: #e9ecef; padding: 0.5em; border-radius: 4px; margin-top: 0.5em; }
+
 .view-section { margin-top: 2em; }
 .view-tabs { display: flex; border-bottom: 2px solid #ddd; }
 .tab-btn { background-color: #f1f1f1; color: #555; border: 1px solid #ccc; border-bottom: none; cursor: pointer; padding: 12px 15px; margin-bottom: -2px; border-radius: 6px 6px 0 0; flex: 1; font-size: 1em; font-weight: 500; transition: all 0.2s ease-in-out; }
@@ -62,20 +66,293 @@ th { background-color: #f2f2f2; }
 @media screen and (max-width: 768px) {
     .responsive-table thead { display: none; }
     .responsive-table, .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
-    .responsive-table tr { margin-bottom: 1em; border: 1px s
+    .responsive-table tr { margin-bottom: 1em; border: 1px solid #ddd; border-radius: 4px; }
+    .responsive-table td { text-align: right; padding-left: 50%; position: relative; border: none; border-bottom: 1px solid #eee; }
+    .responsive-table td:before { content: attr(data-label); position: absolute; left: 0; width: 45%; padding-left: 1em; font-weight: bold; text-align: left; }
+    .responsive-table tr td:last-child { border-bottom: none; }
+    #yearly-view { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .yearly-summary-table { width: auto; white-space: nowrap; }
+}```
 
+---
 
-/* --- 로고 스타일 --- */
-.logo {
-    font-family: 'Helvetica Neue', Arial, sans-serif; /* 현대적인 폰트 적용 */
-    font-weight: 300; /* 얇은 글씨체로 세련미 강조 */
-    font-size: 2.5em; /* 글자 크기 */
-    color: #333; /* 기본 글자 색상 */
-    letter-spacing: 1px; /* 자간 조절 */
-    margin: 0.5em 0; /* 위아래 여백 조절 */
+### **3. `script.js`**
+
+```javascript
+// --- DOM 요소 ---
+const recordForm = document.getElementById('record-form');
+const clearBtn = document.getElementById('clear-btn');
+const exportCsvBtn = document.getElementById('export-csv-btn');
+const exportJsonBtn = document.getElementById('export-json-btn');
+const importJsonBtn = document.getElementById('import-json-btn');
+const importFileInput = document.getElementById('import-file-input');
+const dateInput = document.getElementById('date');
+const timeInput = document.getElementById('time');
+const typeSelect = document.getElementById('type');
+const transportDetails = document.getElementById('transport-details');
+const fromSelect = document.getElementById('from-center');
+const toSelect = document.getElementById('to-center');
+const fromCustom = document.getElementById('from-custom');
+const toCustom = document.getElementById('to-custom');
+const costInfoFieldset = document.getElementById('cost-info-fieldset');
+const costWrapper = document.getElementById('cost-wrapper');
+const incomeWrapper = document.getElementById('income-wrapper');
+const costInput = document.getElementById('cost');
+const incomeInput = document.getElementById('income');
+const fuelDetails = document.getElementById('fuel-details');
+const fuelUnitPriceInput = document.getElementById('fuel-unit-price');
+const fuelLitersInput = document.getElementById('fuel-liters');
+const fuelBrandSelect = document.getElementById('fuel-brand');
+const supplyDetails = document.getElementById('supply-details');
+const supplyItemInput = document.getElementById('supply-item');
+const supplyMileageInput = document.getElementById('supply-mileage');
+
+const tabBtns = document.querySelectorAll('.tab-btn');
+const viewContents = document.querySelectorAll('.view-content');
+const dailyDatePicker = document.getElementById('daily-date-picker');
+const dailySummaryDiv = document.getElementById('daily-summary');
+const dailyTbody = document.querySelector('#daily-records-table tbody');
+const monthlyYearSelect = document.getElementById('monthly-year-select');
+const monthlyMonthSelect = document.getElementById('monthly-month-select');
+const monthlySummaryDiv = document.getElementById('monthly-summary');
+const monthlyTbody = document.querySelector('#monthly-records-table tbody');
+const yearlyYearSelect = document.getElementById('yearly-year-select');
+const yearlyTbody = document.querySelector('#yearly-summary-table tbody');
+
+const subsidyLimitInput = document.getElementById('subsidy-limit');
+const subsidySaveBtn = document.getElementById('subsidy-save-btn');
+const subsidySummaryDiv = document.getElementById('subsidy-summary');
+const totalMileageInput = document.getElementById('total-mileage');
+const totalMileageSaveBtn = document.getElementById('total-mileage-save-btn');
+const cumulativeSummaryDiv = document.getElementById('cumulative-summary');
+
+const startGpsBtn = document.getElementById('start-gps-btn');
+const endGpsBtn = document.getElementById('end-gps-btn');
+const gpsStatus = document.getElementById('gps-status');
+const startCoordsInput = document.getElementById('start-coords');
+const endCoordsInput = document.getElementById('end-coords');
+const manualDistanceInput = document.getElementById('manual-distance');
+
+const startWaitBtn = document.getElementById('start-wait-btn');
+const endWaitBtn = document.getElementById('end-wait-btn');
+const waitStatus = document.getElementById('wait-status');
+const waitingTimeInput = document.getElementById('waiting-time');
+
+// --- 전역 변수 ---
+let waitStartTime = null;
+let waitTimerInterval = null;
+
+// --- 핵심 로직 ---
+const getTodayString = () => new Date().toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\. /g, '-').slice(0, -1);
+const getCurrentTimeString = () => new Date().toLocaleTimeString('ko-KR', {hour12: false, hour: '2-digit', minute: '2-digit'});
+
+const formatToManwon = (valueInWon) => {
+    if (!valueInWon) return '0';
+    return (valueInWon / 10000).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+};
+
+function getCenters() {
+    const defaultCenters = ['안성', '안산', '용인', '이천', '인천'];
+    const storedCenters = JSON.parse(localStorage.getItem('logistics_centers')) || defaultCenters;
+    if (!localStorage.getItem('logistics_centers')) localStorage.setItem('logistics_centers', JSON.stringify(storedCenters));
+    return storedCenters;
+}
+function addCenter(newCenter) {
+    if (!newCenter || newCenter.trim() === '') return;
+    const centers = getCenters();
+    if (!centers.includes(newCenter.trim())) { centers.push(newCenter.trim()); localStorage.setItem('logistics_centers', JSON.stringify(centers)); }
+}
+function populateCenterSelectors() {
+    const centers = getCenters();
+    const options = centers.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="direct">직접 입력</option>';
+    fromSelect.innerHTML = options; toSelect.innerHTML = options;
 }
 
-.logo-point {
-    font-weight: 600; /* 'note' 부분만 굵게 */
-    color: #007bff; /* 파란색으로 포인트 */
+function toggleUI(type) {
+    transportDetails.classList.toggle('hidden', !['화물운송', '공차이동'].includes(type));
+    fuelDetails.classList.toggle('hidden', type !== '주유');
+    supplyDetails.classList.toggle('hidden', type !== '소모품');
+
+    if(type === '소모품') {
+        supplyMileageInput.value = localStorage.getItem('total_vehicle_mileage') || '';
+    }
+
+    costInfoFieldset.classList.remove('hidden');
+    costWrapper.classList.remove('hidden');
+    incomeWrapper.classList.remove('hidden');
+
+    if (type === '화물운송') {
+        costWrapper.classList.add('hidden');
+    } else if (type === '공차이동') {
+        costInfoFieldset.classList.add('hidden');
+    } else {
+        incomeWrapper.classList.add('hidden');
+    }
+    costInput.readOnly = false;
 }
+
+function getGPS(point) {
+    if (!navigator.geolocation) {
+        gpsStatus.textContent = "오류: 위치 정보를 사용할 수 없는 브라우저입니다.";
+        return;
+    }
+    const statusText = point === 'start' ? '출발' : '도착';
+    gpsStatus.textContent = `GPS 상태: ${statusText} 지점 위치 수신 중...`;
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const coords = {
+                lat: position.coords.latitude.toFixed(6),
+                lon: position.coords.longitude.toFixed(6)
+            };
+            const coordsString = `${coords.lat}, ${coords.lon}`;
+            
+            if (point === 'start') {
+                startCoordsInput.value = coordsString;
+                gpsStatus.innerHTML = `✅ 출발 GPS 기록 완료!<br><span class="note">${coordsString}</span>`;
+            } else {
+                endCoordsInput.value = coordsString;
+                const start = startCoordsInput.value ? `출발: ${startCoordsInput.value}` : '출발점 미기록';
+                gpsStatus.innerHTML = `✅ 도착 GPS 기록 완료!<br><span class="note">${start}<br>도착: ${coordsString}</span>`;
+            }
+        },
+        (error) => {
+            let message = "오류: 위치 정보를 가져올 수 없습니다.";
+            if (error.code === 1) message = "오류: 위치 정보 접근 권한이 거부되었습니다.";
+            gpsStatus.textContent = message;
+        }
+    );
+}
+
+function startWaitTimer() {
+    waitStartTime = Date.now();
+    waitStatus.textContent = "대기 중: 00:00:00";
+    startWaitBtn.disabled = true;
+    endWaitBtn.disabled = false;
+
+    waitTimerInterval = setInterval(() => {
+        const elapsedTime = Date.now() - waitStartTime;
+        const seconds = Math.floor((elapsedTime / 1000) % 60).toString().padStart(2, '0');
+        const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60).toString().padStart(2, '0');
+        const hours = Math.floor(elapsedTime / (1000 * 60 * 60)).toString().padStart(2, '0');
+        waitStatus.textContent = `대기 중: ${hours}:${minutes}:${seconds}`;
+    }, 1000);
+}
+
+function stopWaitTimer() {
+    if (waitTimerInterval) {
+        clearInterval(waitTimerInterval);
+    }
+    if (waitStartTime) {
+        const elapsedTime = Date.now() - waitStartTime;
+        const totalMinutes = Math.round(elapsedTime / (1000 * 60));
+        waitingTimeInput.value = totalMinutes;
+        waitStatus.textContent = `✅ 총 대기시간: ${totalMinutes}분 기록 완료!`;
+    }
+    startWaitBtn.disabled = false;
+    endWaitBtn.disabled = true;
+    waitStartTime = null;
+}
+
+function displayDailyRecords() {
+    const records = JSON.parse(localStorage.getItem('records')) || [];
+    const selectedDate = dailyDatePicker.value;
+    const filteredRecords = records.filter(r => r.date === selectedDate);
+    
+    dailyTbody.innerHTML = '';
+    let dailyIncome = 0, dailyExpense = 0, dailyDistance = 0;
+
+    filteredRecords.forEach(r => {
+        dailyIncome += parseInt(r.income || 0);
+        dailyExpense += parseInt(r.cost || 0);
+        if (['화물운송', '공차이동'].includes(r.type)) dailyDistance += parseFloat(r.distance || 0);
+        
+        const tr = document.createElement('tr');
+        let detailsCell = '', moneyCell = '';
+        if (['화물운송', '공차이동'].includes(r.type)) {
+            detailsCell = `<strong>${r.from} → ${r.to}</strong><br><span class="note">${r.distance} km</span>`;
+            let gpsLinks = '';
+            if (r.start_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.start_gps}" target="_blank">📍출발점</a> `;
+            if (r.end_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.end_gps}" target="_blank">🏁도착점</a>`;
+            if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
+            if (r.waitingTime > 0) {
+                detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
+            }
+            moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
+        } else if (r.type === '주유') {
+            detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+        } else if (r.type === '소모품') {
+            detailsCell = `<strong>${r.supplyItem || '기타 소모품'}</strong><br><span class="note">@ ${parseInt(r.mileage || 0).toLocaleString()} km</span>`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+        } else {
+            detailsCell = `<span class="note">${r.notes || ''}</span>`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+        }
+        tr.innerHTML = `
+            <td data-label="시간">${r.time}</td>
+            <td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td>
+            <td data-label="내용">${detailsCell}</td>
+            <td data-label="수입/지출">${moneyCell}</td>
+        `;
+        dailyTbody.appendChild(tr);
+    });
+    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 총수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 총지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 운행거리: <strong>${dailyDistance.toFixed(1)} km</strong>`;
+}
+
+function displayMonthlyRecords() {
+    const records = JSON.parse(localStorage.getItem('records')) || [];
+    const selectedPeriod = `${monthlyYearSelect.value}-${monthlyMonthSelect.value}`;
+    const filteredRecords = records.filter(r => r.date.startsWith(selectedPeriod));
+    
+    monthlyTbody.innerHTML = '';
+    let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalLiters = 0, totalFuelCost = 0;
+
+    filteredRecords.forEach(r => {
+        const tr = document.createElement('tr');
+        let detailsCell = '', moneyCell = '';
+        totalIncome += parseInt(r.income || 0);
+        totalExpense += parseInt(r.cost || 0);
+        if (['화물운송', '공차이동'].includes(r.type)) {
+            totalDistance += parseFloat(r.distance || 0);
+            detailsCell = `<strong>${r.from} → ${r.to}</strong><br><span class="note">${r.distance} km</span>`;
+            let gpsLinks = '';
+            if (r.start_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.start_gps}" target="_blank">📍출발점</a> `;
+            if (r.end_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.end_gps}" target="_blank">🏁도착점</a>`;
+            if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
+            if (r.waitingTime > 0) {
+                detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
+            }
+            moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
+        } else if (r.type === '주유') {
+            totalLiters += parseFloat(r.liters || 0);
+            totalFuelCost += parseInt(r.cost || 0);
+            detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+        } else if (r.type === '소모품') {
+            detailsCell = `<strong>${r.supplyItem || '기타 소모품'}</strong><br><span class="note">@ ${parseInt(r.mileage || 0).toLocaleString()} km</span>`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+        } else {
+            detailsCell = `<span class="note">${r.notes || ''}</span>`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+        }
+        tr.innerHTML = `
+            <td data-label="일시">${r.date.substring(5)} ${r.time}</td>
+            <td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td>
+            <td data-label="구간 / 내용">${detailsCell}</td>
+            <td data-label="수입/지출">${moneyCell}</td>
+        `;
+        monthlyTbody.appendChild(tr);
+    });
+
+    const netIncome = totalIncome - totalExpense;
+    monthlySummaryDiv.innerHTML = `
+        <strong>${monthlyYearSelect.value}년 ${monthlyMonthSelect.value}월 요약</strong><br>
+        총 수입: <span class="income">${formatToManwon(totalIncome)} 만원</span> | 총 지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span><br>
+        정산: <strong>${formatToManwon(netIncome)} 만원</strong> | 총 운행거리: <strong>${totalDistance.toFixed(1)} km</strong><br>
+        총 주유량: <strong>${totalLiters.toFixed(2)} L</strong> | 총 주유비용: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span>`;
+
+    const subsidyLimit = parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0;
+    const remainingLiters = subsidyLimit - totalLiters;
+    const progressPercent = subsidyLimit > 0 ? Math.min(100, (totalLiters / subsidyLimit * 100)).toFixed(1) : 0;
+    

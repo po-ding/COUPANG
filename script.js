@@ -52,6 +52,15 @@ const startCoordsInput = document.getElementById('start-coords');
 const endCoordsInput = document.getElementById('end-coords');
 const manualDistanceInput = document.getElementById('manual-distance');
 
+const startWaitBtn = document.getElementById('start-wait-btn');
+const endWaitBtn = document.getElementById('end-wait-btn');
+const waitStatus = document.getElementById('wait-status');
+const waitingTimeInput = document.getElementById('waiting-time');
+
+// --- 전역 변수 ---
+let waitStartTime = null;
+let waitTimerInterval = null;
+
 // --- 핵심 로직 ---
 const getTodayString = () => new Date().toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\. /g, '-').slice(0, -1);
 const getCurrentTimeString = () => new Date().toLocaleTimeString('ko-KR', {hour12: false, hour: '2-digit', minute: '2-digit'});
@@ -134,6 +143,36 @@ function getGPS(point) {
     );
 }
 
+function startWaitTimer() {
+    waitStartTime = Date.now();
+    waitStatus.textContent = "대기 중: 00:00:00";
+    startWaitBtn.disabled = true;
+    endWaitBtn.disabled = false;
+
+    waitTimerInterval = setInterval(() => {
+        const elapsedTime = Date.now() - waitStartTime;
+        const seconds = Math.floor((elapsedTime / 1000) % 60).toString().padStart(2, '0');
+        const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60).toString().padStart(2, '0');
+        const hours = Math.floor(elapsedTime / (1000 * 60 * 60)).toString().padStart(2, '0');
+        waitStatus.textContent = `대기 중: ${hours}:${minutes}:${seconds}`;
+    }, 1000);
+}
+
+function stopWaitTimer() {
+    if (waitTimerInterval) {
+        clearInterval(waitTimerInterval);
+    }
+    if (waitStartTime) {
+        const elapsedTime = Date.now() - waitStartTime;
+        const totalMinutes = Math.round(elapsedTime / (1000 * 60));
+        waitingTimeInput.value = totalMinutes;
+        waitStatus.textContent = `✅ 총 대기시간: ${totalMinutes}분 기록 완료!`;
+    }
+    startWaitBtn.disabled = false;
+    endWaitBtn.disabled = true;
+    waitStartTime = null;
+}
+
 function displayDailyRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedDate = dailyDatePicker.value;
@@ -155,6 +194,9 @@ function displayDailyRecords() {
             if (r.start_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.start_gps}" target="_blank">📍출발점</a> `;
             if (r.end_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.end_gps}" target="_blank">🏁도착점</a>`;
             if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
+            if (r.waitingTime > 0) {
+                detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
+            }
             moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
         } else if (r.type === '주유') {
             detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
@@ -197,6 +239,9 @@ function displayMonthlyRecords() {
             if (r.start_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.start_gps}" target="_blank">📍출발점</a> `;
             if (r.end_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.end_gps}" target="_blank">🏁도착점</a>`;
             if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
+            if (r.waitingTime > 0) {
+                detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
+            }
             moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
         } else if (r.type === '주유') {
             totalLiters += parseFloat(r.liters || 0);
@@ -350,7 +395,8 @@ recordForm.addEventListener('submit', function(event) {
         cost: Math.round((parseFloat(costInput.value) || 0) * 10000),
         income: Math.round((parseFloat(incomeInput.value) || 0) * 10000),
         liters: fuelLitersInput.value || 0, unitPrice: fuelUnitPriceInput.value || 0, brand: fuelBrandSelect.value || '',
-        supplyItem: supplyItemInput.value || '', mileage: supplyMileageInput.value || 0
+        supplyItem: supplyItemInput.value || '', mileage: supplyMileageInput.value || 0,
+        waitingTime: waitingTimeInput.value || 0
     };
     const records = JSON.parse(localStorage.getItem('records')) || [];
     records.push(newRecord);
@@ -381,7 +427,7 @@ function exportToCsv() {
         return;
     }
 
-    const headers = ['날짜', '시간', '구분', '출발지', '도착지', '운행거리(km)', '출발GPS', '도착GPS', '수입(원)', '지출(원)', '주유량(L)', '단가(원/L)', '주유브랜드', '소모품내역', '교체시점(km)'];
+    const headers = ['날짜', '시간', '구분', '출발지', '도착지', '운행거리(km)', '대기시간(분)', '출발GPS', '도착GPS', '수입(원)', '지출(원)', '주유량(L)', '단가(원/L)', '주유브랜드', '소모품내역', '교체시점(km)'];
     
     const escapeCsvCell = (cell) => {
         if (cell == null) return '';
@@ -393,7 +439,7 @@ function exportToCsv() {
     const csvRows = [headers.join(',')];
     records.forEach(r => {
         const row = [
-            r.date, r.time, r.type, r.from, r.to, r.distance, r.start_gps, r.end_gps,
+            r.date, r.time, r.type, r.from, r.to, r.distance, r.waitingTime, r.start_gps, r.end_gps,
             r.income, r.cost, r.liters, r.unitPrice, r.brand, r.supplyItem, r.mileage
         ];
         csvRows.push(row.map(escapeCsvCell).join(','));
@@ -501,6 +547,9 @@ yearlyYearSelect.addEventListener('change', displayYearlyRecords);
 startGpsBtn.addEventListener('click', () => getGPS('start'));
 endGpsBtn.addEventListener('click', () => getGPS('end'));
 
+startWaitBtn.addEventListener('click', startWaitTimer);
+endWaitBtn.addEventListener('click', stopWaitTimer);
+
 function calculateCost() {
     const unitPrice = parseFloat(fuelUnitPriceInput.value) || 0;
     const liters = parseFloat(fuelLitersInput.value) || 0;
@@ -520,7 +569,7 @@ function calculateLiters() {
     }
 }
 fuelUnitPriceInput.addEventListener('input', calculateCost);
-fuelLitersInput.addEventListener('input', calculateCost);
+fuelLitersInput.addEventListener('input', calculateLiters);
 costInput.addEventListener('input', calculateLiters);
 typeSelect.addEventListener('change', () => toggleUI(typeSelect.value));
 fromSelect.addEventListener('change', () => fromCustom.classList.toggle('hidden', fromSelect.value !== 'direct'));
@@ -540,6 +589,13 @@ function initialSetup() {
     startCoordsInput.value = '';
     endCoordsInput.value = '';
     manualDistanceInput.value = '';
+
+    waitStatus.textContent = '대기 상태: 대기 중';
+    waitingTimeInput.value = '';
+    startWaitBtn.disabled = false;
+    endWaitBtn.disabled = true;
+    if (waitTimerInterval) clearInterval(waitTimerInterval);
+    waitStartTime = null;
     
     updateAllDisplays();
 }

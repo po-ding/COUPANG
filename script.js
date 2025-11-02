@@ -50,9 +50,8 @@ const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
 const currentMonthTripCount = document.getElementById('current-month-trip-count');
 const currentMonthWaitingTime = document.getElementById('current-month-waiting-time');
-const currentMonthFuelCost = document.getElementById('current-month-fuel-cost');
-const currentMonthSuppliesCost = document.getElementById('current-month-supplies-cost');
-const currentMonthNetIncome = document.getElementById('current-month-net-income');
+const currentMonthIncome = document.getElementById('current-month-income');
+const currentMonthExpense = document.getElementById('current-month-expense');
 const currentMonthAvgIncomeLabel = document.getElementById('current-month-avg-income-label');
 const currentMonthAvgIncome = document.getElementById('current-month-avg-income');
 
@@ -84,8 +83,8 @@ const getTodayString = () => new Date().toLocaleDateString('ko-KR', {year: 'nume
 const getCurrentTimeString = () => new Date().toLocaleTimeString('ko-KR', {hour12: false, hour: '2-digit', minute: '2-digit'});
 
 const formatToManwon = (valueInWon) => {
-    if (!valueInWon && valueInWon !== 0) return '0.0';
-    return (valueInWon / 10000).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+    if (!valueInWon && valueInWon !== 0) return '0';
+    return Math.round(valueInWon / 10000).toLocaleString('ko-KR');
 };
 
 function getCenters() {
@@ -232,7 +231,7 @@ function displayDailyRecords() {
         dailyTbody.appendChild(tr);
     });
     const dailyNet = dailyIncome - dailyExpense;
-    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 거리: <strong>${dailyDistance.toFixed(1)} km</strong><br>이동건수: <strong>${dailyTripCount} 건</strong> | 대기시간: <strong>${dailyWaitingTime} 분</strong> | 일당: <strong class="income">${formatToManwon(dailyNet)} 만원</strong>`;
+    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 일당: <strong class="income">${formatToManwon(dailyNet)} 만원</strong><br>거리: <strong>${dailyDistance.toFixed(1)} km</strong> | 이동건수: <strong>${dailyTripCount} 건</strong> | 대기시간: <strong>${dailyWaitingTime} 분</strong>`;
 }
 
 function displayMonthlyRecords() {
@@ -244,43 +243,54 @@ function displayMonthlyRecords() {
     monthlyTbody.innerHTML = '';
     let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalLiters = 0, totalFuelCost = 0, totalSuppliesCost = 0, totalWaitingTime = 0, totalTripCount = 0;
 
+    const dailyAggregates = {};
+
     currentMonthRecords.forEach(r => {
-        totalIncome += parseInt(r.income || 0);
-        totalExpense += parseInt(r.cost || 0);
+        const day = r.date;
+        if (!dailyAggregates[day]) {
+            dailyAggregates[day] = { income: 0, cost: 0, distance: 0, tripCount: 0, waitingTime: 0, records: [] };
+        }
+        dailyAggregates[day].income += parseInt(r.income || 0);
+        dailyAggregates[day].cost += parseInt(r.cost || 0);
         if (['화물운송', '공차이동'].includes(r.type)) {
-            totalDistance += parseFloat(r.distance || 0);
-            totalTripCount++;
+            dailyAggregates[day].distance += parseFloat(r.distance || 0);
+            dailyAggregates[day].tripCount++;
         }
-        if (r.type === '주유') {
-            totalLiters += parseFloat(r.liters || 0);
-            totalFuelCost += parseInt(r.cost || 0);
-        } else if (r.type === '소모품') {
-            totalSuppliesCost += parseInt(r.cost || 0);
-        }
-        totalWaitingTime += parseInt(r.waitingTime || 0);
+        dailyAggregates[day].waitingTime += parseInt(r.waitingTime || 0);
+        dailyAggregates[day].records.push(r);
+    });
+    
+    Object.keys(dailyAggregates).sort().reverse().forEach(day => {
+        const data = dailyAggregates[day];
+        const netIncome = data.income - data.cost;
+        const waitHours = Math.floor(data.waitingTime / 60);
+        const waitMinutes = data.waitingTime % 60;
         
         const tr = document.createElement('tr');
-        let detailsCell = '', moneyCell = '';
-        if (['화물운송', '공차이동'].includes(r.type)) {
-            detailsCell = `<strong>${r.from} → ${r.to}</strong><br><span class="note">${r.distance} km</span>`;
-            let gpsLinks = '';
-            if (r.start_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.start_gps}" target="_blank">📍출발점</a> `;
-            if (r.end_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.end_gps}" target="_blank">🏁도착점</a>`;
-            if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
-            if (r.waitingTime > 0) detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
-            moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
-        } else if (r.type === '주유') {
-            detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else if (r.type === '소모품') {
-            detailsCell = `<strong>${r.supplyItem || '기타 소모품'}</strong><br><span class="note">@ ${parseInt(r.mileage || 0).toLocaleString()} km</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else {
-            detailsCell = `<span class="note">${r.notes || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        }
-        tr.innerHTML = `<td data-label="일시">${r.date.substring(5)} ${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="구간 / 내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td>`;
+        tr.innerHTML = `
+            <td data-label="일자">${day.substring(5)}</td>
+            <td data-label="수입"><span class="income">${formatToManwon(data.income)}</span></td>
+            <td data-label="지출"><span class="cost">${formatToManwon(data.cost)}</span></td>
+            <td data-label="정산"><strong>${formatToManwon(netIncome)}</strong></td>
+            <td data-label="거리(km)">${data.distance.toFixed(1)}</td>
+            <td data-label="건수">${data.tripCount}</td>
+            <td data-label="대기">${waitHours > 0 ? waitHours + 'h ' : ''}${waitMinutes}m</td>
+        `;
         monthlyTbody.appendChild(tr);
+
+        totalIncome += data.income;
+        totalExpense += data.cost;
+        totalDistance += data.distance;
+        totalTripCount += data.tripCount;
+        totalWaitingTime += data.waitingTime;
+        data.records.forEach(r => {
+            if (r.type === '주유') {
+                totalLiters += parseFloat(r.liters || 0);
+                totalFuelCost += parseInt(r.cost || 0);
+            } else if (r.type === '소모품') {
+                totalSuppliesCost += parseInt(r.cost || 0);
+            }
+        });
     });
 
     const netIncome = totalIncome - totalExpense;
@@ -339,23 +349,29 @@ function displayYearlyRecords() {
     const monthlyData = {};
     for(let i=1; i<=12; i++) {
         const month = i.toString().padStart(2, '0');
-        monthlyData[month] = { income: 0, expense: 0, distance: 0, liters: 0 };
+        monthlyData[month] = { income: 0, expense: 0, distance: 0, liters: 0, tripCount: 0, waitingTime: 0 };
     }
 
     filteredRecords.forEach(r => {
         const month = r.date.substring(5, 7);
         monthlyData[month].income += parseInt(r.income || 0);
         monthlyData[month].expense += parseInt(r.cost || 0);
-        if(['화물운송','공차이동'].includes(r.type)) monthlyData[month].distance += parseFloat(r.distance || 0);
+        if(['화물운송','공차이동'].includes(r.type)) {
+            monthlyData[month].distance += parseFloat(r.distance || 0);
+            monthlyData[month].tripCount++;
+        }
         if(r.type === '주유') monthlyData[month].liters += parseFloat(r.liters || 0);
+        monthlyData[month].waitingTime += parseInt(r.waitingTime || 0);
     });
 
     yearlyTbody.innerHTML = '';
     for(const month in monthlyData) {
         const data = monthlyData[month];
         const netIncome = data.income - data.expense;
+        const waitHours = Math.floor(data.waitingTime / 60);
+        const waitMinutes = data.waitingTime % 60;
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${parseInt(month)}월</td><td><span class="income">${formatToManwon(data.income)}</span></td><td><span class="cost">${formatToManwon(data.expense)}</span></td><td><strong>${formatToManwon(netIncome)}</strong></td><td>${data.distance.toFixed(1)}</td><td>${data.liters.toFixed(2)}</td>`;
+        tr.innerHTML = `<td>${parseInt(month)}월</td><td><span class="income">${formatToManwon(data.income)}</span></td><td><span class="cost">${formatToManwon(data.expense)}</span></td><td><strong>${formatToManwon(netIncome)}</strong></td><td>${data.distance.toFixed(1)}</td><td>${data.tripCount}</td><td>${waitHours}h ${waitMinutes}m</td><td>${data.liters.toFixed(2)}</td>`;
         yearlyTbody.appendChild(tr);
     }
 }
@@ -389,9 +405,8 @@ function displayCurrentMonthData() {
     currentMonthOperatingDays.textContent = `${operatingDays} 일`;
     currentMonthTripCount.textContent = `${totalTripCount} 건`;
     currentMonthWaitingTime.textContent = `${waitHours}시간 ${waitMinutes}분`;
-    currentMonthFuelCost.textContent = `${formatToManwon(totalFuelCost)} 만원`;
-    currentMonthSuppliesCost.textContent = `${formatToManwon(totalSuppliesCost)} 만원`;
-    currentMonthNetIncome.textContent = `${formatToManwon(netIncome)} 만원`;
+    currentMonthIncome.textContent = `${formatToManwon(totalIncome)} 만원`;
+    currentMonthExpense.textContent = `${formatToManwon(totalExpense)} 만원`;
     currentMonthAvgIncome.textContent = `${avgIncome.toLocaleString('ko-KR')} 원`;
 }
 

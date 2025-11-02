@@ -109,7 +109,7 @@
                 <div id="comparison-graph" class="comparison-graph"></div>
                 <div id="monthly-summary" class="summary"></div>
                 <table id="monthly-records-table" class="responsive-table">
-                    <thead><tr><th>일시</th><th>구분</th><th>구간 / 내용</th><th>수입/지출</th></tr></thead>
+                    <thead><tr><th>일자</th><th>수입</th><th>지출</th><th>정산</th><th>거리(km)</th><th>건수</th><th>대기</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -118,7 +118,7 @@
                     <select id="yearly-year-select"></select>
                 </div>
                 <table id="yearly-summary-table" class="yearly-summary-table">
-                    <thead><tr><th>월</th><th>총수입(만원)</th><th>총지출(만원)</th><th>정산(만원)</th><th>운행거리(km)</th><th>주유량(L)</th></tr></thead>
+                    <thead><tr><th>월</th><th>총수입(만원)</th><th>총지출(만원)</th><th>정산(만원)</th><th>운행거리(km)</th><th>이동건수</th><th>대기시간</th><th>주유량(L)</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -144,9 +144,8 @@
                     <div class="metric-card"><span class="metric-label">운행일수</span><span class="metric-value" id="current-month-operating-days">0 일</span></div>
                     <div class="metric-card"><span class="metric-label">운행건수</span><span class="metric-value" id="current-month-trip-count">0 건</span></div>
                     <div class="metric-card"><span class="metric-label">대기시간</span><span class="metric-value" id="current-month-waiting-time">0시간 0분</span></div>
-                    <div class="metric-card"><span class="metric-label">주유금액</span><span class="metric-value cost" id="current-month-fuel-cost">0.0 만원</span></div>
-                    <div class="metric-card"><span class="metric-label">소모품비</span><span class="metric-value cost" id="current-month-supplies-cost">0.0 만원</span></div>
-                    <div class="metric-card"><span class="metric-label">정산금액</span><span class="metric-value income" id="current-month-net-income">0.0 만원</span></div>
+                    <div class="metric-card"><span class="metric-label">총수입</span><span class="metric-value income" id="current-month-income">0 만원</span></div>
+                    <div class="metric-card"><span class="metric-label">총지출</span><span class="metric-value cost" id="current-month-expense">0 만원</span></div>
                     <div class="metric-card highlight"><span class="metric-label" id="current-month-avg-income-label"></span><span class="metric-value income" id="current-month-avg-income">0 원</span></div>
                 </div>
             </div>
@@ -156,9 +155,9 @@
                     <div class="metric-card"><span class="metric-label">총 운행일수</span><span class="metric-value" id="cumulative-operating-days">0 일</span></div>
                     <div class="metric-card"><span class="metric-label">누적 이동 건수</span><span class="metric-value" id="cumulative-trip-count">0 건</span></div>
                     <div class="metric-card"><span class="metric-label">누적 대기시간</span><span class="metric-value" id="cumulative-waiting-time">0시간 0분</span></div>
-                    <div class="metric-card"><span class="metric-label">누적 주유 비용</span><span class="metric-value cost" id="cumulative-fuel-cost">0.0 만원</span></div>
-                    <div class="metric-card"><span class="metric-label">누적 소모품 비용</span><span class="metric-value cost" id="cumulative-supplies-cost">0.0 만원</span></div>
-                    <div class="metric-card highlight"><span class="metric-label">누적 정산 금액</span><span class="metric-value income" id="cumulative-net-income">0.0 만원</span></div>
+                    <div class="metric-card"><span class="metric-label">누적 주유 비용</span><span class="metric-value cost" id="cumulative-fuel-cost">0 만원</span></div>
+                    <div class="metric-card"><span class="metric-label">누적 소모품 비용</span><span class="metric-value cost" id="cumulative-supplies-cost">0 만원</span></div>
+                    <div class="metric-card highlight"><span class="metric-label">누적 정산 금액</span><span class="metric-value income" id="cumulative-net-income">0 만원</span></div>
                 </div>
                 <div class="summary-grid" style="margin-top: 1em;">
                     <div class="metric-card"><span class="metric-label">평균 연비</span><span class="metric-value" id="cumulative-avg-economy">0 km/L</span></div>

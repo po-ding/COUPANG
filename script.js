@@ -45,17 +45,17 @@ const subsidySaveBtn = document.getElementById('subsidy-save-btn');
 const subsidySummaryDiv = document.getElementById('subsidy-summary');
 const totalMileageInput = document.getElementById('total-mileage');
 const totalMileageSaveBtn = document.getElementById('total-mileage-save-btn');
-const cumulativeSummaryDiv = document.getElementById('cumulative-summary');
 
-// '이번 달 요약' DOM 요소
+const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
 const currentMonthTripCount = document.getElementById('current-month-trip-count');
 const currentMonthWaitingTime = document.getElementById('current-month-waiting-time');
 const currentMonthFuelCost = document.getElementById('current-month-fuel-cost');
+const currentMonthSuppliesCost = document.getElementById('current-month-supplies-cost');
 const currentMonthNetIncome = document.getElementById('current-month-net-income');
+const currentMonthAvgIncomeLabel = document.getElementById('current-month-avg-income-label');
 const currentMonthAvgIncome = document.getElementById('current-month-avg-income');
 
-// '누적 데이터' DOM 요소
 const cumulativeOperatingDays = document.getElementById('cumulative-operating-days');
 const cumulativeTripCount = document.getElementById('cumulative-trip-count');
 const cumulativeWaitingTime = document.getElementById('cumulative-waiting-time');
@@ -183,7 +183,8 @@ function stopWaitTimer() {
         const elapsedTime = Date.now() - waitStartTime;
         const totalMinutes = Math.round(elapsedTime / (1000 * 60));
         waitingTimeInput.value = totalMinutes;
-        waitStatus.textContent = `✅ 총 대기시간: ${totalMinutes}분 기록 완료!`;
+        const endTimeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        waitStatus.textContent = `✅ 총 대기시간: ${totalMinutes}분 기록 완료! (종료: ${endTimeStr})`;
     }
     startWaitBtn.disabled = false;
     endWaitBtn.disabled = true;
@@ -231,7 +232,7 @@ function displayDailyRecords() {
         dailyTbody.appendChild(tr);
     });
     const dailyNet = dailyIncome - dailyExpense;
-    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 거리: <strong>${dailyDistance.toFixed(1)} km</strong> | 일당: <strong class="income">${formatToManwon(dailyNet)} 만원</strong>`;
+    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 거리: <strong>${dailyDistance.toFixed(1)} km</strong><br>이동건수: <strong>${dailyTripCount} 건</strong> | 대기시간: <strong>${dailyWaitingTime} 분</strong> | 일당: <strong class="income">${formatToManwon(dailyNet)} 만원</strong>`;
 }
 
 function displayMonthlyRecords() {
@@ -361,21 +362,27 @@ function displayYearlyRecords() {
 
 function displayCurrentMonthData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
-    const currentPeriod = new Date().toISOString().slice(0, 7);
+    const now = new Date();
+    const currentPeriod = now.toISOString().slice(0, 7);
+    const currentMonth = now.getMonth() + 1;
     const currentMonthRecords = allRecords.filter(r => r.date.startsWith(currentPeriod));
     
-    let totalIncome = 0, totalExpense = 0, totalFuelCost = 0, totalTripCount = 0, totalWaitingTime = 0;
+    currentMonthTitle.textContent = `${currentMonth}월 실시간 요약`;
+    currentMonthAvgIncomeLabel.textContent = `${currentMonth}월 평균 수익`;
+
+    let totalIncome = 0, totalExpense = 0, totalFuelCost = 0, totalSuppliesCost = 0, totalTripCount = 0, totalWaitingTime = 0;
     currentMonthRecords.forEach(r => {
         totalIncome += parseInt(r.income || 0);
         totalExpense += parseInt(r.cost || 0);
         if (r.type === '주유') totalFuelCost += parseInt(r.cost || 0);
+        if (r.type === '소모품') totalSuppliesCost += parseInt(r.cost || 0);
         if (['화물운송', '공차이동'].includes(r.type)) totalTripCount++;
         totalWaitingTime += parseInt(r.waitingTime || 0);
     });
 
     const netIncome = totalIncome - totalExpense;
     const operatingDays = new Set(currentMonthRecords.map(r => r.date)).size;
-    const dailyPay = operatingDays > 0 ? Math.round((totalIncome - totalFuelCost) / operatingDays) : 0;
+    const avgIncome = operatingDays > 0 ? Math.round(netIncome / operatingDays) : 0;
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
     
@@ -383,8 +390,9 @@ function displayCurrentMonthData() {
     currentMonthTripCount.textContent = `${totalTripCount} 건`;
     currentMonthWaitingTime.textContent = `${waitHours}시간 ${waitMinutes}분`;
     currentMonthFuelCost.textContent = `${formatToManwon(totalFuelCost)} 만원`;
+    currentMonthSuppliesCost.textContent = `${formatToManwon(totalSuppliesCost)} 만원`;
     currentMonthNetIncome.textContent = `${formatToManwon(netIncome)} 만원`;
-    currentMonthAvgIncome.textContent = `${dailyPay.toLocaleString('ko-KR')} 원`;
+    currentMonthAvgIncome.textContent = `${avgIncome.toLocaleString('ko-KR')} 원`;
 }
 
 function displayCumulativeData() {

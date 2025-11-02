@@ -52,9 +52,7 @@ button:hover { opacity: 0.8; }
 .legend-item { display: flex; align-items: center; }
 .legend-color { width: 12px; height: 12px; margin-right: 5px; }
 
-/* <<< 데이터 요약 섹션 스타일 추가 >>> */
-.data-summary-section { margin-top: 2em; }
-.data-summary-section h4 { margin-bottom: 0.5em; }
+.data-summary-section { margin-top: 2.5em; }
 #current-month-summary-container, #cumulative-summary-container { margin-bottom: 2em; }
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8em; }
 .metric-card { background-color: #f8f9fa; border: 1px solid #eee; border-radius: 8px; padding: 1em; text-align: center; }

@@ -46,6 +46,7 @@ const subsidySummaryDiv = document.getElementById('subsidy-summary');
 const totalMileageInput = document.getElementById('total-mileage');
 const totalMileageSaveBtn = document.getElementById('total-mileage-save-btn');
 const cumulativeSummaryDiv = document.getElementById('cumulative-summary');
+const currentMonthSummaryDiv = document.getElementById('current-month-summary');
 
 const startGpsBtn = document.getElementById('start-gps-btn');
 const endGpsBtn = document.getElementById('end-gps-btn');
@@ -145,7 +146,8 @@ function getGPS(point) {
 
 function startWaitTimer() {
     waitStartTime = Date.now();
-    waitStatus.textContent = "대기 중: 00:00:00";
+    const startTimeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    waitStatus.textContent = `대기 시작 (${startTimeStr}) - 00:00:00`;
     startWaitBtn.disabled = true;
     endWaitBtn.disabled = false;
 
@@ -154,14 +156,12 @@ function startWaitTimer() {
         const seconds = Math.floor((elapsedTime / 1000) % 60).toString().padStart(2, '0');
         const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60).toString().padStart(2, '0');
         const hours = Math.floor(elapsedTime / (1000 * 60 * 60)).toString().padStart(2, '0');
-        waitStatus.textContent = `대기 중: ${hours}:${minutes}:${seconds}`;
+        waitStatus.textContent = `대기 시작 (${startTimeStr}) - ${hours}:${minutes}:${seconds}`;
     }, 1000);
 }
 
 function stopWaitTimer() {
-    if (waitTimerInterval) {
-        clearInterval(waitTimerInterval);
-    }
+    if (waitTimerInterval) clearInterval(waitTimerInterval);
     if (waitStartTime) {
         const elapsedTime = Date.now() - waitStartTime;
         const totalMinutes = Math.round(elapsedTime / (1000 * 60));
@@ -179,12 +179,16 @@ function displayDailyRecords() {
     const filteredRecords = records.filter(r => r.date === selectedDate);
     
     dailyTbody.innerHTML = '';
-    let dailyIncome = 0, dailyExpense = 0, dailyDistance = 0;
+    let dailyIncome = 0, dailyExpense = 0, dailyDistance = 0, dailyTripCount = 0, dailyWaitingTime = 0;
 
     filteredRecords.forEach(r => {
         dailyIncome += parseInt(r.income || 0);
         dailyExpense += parseInt(r.cost || 0);
-        if (['화물운송', '공차이동'].includes(r.type)) dailyDistance += parseFloat(r.distance || 0);
+        if (['화물운송', '공차이동'].includes(r.type)) {
+            dailyDistance += parseFloat(r.distance || 0);
+            dailyTripCount++;
+        }
+        dailyWaitingTime += parseInt(r.waitingTime || 0);
         
         const tr = document.createElement('tr');
         let detailsCell = '', moneyCell = '';
@@ -194,9 +198,7 @@ function displayDailyRecords() {
             if (r.start_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.start_gps}" target="_blank">📍출발점</a> `;
             if (r.end_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.end_gps}" target="_blank">🏁도착점</a>`;
             if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
-            if (r.waitingTime > 0) {
-                detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
-            }
+            if (r.waitingTime > 0) detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
             moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
         } else if (r.type === '주유') {
             detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
@@ -208,21 +210,15 @@ function displayDailyRecords() {
             detailsCell = `<span class="note">${r.notes || ''}</span>`;
             moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
         }
-        tr.innerHTML = `
-            <td data-label="시간">${r.time}</td>
-            <td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td>
-            <td data-label="내용">${detailsCell}</td>
-            <td data-label="수입/지출">${moneyCell}</td>
-        `;
+        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td>`;
         dailyTbody.appendChild(tr);
     });
-    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 총수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 총지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 운행거리: <strong>${dailyDistance.toFixed(1)} km</strong>`;
+    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 거리: <strong>${dailyDistance.toFixed(1)} km</strong>`;
 }
 
 function displayMonthlyRecords() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     
-    // --- 현재 월 데이터 계산 ---
     const selectedPeriod = `${monthlyYearSelect.value}-${monthlyMonthSelect.value}`;
     const currentMonthRecords = allRecords.filter(r => r.date.startsWith(selectedPeriod));
     
@@ -244,7 +240,6 @@ function displayMonthlyRecords() {
         }
         totalWaitingTime += parseInt(r.waitingTime || 0);
         
-        // 테이블 행 생성 로직 (이전과 동일)
         const tr = document.createElement('tr');
         let detailsCell = '', moneyCell = '';
         if (['화물운송', '공차이동'].includes(r.type)) {
@@ -270,22 +265,17 @@ function displayMonthlyRecords() {
     });
 
     const netIncome = totalIncome - totalExpense;
-    monthlySummaryDiv.innerHTML = `<strong>${monthlyYearSelect.value}년 ${monthlyMonthSelect.value}월 요약</strong><br>총 수입: <span class="income">${formatToManwon(totalIncome)} 만원</span> | 총 지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span> | 총 운행거리: <strong>${totalDistance.toFixed(1)} km</strong>`;
+    monthlySummaryDiv.innerHTML = `<strong>${monthlyYearSelect.value}년 ${monthlyMonthSelect.value}월 요약</strong> | 총 수입: <span class="income">${formatToManwon(totalIncome)} 만원</span> | 총 지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span><br>총 운행거리: <strong>${totalDistance.toFixed(1)} km</strong> | 총 이동 건수: <strong>${totalTripCount} 건</strong> | 총 대기시간: <strong>${Math.floor(totalWaitingTime / 60)}시간 ${totalWaitingTime % 60}분</strong>`;
     
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
-    monthlyDetailedSummaryDiv.innerHTML = `
-        월별 정산: <strong>${formatToManwon(netIncome)} 만원</strong><br>
-        월별 주유비: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> | 월별 소모품비: <span class="cost">${formatToManwon(totalSuppliesCost)} 만원</span><br>
-        월별 대기시간: ${waitHours}시간 ${waitMinutes}분 | 월별 이동 건수: ${totalTripCount} 건
-    `;
+    monthlyDetailedSummaryDiv.innerHTML = `월별 정산: <strong>${formatToManwon(netIncome)} 만원</strong> | 월별 주유비: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> | 월별 소모품비: <span class="cost">${formatToManwon(totalSuppliesCost)} 만원</span><br>월별 대기시간: ${waitHours}시간 ${waitMinutes}분 | 월별 이동 건수: ${totalTripCount} 건`;
 
     const subsidyLimit = parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0;
     const remainingLiters = subsidyLimit - totalLiters;
     const progressPercent = subsidyLimit > 0 ? Math.min(100, (totalLiters / subsidyLimit * 100)).toFixed(1) : 0;
     subsidySummaryDiv.innerHTML = `월 한도: <strong>${subsidyLimit.toLocaleString()} L</strong> | 사용량: ${totalLiters.toFixed(2)} L | 잔여량: <strong>${remainingLiters.toFixed(2)} L</strong><div class="progress-bar-container"><div class="progress-bar" style="width: ${progressPercent}%;">${progressPercent > 10 ? progressPercent + '%' : ''}</div></div>`;
     
-    // --- 이전 월 데이터 계산 및 그래프 업데이트 ---
     let prevMonthDate = new Date(`${selectedPeriod}-01`);
     prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
     const prevYear = prevMonthDate.getFullYear();
@@ -308,40 +298,18 @@ function displayMonthlyRecords() {
 
 function updateComparisonGraph(data) {
     const { current, previous } = data;
-    const maxValue = Math.max(current.income, current.expense, previous.income, previous.expense, 1); // 0으로 나누는 것 방지
+    const maxValue = Math.max(current.income, current.expense, previous.income, previous.expense, 1);
 
     const getPercent = (value) => (value / maxValue * 100);
 
     comparisonGraphDiv.innerHTML = `
         <h4>이전 달 대비 성과 비교</h4>
         <div class="graph-body">
-            <div class="bar-group">
-                <div class="bar-container">
-                    <div class="bar previous" style="height: ${getPercent(previous.income)}%;" title="이전달: ${formatToManwon(previous.income)}만원"></div>
-                    <div class="bar current" style="height: ${getPercent(current.income)}%;" title="이번달: ${formatToManwon(current.income)}만원"></div>
-                </div>
-                <div class="bar-label">수입</div>
-            </div>
-            <div class="bar-group">
-                <div class="bar-container">
-                    <div class="bar previous" style="height: ${getPercent(previous.expense)}%;" title="이전달: ${formatToManwon(previous.expense)}만원"></div>
-                    <div class="bar current" style="height: ${getPercent(current.expense)}%;" title="이번달: ${formatToManwon(current.expense)}만원"></div>
-                </div>
-                <div class="bar-label">지출</div>
-            </div>
-            <div class="bar-group">
-                <div class="bar-container">
-                    <div class="bar previous" style="height: ${getPercent(previous.net)}%;" title="이전달: ${formatToManwon(previous.net)}만원"></div>
-                    <div class="bar current" style="height: ${getPercent(current.net)}%;" title="이번달: ${formatToManwon(current.net)}만원"></div>
-                </div>
-                <div class="bar-label">정산</div>
-            </div>
+            <div class="bar-group"><div class="bar-container"><div class="bar previous" style="height: ${getPercent(previous.income)}%;" title="이전달: ${formatToManwon(previous.income)}만원"></div><div class="bar current" style="height: ${getPercent(current.income)}%;" title="이번달: ${formatToManwon(current.income)}만원"></div></div><div class="bar-label">수입</div></div>
+            <div class="bar-group"><div class="bar-container"><div class="bar previous" style="height: ${getPercent(previous.expense)}%;" title="이전달: ${formatToManwon(previous.expense)}만원"></div><div class="bar current" style="height: ${getPercent(current.expense)}%;" title="이번달: ${formatToManwon(current.expense)}만원"></div></div><div class="bar-label">지출</div></div>
+            <div class="bar-group"><div class="bar-container"><div class="bar previous" style="height: ${getPercent(previous.net < 0 ? 0 : previous.net)}%;" title="이전달: ${formatToManwon(previous.net)}만원"></div><div class="bar current" style="height: ${getPercent(current.net < 0 ? 0 : current.net)}%;" title="이번달: ${formatToManwon(current.net)}만원"></div></div><div class="bar-label">정산</div></div>
         </div>
-        <div class="graph-legend">
-            <div class="legend-item"><span class="legend-color" style="background-color: #6c757d;"></span> 이전 달</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #007bff;"></span> 이번 달</div>
-        </div>
-    `;
+        <div class="graph-legend"><div class="legend-item"><span class="legend-color" style="background-color: #6c757d;"></span> 이전 달</div><div class="legend-item"><span class="legend-color" style="background-color: #007bff;"></span> 이번 달</div></div>`;
 }
         
 function displayYearlyRecords() {
@@ -368,16 +336,36 @@ function displayYearlyRecords() {
         const data = monthlyData[month];
         const netIncome = data.income - data.expense;
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${parseInt(month)}월</td>
-            <td><span class="income">${formatToManwon(data.income)}</span></td>
-            <td><span class="cost">${formatToManwon(data.expense)}</span></td>
-            <td><strong>${formatToManwon(netIncome)}</strong></td>
-            <td>${data.distance.toFixed(1)}</td>
-            <td>${data.liters.toFixed(2)}</td>
-        `;
+        tr.innerHTML = `<td>${parseInt(month)}월</td><td><span class="income">${formatToManwon(data.income)}</span></td><td><span class="cost">${formatToManwon(data.expense)}</span></td><td><strong>${formatToManwon(netIncome)}</strong></td><td>${data.distance.toFixed(1)}</td><td>${data.liters.toFixed(2)}</td>`;
         yearlyTbody.appendChild(tr);
     }
+}
+
+function displayCurrentMonthData() {
+    const allRecords = JSON.parse(localStorage.getItem('records')) || [];
+    const currentPeriod = new Date().toISOString().slice(0, 7);
+    const currentMonthRecords = allRecords.filter(r => r.date.startsWith(currentPeriod));
+    
+    let totalIncome = 0, totalExpense = 0, totalFuelCost = 0, totalTripCount = 0, totalWaitingTime = 0;
+    currentMonthRecords.forEach(r => {
+        totalIncome += parseInt(r.income || 0);
+        totalExpense += parseInt(r.cost || 0);
+        if (r.type === '주유') totalFuelCost += parseInt(r.cost || 0);
+        if (['화물운송', '공차이동'].includes(r.type)) totalTripCount++;
+        totalWaitingTime += parseInt(r.waitingTime || 0);
+    });
+
+    const netIncome = totalIncome - totalExpense;
+    const operatingDays = new Set(currentMonthRecords.map(r => r.date)).size;
+    const dailyPay = operatingDays > 0 ? Math.round(netIncome / operatingDays) : 0;
+    const waitHours = Math.floor(totalWaitingTime / 60);
+    const waitMinutes = totalWaitingTime % 60;
+    
+    currentMonthSummaryDiv.innerHTML = `
+        정산금액: <strong class="income">${formatToManwon(netIncome)} 만원</strong> | 주유금액: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span><br>
+        운행건수: ${totalTripCount} 건 | 운행일수: ${operatingDays} 일 | 일당: <strong>${dailyPay.toLocaleString('ko-KR')} 원</strong><br>
+        대기시간: ${waitHours}시간 ${waitMinutes}분
+    `;
 }
 
 function displayCumulativeData() {
@@ -440,6 +428,7 @@ function updateAllDisplays() {
     if (activeView === 'monthly-view') displayMonthlyRecords();
     if (activeView === 'yearly-view') displayYearlyRecords();
     displayCumulativeData();
+    displayCurrentMonthData();
 }
 
 recordForm.addEventListener('submit', function(event) {
@@ -624,7 +613,7 @@ function calculateLiters() {
     }
 }
 fuelUnitPriceInput.addEventListener('input', calculateCost);
-fuelLitersInput.addEventListener('input', calculateLiters);
+fuelLitersInput.addEventListener('input', calculateCost);
 costInput.addEventListener('input', calculateLiters);
 typeSelect.addEventListener('change', () => toggleUI(typeSelect.value));
 fromSelect.addEventListener('change', () => fromCustom.classList.toggle('hidden', fromSelect.value !== 'direct'));

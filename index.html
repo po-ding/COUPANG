@@ -105,13 +105,8 @@
                     <select id="monthly-year-select"></select>
                     <select id="monthly-month-select"></select>
                 </div>
-                
-                <!-- <<< 월별 상세 요약 섹션 추가 >>> -->
                 <div id="monthly-detailed-summary" class="monthly-detailed-summary"></div>
-                
-                <!-- <<< 비교 그래프 섹션 추가 >>> -->
                 <div id="comparison-graph" class="comparison-graph"></div>
-
                 <div id="monthly-summary" class="summary"></div>
                 <table id="monthly-records-table" class="responsive-table">
                     <thead><tr><th>일시</th><th>구분</th><th>구간 / 내용</th><th>수입/지출</th></tr></thead>
@@ -140,9 +135,17 @@
             </fieldset>
             <div id="subsidy-summary" class="subsidy-summary"></div>
         </div>
-
-        <div class="cumulative-management">
-            <h2>차량 전체 누적 데이터</h2>
+        
+        <div class="data-summary-section">
+            <h2>데이터 요약</h2>
+            <div id="current-month-summary-container">
+                <h4>이번 달 실시간 요약</h4>
+                <div id="current-month-summary" class="summary"></div>
+            </div>
+            <div id="cumulative-summary-container">
+                <h4>차량 전체 누적 데이터</h4>
+                <div id="cumulative-summary" class="cumulative-summary"></div>
+            </div>
             <fieldset>
                 <legend>현재 총 주행거리(km) 수동 설정</legend>
                 <div class="input-group">
@@ -150,9 +153,8 @@
                     <button id="total-mileage-save-btn" class="setting-save-btn">주행거리 저장</button>
                 </div>
             </fieldset>
-            <div id="cumulative-summary" class="cumulative-summary"></div>
         </div>
-        
+
         <div class="action-buttons">
             <button id="export-csv-btn">엑셀(CSV)로 저장</button>
             <button id="export-json-btn">JSON으로 저장 (백업)</button>

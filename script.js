@@ -46,7 +46,24 @@ const subsidySummaryDiv = document.getElementById('subsidy-summary');
 const totalMileageInput = document.getElementById('total-mileage');
 const totalMileageSaveBtn = document.getElementById('total-mileage-save-btn');
 const cumulativeSummaryDiv = document.getElementById('cumulative-summary');
-const currentMonthSummaryDiv = document.getElementById('current-month-summary');
+
+// '이번 달 요약' DOM 요소
+const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
+const currentMonthTripCount = document.getElementById('current-month-trip-count');
+const currentMonthWaitingTime = document.getElementById('current-month-waiting-time');
+const currentMonthFuelCost = document.getElementById('current-month-fuel-cost');
+const currentMonthNetIncome = document.getElementById('current-month-net-income');
+const currentMonthAvgIncome = document.getElementById('current-month-avg-income');
+
+// '누적 데이터' DOM 요소
+const cumulativeOperatingDays = document.getElementById('cumulative-operating-days');
+const cumulativeTripCount = document.getElementById('cumulative-trip-count');
+const cumulativeWaitingTime = document.getElementById('cumulative-waiting-time');
+const cumulativeSuppliesCost = document.getElementById('cumulative-supplies-cost');
+const cumulativeFuelCost = document.getElementById('cumulative-fuel-cost');
+const cumulativeNetIncome = document.getElementById('cumulative-net-income');
+const cumulativeAvgEconomy = document.getElementById('cumulative-avg-economy');
+const cumulativeCostPerKm = document.getElementById('cumulative-cost-per-km');
 
 const startGpsBtn = document.getElementById('start-gps-btn');
 const endGpsBtn = document.getElementById('end-gps-btn');
@@ -213,7 +230,8 @@ function displayDailyRecords() {
         tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td>`;
         dailyTbody.appendChild(tr);
     });
-    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 거리: <strong>${dailyDistance.toFixed(1)} km</strong>`;
+    const dailyNet = dailyIncome - dailyExpense;
+    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 거리: <strong>${dailyDistance.toFixed(1)} km</strong> | 일당: <strong class="income">${formatToManwon(dailyNet)} 만원</strong>`;
 }
 
 function displayMonthlyRecords() {
@@ -357,15 +375,16 @@ function displayCurrentMonthData() {
 
     const netIncome = totalIncome - totalExpense;
     const operatingDays = new Set(currentMonthRecords.map(r => r.date)).size;
-    const dailyPay = operatingDays > 0 ? Math.round(netIncome / operatingDays) : 0;
+    const dailyPay = operatingDays > 0 ? Math.round((totalIncome - totalFuelCost) / operatingDays) : 0;
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
     
-    currentMonthSummaryDiv.innerHTML = `
-        정산금액: <strong class="income">${formatToManwon(netIncome)} 만원</strong> | 주유금액: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span><br>
-        운행건수: ${totalTripCount} 건 | 운행일수: ${operatingDays} 일 | 일당: <strong>${dailyPay.toLocaleString('ko-KR')} 원</strong><br>
-        대기시간: ${waitHours}시간 ${waitMinutes}분
-    `;
+    currentMonthOperatingDays.textContent = `${operatingDays} 일`;
+    currentMonthTripCount.textContent = `${totalTripCount} 건`;
+    currentMonthWaitingTime.textContent = `${waitHours}시간 ${waitMinutes}분`;
+    currentMonthFuelCost.textContent = `${formatToManwon(totalFuelCost)} 만원`;
+    currentMonthNetIncome.textContent = `${formatToManwon(netIncome)} 만원`;
+    currentMonthAvgIncome.textContent = `${dailyPay.toLocaleString('ko-KR')} 원`;
 }
 
 function displayCumulativeData() {
@@ -390,17 +409,22 @@ function displayCumulativeData() {
     const avgFuelEconomy = cumulativeTotalLiters > 0 && totalMileage > 0 ? (totalMileage / cumulativeTotalLiters).toFixed(2) : 0;
     const costPerKm = totalMileage > 0 ? Math.round(cumulativeExpense / totalMileage) : 0;
     const operatingDays = new Set(allRecords.map(r => r.date)).size;
-    const waitHours = Math.floor(cumulativeWaitingTime / 60);
+    
+    const waitDays = Math.floor(cumulativeWaitingTime / 1440);
+    const waitHours = Math.floor((cumulativeWaitingTime % 1440) / 60);
     const waitMinutes = cumulativeWaitingTime % 60;
+    let waitString = '';
+    if (waitDays > 0) waitString += `${waitDays}일 `;
+    waitString += `${waitHours}시간 ${waitMinutes}분`;
 
-    cumulativeSummaryDiv.innerHTML = `
-        누적 정산 금액: <strong class="income">${formatToManwon(cumulativeNetIncome)} 만원</strong><br>
-        누적 주유 비용: <span class="cost">${formatToManwon(cumulativeFuelCost)} 만원</span><br>
-        누적 소모품 비용: <span class="cost">${formatToManwon(cumulativeSuppliesCost)} 만원</span><hr>
-        <strong>평균 연비: ${avgFuelEconomy} km/L</strong> | <strong>km당 운행비용: ${costPerKm.toLocaleString()} 원</strong><br>
-        총 운행일수: ${operatingDays} 일 | 누적 이동 건수: ${cumulativeTripCount} 건<br>
-        누적 대기시간: ${waitHours}시간 ${waitMinutes}분
-    `;
+    cumulativeOperatingDays.textContent = `${operatingDays} 일`;
+    cumulativeTripCount.textContent = `${cumulativeTripCount} 건`;
+    cumulativeWaitingTime.textContent = waitString;
+    cumulativeSuppliesCost.textContent = `${formatToManwon(cumulativeSuppliesCost)} 만원`;
+    cumulativeFuelCost.textContent = `${formatToManwon(cumulativeFuelCost)} 만원`;
+    cumulativeNetIncome.textContent = `${formatToManwon(cumulativeNetIncome)} 만원`;
+    cumulativeAvgEconomy.textContent = `${avgFuelEconomy} km/L`;
+    cumulativeCostPerKm.textContent = `${costPerKm.toLocaleString('ko-KR')} 원`;
 }
 
 function populateSelectors() {
@@ -613,7 +637,7 @@ function calculateLiters() {
     }
 }
 fuelUnitPriceInput.addEventListener('input', calculateCost);
-fuelLitersInput.addEventListener('input', calculateCost);
+fuelLitersInput.addEventListener('input', calculateLiters);
 costInput.addEventListener('input', calculateLiters);
 typeSelect.addEventListener('change', () => toggleUI(typeSelect.value));
 fromSelect.addEventListener('change', () => fromCustom.classList.toggle('hidden', fromSelect.value !== 'direct'));

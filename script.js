@@ -255,7 +255,7 @@ function displayDailyRecords() {
             detailsCell = `<span class="note">${r.notes || ''}</span>`;
             moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
         }
-        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></td>`;
+        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="수정"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button></td>`;
         dailyTbody.appendChild(tr);
     });
     const dailyNet = dailyIncome - dailyExpense;
@@ -303,7 +303,7 @@ function displayMonthlyRecords() {
             <td data-label="거리(km)">${data.distance.toFixed(1)}</td>
             <td data-label="건수">${data.tripCount}</td>
             <td data-label="대기">${waitHours > 0 ? waitHours + 'h ' : ''}${waitMinutes}m</td>
-            <td data-label="관리"><button class="edit-btn" onclick="editDailyRecord('${day}')">수정</button><button class="delete-btn" onclick="deleteDailyRecord('${day}')">삭제</button></td>
+            <td data-label="수정"><button class="edit-btn" onclick="editDailyRecord('${day}')">수정</button></td>
         `;
         monthlyTbody.appendChild(tr);
 
@@ -332,7 +332,7 @@ function displayMonthlyRecords() {
     const subsidyLimit = parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0;
     const remainingLiters = subsidyLimit - totalLiters;
     const progressPercent = subsidyLimit > 0 ? Math.min(100, (totalLiters / subsidyLimit * 100)).toFixed(1) : 0;
-    subsidySummaryDiv.innerHTML = `<div class="progress-label">월 한도: ${subsidyLimit.toLocaleString()} L | 사용: ${totalLiters.toFixed(1)} L | 잔여: ${remainingLiters.toFixed(1)} L</div><div class="progress-bar-container"><div class="progress-bar progress-bar-used" style="width: ${progressPercent}%;"></div></div>`;
+    subsidySummaryDiv.innerHTML = `월 한도: <strong>${subsidyLimit.toLocaleString()} L</strong> | 사용량: ${totalLiters.toFixed(2)} L | 잔여량: <strong>${remainingLiters.toFixed(2)} L</strong><div class="progress-bar-container"><div class="progress-bar" style="width: ${progressPercent}%;">${progressPercent > 10 ? progressPercent + '%' : ''}</div></div>`;
     
     let prevMonthDate = new Date(`${selectedPeriod}-01`);
     prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
@@ -425,7 +425,7 @@ function displayCurrentMonthData() {
 
     const netIncome = totalIncome - totalExpense;
     const operatingDays = new Set(currentMonthRecords.map(r => r.date)).size;
-    const avgIncome = operatingDays > 0 ? netIncome / operatingDays : 0;
+    const avgIncome = operatingDays > 0 ? Math.round(netIncome / operatingDays) : 0;
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
     
@@ -434,7 +434,7 @@ function displayCurrentMonthData() {
     currentMonthWaitingTime.textContent = `${waitHours}시간 ${waitMinutes}분`;
     currentMonthIncome.textContent = `${formatToManwon(totalIncome)} 만원`;
     currentMonthExpense.textContent = `${formatToManwon(totalExpense)} 만원`;
-    currentMonthAvgIncome.textContent = `${formatToManwon(avgIncome)} 만원`;
+    currentMonthAvgIncome.textContent = `${avgIncome.toLocaleString('ko-KR')} 원`;
 }
 
 function displayCumulativeData() {
@@ -503,24 +503,6 @@ function updateAllDisplays() {
     if (activeView === 'yearly-view') displayYearlyRecords();
     displayCumulativeData();
     displayCurrentMonthData();
-}
-
-function deleteRecord(id) {
-    if (confirm('이 기록을 정말로 삭제하시겠습니까?')) {
-        let records = JSON.parse(localStorage.getItem('records')) || [];
-        records = records.filter(r => r.id !== id);
-        localStorage.setItem('records', JSON.stringify(records));
-        updateAllDisplays();
-    }
-}
-
-function deleteDailyRecord(date) {
-    if (confirm(`${date}의 모든 기록을 삭제하시겠습니까?`)) {
-        let records = JSON.parse(localStorage.getItem('records')) || [];
-        records = records.filter(r => r.date !== date);
-        localStorage.setItem('records', JSON.stringify(records));
-        updateAllDisplays();
-    }
 }
 
 function editRecord(id) {
@@ -881,18 +863,11 @@ function autoFillIncome() {
 goToSettingsBtn.addEventListener('click', () => {
     mainPage.classList.add('hidden');
     settingsPage.classList.remove('hidden');
-    goToSettingsBtn.classList.add('hidden');
-    backToMainBtn.classList.remove('hidden');
 });
 backToMainBtn.addEventListener('click', () => {
     mainPage.classList.remove('hidden');
     settingsPage.classList.add('hidden');
-    goToSettingsBtn.classList.remove('hidden');
-    backToMainBtn.classList.add('hidden');
 });
-
-gdriveSaveBtn.addEventListener('click', () => handleAuthClick(saveToGoogleDrive));
-gdriveLoadBtn.addEventListener('click', () => handleAuthClick(loadFromGoogleDrive));
 
 function initialSetup() {
     dateInput.value = getTodayString();

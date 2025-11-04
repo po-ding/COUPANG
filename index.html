@@ -9,9 +9,9 @@
 <body>
     <div class="container">
 
+        <!-- <<< 페이지 이동 버튼 영역 >>> -->
         <div class="page-nav">
             <button id="back-to-main-btn" class="hidden">← 뒤로 가기</button>
-            <h1 class="logo">cargo<span class="logo-point">note</span></h1>
             <button id="go-to-settings-btn">설정 ⚙️</button>
         </div>
 
@@ -19,6 +19,7 @@
         <!-- 메인 페이지 영역 -->
         <!-- =============================================================== -->
         <div id="main-page">
+            <h1 class="logo">cargo<span class="logo-point">note</span></h1>
             
             <form id="record-form">
                 <fieldset>
@@ -122,7 +123,7 @@
                     </div>
                     <div id="daily-summary" class="summary"></div>
                     <table id="daily-records-table" class="responsive-table">
-                        <thead><tr><th>시간</th><th>구분</th><th>내용</th><th>수입/지출</th><th>관리</th></tr></thead>
+                        <thead><tr><th>시간</th><th>구분</th><th>내용</th><th>수입/지출</th><th>수정</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -135,7 +136,7 @@
                     <div id="comparison-graph" class="comparison-graph"></div>
                     <div id="monthly-summary" class="summary"></div>
                     <table id="monthly-records-table" class="responsive-table">
-                        <thead><tr><th>일자</th><th>수입(만원)</th><th>지출(만원)</th><th>정산(만원)</th><th>거리(km)</th><th>건수</th><th>대기</th><th>관리</th></tr></thead>
+                        <thead><tr><th>일자</th><th>수입(만원)</th><th>지출(만원)</th><th>정산(만원)</th><th>거리(km)</th><th>건수</th><th>대기</th><th>수정</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -150,45 +151,23 @@
                 </div>
             </div>
             
+            <div class="action-buttons">
+                <button id="export-csv-btn">엑셀(CSV)로 저장</button>
+                <button id="export-json-btn">JSON으로 저장 (백업)</button>
+                <button id="import-json-btn">JSON 불러오기 (복원)</button>
+                <button id="clear-btn">모든 기록 삭제하기</button>
+            </div>
+            <input type="file" id="import-file-input" class="hidden" accept=".json">
         </div>
 
         <!-- =============================================================== -->
         <!-- 설정 페이지 영역 -->
         <!-- =============================================================== -->
         <div id="settings-page" class="hidden">
-            
-            <div class="data-summary-section">
-                <h2>데이터 요약</h2>
-                <div id="current-month-summary-container">
-                    <h4 id="current-month-title"></h4>
-                    <div class="summary-grid">
-                        <div class="metric-card"><span class="metric-label">운행일수</span><span class="metric-value" id="current-month-operating-days">0 일</span></div>
-                        <div class="metric-card"><span class="metric-label">운행건수</span><span class="metric-value" id="current-month-trip-count">0 건</span></div>
-                        <div class="metric-card"><span class="metric-label">대기시간</span><span class="metric-value" id="current-month-waiting-time">0시간 0분</span></div>
-                        <div class="metric-card"><span class="metric-label">총수입</span><span class="metric-value income" id="current-month-income">0 만원</span></div>
-                        <div class="metric-card"><span class="metric-label">총지출</span><span class="metric-value cost" id="current-month-expense">0 만원</span></div>
-                        <div class="metric-card highlight"><span class="metric-label" id="current-month-avg-income-label"></span><span class="metric-value income" id="current-month-avg-income">0 만원</span></div>
-                    </div>
-                </div>
-                <div id="cumulative-summary-container">
-                    <h4>차량 전체 누적 데이터</h4>
-                    <div class="summary-grid">
-                        <div class="metric-card"><span class="metric-label">총 운행일수</span><span class="metric-value" id="cumulative-operating-days">0 일</span></div>
-                        <div class="metric-card"><span class="metric-label">누적 이동 건수</span><span class="metric-value" id="cumulative-trip-count">0 건</span></div>
-                        <div class="metric-card"><span class="metric-label">누적 대기시간</span><span class="metric-value" id="cumulative-waiting-time">0시간 0분</span></div>
-                        <div class="metric-card"><span class="metric-label">누적 주유 비용</span><span class="metric-value cost" id="cumulative-fuel-cost">0 만원</span></div>
-                        <div class="metric-card"><span class="metric-label">누적 소모품+요소수</span><span class="metric-value cost" id="cumulative-supplies-cost">0 만원</span></div>
-                        <div class="metric-card highlight"><span class="metric-label">누적 정산 금액</span><span class="metric-value income" id="cumulative-net-income">0 만원</span></div>
-                    </div>
-                    <div class="summary-grid" style="margin-top: 1em;">
-                        <div class="metric-card"><span class="metric-label">평균 연비</span><span class="metric-value" id="cumulative-avg-economy">0 km/L</span></div>
-                        <div class="metric-card"><span class="metric-label">km당 운행비용</span><span class="metric-value" id="cumulative-cost-per-km">0 원</span></div>
-                    </div>
-                </div>
-            </div>
+            <h1 class="logo">설정</h1>
 
             <div class="batch-apply-section">
-                <h2>운임 일괄 적용</h2>
+                <h2>운임 일괄 적용 (후정산)</h2>
                 <fieldset>
                     <legend>미정산 구간 운임 입력</legend>
                     <div class="input-group row">
@@ -204,9 +183,35 @@
                     <div id="batch-status"></div>
                 </fieldset>
             </div>
-            
-            <div class="mileage-management">
-                <h2>총 주행거리 관리</h2>
+
+            <div class="data-summary-section">
+                <h2>데이터 요약</h2>
+                <div id="current-month-summary-container">
+                    <h4 id="current-month-title"></h4>
+                    <div class="summary-grid">
+                        <div class="metric-card"><span class="metric-label">운행일수</span><span class="metric-value" id="current-month-operating-days">0 일</span></div>
+                        <div class="metric-card"><span class="metric-label">운행건수</span><span class="metric-value" id="current-month-trip-count">0 건</span></div>
+                        <div class="metric-card"><span class="metric-label">대기시간</span><span class="metric-value" id="current-month-waiting-time">0시간 0분</span></div>
+                        <div class="metric-card"><span class="metric-label">총수입</span><span class="metric-value income" id="current-month-income">0 만원</span></div>
+                        <div class="metric-card"><span class="metric-label">총지출</span><span class="metric-value cost" id="current-month-expense">0 만원</span></div>
+                        <div class="metric-card highlight"><span class="metric-label" id="current-month-avg-income-label"></span><span class="metric-value income" id="current-month-avg-income">0 원</span></div>
+                    </div>
+                </div>
+                <div id="cumulative-summary-container">
+                    <h4>차량 전체 누적 데이터</h4>
+                    <div class="summary-grid">
+                        <div class="metric-card"><span class="metric-label">총 운행일수</span><span class="metric-value" id="cumulative-operating-days">0 일</span></div>
+                        <div class="metric-card"><span class="metric-label">누적 이동 건수</span><span class="metric-value" id="cumulative-trip-count">0 건</span></div>
+                        <div class="metric-card"><span class="metric-label">누적 대기시간</span><span class="metric-value" id="cumulative-waiting-time">0시간 0분</span></div>
+                        <div class="metric-card"><span class="metric-label">누적 주유 비용</span><span class="metric-value cost" id="cumulative-fuel-cost">0 만원</span></div>
+                        <div class="metric-card"><span class="metric-label">누적 소모품 비용</span><span class="metric-value cost" id="cumulative-supplies-cost">0 만원</span></div>
+                        <div class="metric-card highlight"><span class="metric-label">누적 정산 금액</span><span class="metric-value income" id="cumulative-net-income">0 만원</span></div>
+                    </div>
+                    <div class="summary-grid" style="margin-top: 1em;">
+                        <div class="metric-card"><span class="metric-label">평균 연비</span><span class="metric-value" id="cumulative-avg-economy">0 km/L</span></div>
+                        <div class="metric-card"><span class="metric-label">km당 운행비용</span><span class="metric-value" id="cumulative-cost-per-km">0 원</span></div>
+                    </div>
+                </div>
                 <fieldset>
                     <legend>현재 총 주행거리(km) 수동 설정</legend>
                     <div class="input-group">
@@ -227,15 +232,6 @@
                 </fieldset>
                 <div id="subsidy-summary" class="subsidy-summary"></div>
             </div>
-
-            <div class="action-buttons">
-                <button id="export-json-btn">JSON으로 저장</button>
-                <button id="import-json-btn">JSON 불러오기</button>
-                <button id="export-csv-btn">엑셀(CSV) 저장</button> 
-                <button id="clear-btn">모든 기록 삭제</button>
-            </div>
-            <input type="file" id="import-file-input" class="hidden" accept=".json">
-
         </div>
     </div>
 

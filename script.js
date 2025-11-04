@@ -1059,4 +1059,7 @@ function initialSetup() {
     cancelEdit();
     updateAllDisplays();
 }
+// <<< 이 두 줄을 initialSetup() 함수 호출 위로 이동 >>>
+dateInput.value = getTodayString();
+timeInput.value = getCurrentTimeString();
 initialSetup();

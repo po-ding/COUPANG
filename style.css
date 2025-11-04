@@ -17,7 +17,7 @@ button { background-color: #007bff; color: white; font-weight: bold; cursor: poi
 button.setting-save-btn { background-color: #28a745; margin-top: 0.5em; }
 button:hover { opacity: 0.8; }
 
-.page-nav { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1em; gap: 0.5em; }
+.page-nav { display: flex; justify-content: space-between; align-items: center; }
 .page-nav button { padding: 0.5em 1em; font-size: 0.9em; width: auto; background-color: #6c757d; }
 
 #start-gps-btn, #end-gps-btn { line-height: 1.4; padding-top: 0.7em; padding-bottom: 0.7em; word-break: keep-all; }
@@ -30,7 +30,7 @@ button:hover { opacity: 0.8; }
 
 #submit-btn.edit-mode { background-color: #28a745; }
 #cancel-edit-btn { background-color: #6c757d; }
-.edit-btn, .delete-btn { padding: 0.4em 0.8em; font-size: 0.9em; margin-top: 0; }
+.edit-btn, .delete-btn { padding: 0.4em 0.8em; font-size: 0.9em; margin-top: 0; margin-left: 5px; }
 .edit-btn { background-color: #fd7e14; }
 .delete-btn { background-color: #dc3545; }
 

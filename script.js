@@ -863,10 +863,14 @@ function autoFillIncome() {
 goToSettingsBtn.addEventListener('click', () => {
     mainPage.classList.add('hidden');
     settingsPage.classList.remove('hidden');
+    goToSettingsBtn.classList.add('hidden');
+    backToMainBtn.classList.remove('hidden');
 });
 backToMainBtn.addEventListener('click', () => {
     mainPage.classList.remove('hidden');
     settingsPage.classList.add('hidden');
+    goToSettingsBtn.classList.remove('hidden');
+    backToMainBtn.classList.add('hidden');
 });
 
 function initialSetup() {

@@ -1,4 +1,4 @@
-/** 버전: 3.5 | 최종 수정일: 2025-11-04 */
+/** 버전: 3.6 | 최종 수정일: 2025-11-04 */
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; margin: 0; padding: 0.5em; background-color: #f5f5f5; }
 .container { max-width: 600px; margin: auto; background-color: white; padding: 0.8em; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -33,10 +33,10 @@ button:hover { opacity: 0.8; }
 
 #submit-btn.edit-mode { background-color: #28a745; }
 #cancel-edit-btn { background-color: #6c757d; }
-.edit-btn, .delete-btn { padding: 0.4em 0.8em; font-size: 0.9em; margin-top: 0; }
+.edit-btn, .delete-btn { padding: 0.35em 0.7em; font-size: 0.85em; margin-top: 0; }
 .edit-btn { background-color: #fd7e14; }
 .delete-btn { background-color: #dc3545; }
-.action-cell { width: 120px; text-align: right !important; white-space: nowrap; }
+.action-cell { display: flex; gap: 4px; justify-content: flex-end; }
 
 .batch-apply-section { margin-top: 2.5em; }
 #batch-apply-btn { background-color: #6f42c1; }
@@ -47,9 +47,9 @@ button:hover { opacity: 0.8; }
 .tab-btn { background-color: #f1f1f1; color: #555; border: 1px solid #ccc; border-bottom: none; cursor: pointer; padding: 12px 15px; margin-bottom: -2px; border-radius: 6px 6px 0 0; flex: 1; font-size: 1em; font-weight: 500; transition: all 0.2s ease-in-out; }
 .tab-btn:hover:not(.active) { background-color: #e9ecef; }
 .tab-btn.active { color: white; border-bottom: 2px solid white; }
-.tab-btn[data-view="daily"].active { background-color: #28a745; border-color: #28a745; }
-.tab-btn[data-view="monthly"].active { background-color: #007bff; border-color: #007bff; }
-.tab-btn[data-view="yearly"].active { background-color: #17a2b8; border-color: #17a2b8; }
+.tab-btn[data-view="today"].active { background-color: #28a745; border-color: #28a745; }
+.tab-btn[data-view="daily"].active { background-color: #007bff; border-color: #007bff; }
+.tab-btn[data-view="monthly"].active { background-color: #17a2b8; border-color: #17a2b8; }
 .view-content { display: none; padding-top: 1em; }
 .view-content.active { display: block; }
 
@@ -110,31 +110,27 @@ th { background-color: #f2f2f2; }
     .responsive-table tr { margin-bottom: 1em; border: 1px solid #ddd; border-radius: 4px; }
     .responsive-table td { text-align: right; padding-left: 50%; position: relative; border: none; border-bottom: 1px solid #eee; box-sizing: border-box; }
     .responsive-table td:before { content: attr(data-label); position: absolute; left: 0; width: 45%; padding-left: 1em; font-weight: bold; text-align: left; }
+    .responsive-table tr td:last-child { border-bottom: none; }
     
-    /* 관리 버튼 셀 레이아웃 수정 */
-    .responsive-table tr td:last-child {
-        border-bottom: none;
+    .responsive-table td[data-label="관리"] {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         align-items: center;
-        padding-left: 1em;
+        padding-left: 1em; /* Adjust as needed */
     }
-    .responsive-table tr td:last-child:before {
-        position: static;
-        width: auto;
-        padding-left: 0;
+     .responsive-table td[data-label="관리"]::before {
+        flex-grow: 1;
+        text-align: left;
     }
-    .responsive-table tr td:last-child .action-cell {
-        width: auto;
+    .responsive-table td[data-label="관리"] .action-cell {
         flex-shrink: 0;
     }
-
-    /* 탭 표시 오류 수정 및 스크롤 기능 적용 */
-    #monthly-view, #yearly-view {
+    
+    #daily-view, #monthly-view {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
-    #monthly-records-table, .yearly-summary-table {
+    #daily-records-table, #monthly-summary-table {
         width: auto;
         white-space: nowrap;
     }

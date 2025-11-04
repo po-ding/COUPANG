@@ -114,36 +114,39 @@
             <div class="view-section">
                 <h2>기록 조회</h2>
                 <div class="view-tabs">
-                    <button class="tab-btn active" data-view="daily">일별</button>
+                    <button class="tab-btn active" data-view="today">오늘</button>
+                    <button class="tab-btn" data-view="daily">일별</button>
                     <button class="tab-btn" data-view="monthly">월별</button>
-                    <button class="tab-btn" data-view="yearly">연도별</button>
                 </div>
-                <div id="daily-view" class="view-content active">
-                    <div class="selector-group">
-                        <input type="date" id="daily-date-picker">
+
+                <div id="today-view" class="view-content active">
+                    <div class="selector-group hidden">
+                        <input type="date" id="today-date-picker">
                     </div>
-                    <div id="daily-summary" class="summary"></div>
-                    <table id="daily-records-table" class="responsive-table">
+                    <div id="today-summary" class="summary"></div>
+                    <table id="today-records-table" class="responsive-table">
                         <thead><tr><th>시간</th><th>구분</th><th>내용</th><th>수입/지출</th><th>관리</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
-                <div id="monthly-view" class="view-content">
+                
+                <div id="daily-view" class="view-content">
                     <div class="selector-group">
-                        <select id="monthly-year-select"></select>
-                        <select id="monthly-month-select"></select>
+                        <select id="daily-year-select"></select>
+                        <select id="daily-month-select"></select>
                     </div>
-                    <div id="monthly-detailed-summary" class="summary"></div>
-                    <table id="monthly-records-table" class="yearly-summary-table">
+                    <div id="daily-summary" class="summary"></div>
+                    <table id="daily-records-table" class="yearly-summary-table">
                         <thead><tr><th>일</th><th>총수입(만원)</th><th>총지출(만원)</th><th>정산(만원)</th><th>운행거리(km)</th><th>이동건수</th><th>대기시간</th><th>주유량(L)</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
-                <div id="yearly-view" class="view-content">
+
+                <div id="monthly-view" class="view-content">
                      <div class="selector-group">
-                        <select id="yearly-year-select"></select>
+                        <select id="monthly-year-select"></select>
                     </div>
-                    <table id="yearly-summary-table" class="yearly-summary-table">
+                    <table id="monthly-summary-table" class="yearly-summary-table">
                         <thead><tr><th>월</th><th>총수입(만원)</th><th>총지출(만원)</th><th>정산(만원)</th><th>운행거리(km)</th><th>이동건수</th><th>대기시간</th><th>주유량(L)</th></tr></thead>
                         <tbody></tbody>
                     </table>

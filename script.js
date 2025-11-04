@@ -1,4 +1,4 @@
-/** 버전: 3.5 | 최종 수정일: 2025-11-04 */
+/** 버전: 3.6 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -43,15 +43,19 @@ const backToMainBtn = document.getElementById('back-to-main-btn');
 
 const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
-const dailyDatePicker = document.getElementById('daily-date-picker');
+
+// Renamed view variables
+const todaySummaryDiv = document.getElementById('today-summary');
+const todayTbody = document.querySelector('#today-records-table tbody');
+
+const dailyYearSelect = document.getElementById('daily-year-select');
+const dailyMonthSelect = document.getElementById('daily-month-select');
 const dailySummaryDiv = document.getElementById('daily-summary');
 const dailyTbody = document.querySelector('#daily-records-table tbody');
+
 const monthlyYearSelect = document.getElementById('monthly-year-select');
-const monthlyMonthSelect = document.getElementById('monthly-month-select');
-const monthlyDetailedSummaryDiv = document.getElementById('monthly-detailed-summary');
-const monthlyTbody = document.querySelector('#monthly-records-table tbody');
-const yearlyYearSelect = document.getElementById('yearly-year-select');
-const yearlyTbody = document.querySelector('#yearly-summary-table tbody');
+const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
+
 
 const batchFromSelect = document.getElementById('batch-from-center');
 const batchToSelect = document.getElementById('batch-to-center');
@@ -216,7 +220,6 @@ function stopWaitTimer() {
     waitStartTime = null;
 }
 
-// 요약 정보 HTML 생성 함수 (일별, 월별 공통 사용)
 function createSummaryHTML(title, records) {
     let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0, totalWaitingTime = 0;
     records.forEach(r => {
@@ -244,12 +247,12 @@ function createSummaryHTML(title, records) {
     `;
 }
 
-function displayDailyRecords() {
+function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
-    const selectedDate = dailyDatePicker.value;
+    const selectedDate = getTodayString();
     const filteredRecords = records.filter(r => r.date === selectedDate);
     
-    dailyTbody.innerHTML = '';
+    todayTbody.innerHTML = '';
     
     filteredRecords.forEach(r => {
         const tr = document.createElement('tr');
@@ -277,21 +280,21 @@ function displayDailyRecords() {
         }
         actionCell = `<div class="action-cell"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></div>`;
         tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;
-        dailyTbody.appendChild(tr);
+        todayTbody.appendChild(tr);
     });
     
-    dailySummaryDiv.innerHTML = createSummaryHTML(`${selectedDate} 요약`, filteredRecords);
+    todaySummaryDiv.innerHTML = createSummaryHTML(`${selectedDate} (오늘) 요약`, filteredRecords);
 }
 
-function displayMonthlyRecords() {
+function displayDailySummaryRecords() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
-    const selectedPeriod = `${monthlyYearSelect.value}-${monthlyMonthSelect.value}`;
+    const selectedPeriod = `${dailyYearSelect.value}-${dailyMonthSelect.value}`;
     const currentMonthRecords = allRecords.filter(r => r.date.startsWith(selectedPeriod));
 
-    monthlyTbody.innerHTML = '';
-    monthlyDetailedSummaryDiv.classList.remove('hidden');
+    dailyTbody.innerHTML = '';
+    dailySummaryDiv.classList.remove('hidden');
 
-    monthlyDetailedSummaryDiv.innerHTML = createSummaryHTML(`${parseInt(monthlyMonthSelect.value)}월 총계`, currentMonthRecords);
+    dailySummaryDiv.innerHTML = createSummaryHTML(`${parseInt(dailyMonthSelect.value)}월 총계`, currentMonthRecords);
 
     const dailyData = {};
     currentMonthRecords.forEach(r => {
@@ -334,13 +337,13 @@ function displayMonthlyRecords() {
             <td data-label="대기시간">${dailyWaitHours}h ${dailyWaitMinutes}m</td>
             <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
         `;
-        monthlyTbody.appendChild(tr);
+        dailyTbody.appendChild(tr);
     });
 }
         
-function displayYearlyRecords() {
+function displayMonthlySummaryRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
-    const selectedYear = yearlyYearSelect.value;
+    const selectedYear = monthlyYearSelect.value;
     
     const monthlyData = {};
     for(let i=1; i<=12; i++) {
@@ -360,7 +363,7 @@ function displayYearlyRecords() {
         monthlyData[monthKey].waitingTime += parseInt(r.waitingTime || 0);
     });
 
-    yearlyTbody.innerHTML = '';
+    monthlyTbody.innerHTML = '';
     const currentMonthKey = new Date().toISOString().slice(0, 7);
     
     const sortedMonths = Object.keys(monthlyData).sort((a, b) => a.localeCompare(b));
@@ -377,7 +380,7 @@ function displayYearlyRecords() {
             tr.style.backgroundColor = '#e9f5ff';
         }
         tr.innerHTML = `<td>${parseInt(month)}월</td><td><span class="income">${formatToManwon(data.income)}</span></td><td><span class="cost">${formatToManwon(data.expense)}</span></td><td><strong>${formatToManwon(netIncome)}</strong></td><td>${data.distance.toFixed(1)}</td><td>${data.tripCount}</td><td>${waitHours}h ${waitMinutes}m</td><td>${data.liters.toFixed(2)}</td>`;
-        yearlyTbody.appendChild(tr);
+        monthlyTbody.appendChild(tr);
     });
 }
 
@@ -494,24 +497,24 @@ function populateSelectors() {
     if (availableYears.length === 0) availableYears.push(new Date().getFullYear().toString());
     
     const yearOptions = availableYears.map(y => `<option value="${y}">${y}년</option>`).join('');
+    dailyYearSelect.innerHTML = yearOptions;
     monthlyYearSelect.innerHTML = yearOptions;
-    yearlyYearSelect.innerHTML = yearOptions;
     
-    monthlyMonthSelect.innerHTML = Array.from({length: 12}, (_, i) => `<option value="${(i+1).toString().padStart(2,'0')}">${i+1}월</option>`).join('');
+    dailyMonthSelect.innerHTML = Array.from({length: 12}, (_, i) => `<option value="${(i+1).toString().padStart(2,'0')}">${i+1}월</option>`).join('');
     
     const currentYear = new Date().getFullYear().toString();
     if(availableYears.includes(currentYear)) {
+         dailyYearSelect.value = currentYear;
          monthlyYearSelect.value = currentYear;
-         yearlyYearSelect.value = currentYear;
     }
-    monthlyMonthSelect.value = (new Date().getMonth() + 1).toString().padStart(2, '0');
+    dailyMonthSelect.value = (new Date().getMonth() + 1).toString().padStart(2, '0');
 }
 
 function updateAllDisplays() {
     const activeView = document.querySelector('.view-content.active').id;
-    if (activeView === 'daily-view') displayDailyRecords();
-    if (activeView === 'monthly-view') displayMonthlyRecords();
-    if (activeView === 'yearly-view') displayYearlyRecords();
+    if (activeView === 'today-view') displayTodayRecords();
+    if (activeView === 'daily-view') displayDailySummaryRecords();
+    if (activeView === 'monthly-view') displayMonthlySummaryRecords();
     displayCumulativeData();
     displayCurrentMonthData();
 }
@@ -824,10 +827,9 @@ tabBtns.forEach(btn => {
     });
 });
 
-dailyDatePicker.addEventListener('change', displayDailyRecords);
-monthlyYearSelect.addEventListener('change', displayMonthlyRecords);
-monthlyMonthSelect.addEventListener('change', displayMonthlyRecords);
-yearlyYearSelect.addEventListener('change', displayYearlyRecords);
+dailyYearSelect.addEventListener('change', displayDailySummaryRecords);
+dailyMonthSelect.addEventListener('change', displayDailySummaryRecords);
+monthlyYearSelect.addEventListener('change', displayMonthlySummaryRecords);
 
 startGpsBtn.addEventListener('click', () => getGPS('start'));
 endGpsBtn.addEventListener('click', () => getGPS('end'));
@@ -913,7 +915,6 @@ function initialSetup() {
     populateCenterSelectors();
     populateSelectors();
     cancelEdit();
-    dailyDatePicker.value = getTodayString();
     updateAllDisplays();
 }
 

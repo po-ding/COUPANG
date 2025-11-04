@@ -331,7 +331,7 @@ function displayMonthlyRecords() {
     
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
-    monthlyDetailedSummaryDiv.innerHTML = `월별 정산: <strong>${formatToManwon(netIncome)} 만원</strong> | 월별 주유비: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> | 월별 소모품비: <span class="cost">${formatToManwon(totalSuppliesCost)} 만원</span><br>월별 대기시간: ${waitHours}시간 ${waitMinutes}분 | 월별 이동 건수: ${totalTripCount} 건`;
+    monthlyDetailedSummaryDiv.innerHTML = `월별 정산: <strong>${formatToManwon(netIncome)} 만원</strong> | 월별 주유비: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> | 월별 소모품비: <span class="cost">${formatToManwon(totalSuppliesCost)} 만원</span><br>월별 대기시간: ${waitHours}시간 ${waitMinutes}분 | 월별 이동 건수: ${totalTripCount} 건 | 월별 총 운행거리: ${totalDistance.toFixed(1)} km`;
 
     const subsidyLimit = parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0;
     const remainingLiters = subsidyLimit - totalLiters;
@@ -360,6 +360,7 @@ function displayMonthlyRecords() {
 
 function updateComparisonGraph(data) {
     const { current, previous } = data;
+    if (!comparisonGraphDiv) return;
     const maxValue = Math.max(current.income, current.expense, previous.income, previous.expense, 1);
 
     const getPercent = (value) => (value / maxValue * 100);
@@ -377,40 +378,41 @@ function updateComparisonGraph(data) {
 function displayYearlyRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedYear = yearlyYearSelect.value;
-    const filteredRecords = records.filter(r => r.date.startsWith(selectedYear));
-
+    
     const monthlyData = {};
     for(let i=1; i<=12; i++) {
-        const month = i.toString().padStart(2, '0');
-        monthlyData[month] = { income: 0, expense: 0, distance: 0, liters: 0, tripCount: 0, waitingTime: 0 };
+        const monthKey = `${selectedYear}-${i.toString().padStart(2, '0')}`;
+        monthlyData[monthKey] = { income: 0, expense: 0, distance: 0, liters: 0, tripCount: 0, waitingTime: 0 };
     }
 
-    filteredRecords.forEach(r => {
-        const month = r.date.substring(5, 7);
-        monthlyData[month].income += parseInt(r.income || 0);
-        monthlyData[month].expense += parseInt(r.cost || 0);
+    records.filter(r => r.date.startsWith(selectedYear)).forEach(r => {
+        const monthKey = r.date.substring(0, 7);
+        monthlyData[monthKey].income += parseInt(r.income || 0);
+        monthlyData[monthKey].expense += parseInt(r.cost || 0);
         if(['화물운송','공차이동'].includes(r.type)) {
-            monthlyData[month].distance += parseFloat(r.distance || 0);
-            monthlyData[month].tripCount++;
+            monthlyData[monthKey].distance += parseFloat(r.distance || 0);
+            monthlyData[monthKey].tripCount++;
         }
-        if(r.type === '주유소') monthlyData[month].liters += parseFloat(r.liters || 0);
-        monthlyData[month].waitingTime += parseInt(r.waitingTime || 0);
+        if(r.type === '주유소') monthlyData[monthKey].liters += parseFloat(r.liters || 0);
+        monthlyData[monthKey].waitingTime += parseInt(r.waitingTime || 0);
     });
 
     yearlyTbody.innerHTML = '';
-    const currentMonth = new Date().getMonth() + 1;
-    for(const month in monthlyData) {
-        const data = monthlyData[month];
+    const currentMonthKey = new Date().toISOString().slice(0, 7);
+    Object.keys(monthlyData).sort().forEach(monthKey => {
+        const data = monthlyData[monthKey];
+        const month = monthKey.substring(5, 7);
         const netIncome = data.income - data.expense;
         const waitHours = Math.floor(data.waitingTime / 60);
         const waitMinutes = data.waitingTime % 60;
         const tr = document.createElement('tr');
-        if (parseInt(month) === currentMonth) {
+        if (monthKey === currentMonthKey) {
             tr.style.fontWeight = 'bold';
+            tr.style.backgroundColor = '#e9f5ff';
         }
         tr.innerHTML = `<td>${parseInt(month)}월</td><td><span class="income">${formatToManwon(data.income)}</span></td><td><span class="cost">${formatToManwon(data.expense)}</span></td><td><strong>${formatToManwon(netIncome)}</strong></td><td>${data.distance.toFixed(1)}</td><td>${data.tripCount}</td><td>${waitHours}h ${waitMinutes}m</td><td>${data.liters.toFixed(2)}</td>`;
         yearlyTbody.appendChild(tr);
-    }
+    });
 }
 
 function displayCurrentMonthData() {
@@ -542,6 +544,9 @@ function deleteDailyRecord(date) {
 }
 
 function editRecord(id) {
+    if (mainPage.classList.contains('hidden')) {
+        backToMainBtn.click();
+    }
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const recordToEdit = records.find(r => r.id === id);
     if (!recordToEdit) return;
@@ -602,6 +607,16 @@ function cancelEdit() {
     waitStartTime = null;
 
     toggleUI(typeSelect.value);
+}
+
+function editDailyRecord(date) {
+    dailyDatePicker.value = date;
+    tabBtns.forEach(b => b.classList.remove('active'));
+    document.querySelector('.tab-btn[data-view="daily"]').classList.add('active');
+    viewContents.forEach(c => c.classList.remove('active'));
+    document.getElementById('daily-view').classList.add('active');
+    updateAllDisplays();
+    window.scrollTo(0, recordForm.scrollHeight);
 }
 
 function getFormData(isNew = false) {
@@ -707,6 +722,9 @@ batchApplyBtn.addEventListener('click', () => {
         });
         localStorage.setItem('records', JSON.stringify(records));
         batchStatus.textContent = `✅ ${updatedCount}건의 운임이 성공적으로 적용되었습니다!`;
+        batchFromSelect.value = getCenters()[0];
+        batchToSelect.value = getCenters()[0];
+        batchIncomeInput.value = '';
         updateAllDisplays();
         setTimeout(() => batchStatus.textContent = '', 3000);
     }
@@ -940,6 +958,7 @@ function initialSetup() {
     if (waitTimerInterval) clearInterval(waitTimerInterval);
     waitStartTime = null;
 
+    cancelEdit(); // 폼 초기화 및 수정 모드 해제
     updateAllDisplays();
 }
 

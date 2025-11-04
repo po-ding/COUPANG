@@ -34,6 +34,11 @@ const submitBtn = document.getElementById('submit-btn');
 const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const editIdInput = document.getElementById('edit-id');
 
+const mainPage = document.getElementById('main-page');
+const settingsPage = document.getElementById('settings-page');
+const goToSettingsBtn = document.getElementById('go-to-settings-btn');
+const backToMainBtn = document.getElementById('back-to-main-btn');
+
 const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
 const dailyDatePicker = document.getElementById('daily-date-picker');
@@ -50,6 +55,8 @@ const yearlyTbody = document.querySelector('#yearly-summary-table tbody');
 
 const batchFromSelect = document.getElementById('batch-from-center');
 const batchToSelect = document.getElementById('batch-to-center');
+const batchFromCustom = document.getElementById('batch-from-custom');
+const batchToCustom = document.getElementById('batch-to-custom');
 const batchIncomeInput = document.getElementById('batch-income');
 const batchApplyBtn = document.getElementById('batch-apply-btn');
 const batchStatus = document.getElementById('batch-status');
@@ -117,8 +124,8 @@ function populateCenterSelectors() {
     const options = centers.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="direct">직접 입력</option>';
     fromSelect.innerHTML = options;
     toSelect.innerHTML = options;
-    batchFromSelect.innerHTML = fromSelect.innerHTML.replace('<option value="direct">직접 입력</option>', '');
-    batchToSelect.innerHTML = toSelect.innerHTML.replace('<option value="direct">직접 입력</option>', '');
+    batchFromSelect.innerHTML = options;
+    batchToSelect.innerHTML = options;
 }
 
 function toggleUI(type) {
@@ -627,8 +634,8 @@ recordForm.addEventListener('submit', function(event) {
 });
 
 batchApplyBtn.addEventListener('click', () => {
-    const from = batchFromSelect.value;
-    const to = batchToSelect.value;
+    const from = (batchFromSelect.value === 'direct') ? batchFromCustom.value : batchFromSelect.value;
+    const to = (batchToSelect.value === 'direct') ? batchToCustom.value : batchToSelect.value;
     const income = parseFloat(batchIncomeInput.value) || 0;
 
     if (!from || !to || income <= 0) {
@@ -834,6 +841,8 @@ fromSelect.addEventListener('change', () => fromCustom.classList.toggle('hidden'
 toSelect.addEventListener('change', () => toCustom.classList.toggle('hidden', toSelect.value !== 'direct'));
 fromSelect.addEventListener('change', autoFillIncome);
 toSelect.addEventListener('change', autoFillIncome);
+batchFromSelect.addEventListener('change', () => batchFromCustom.classList.toggle('hidden', batchFromSelect.value !== 'direct'));
+batchToSelect.addEventListener('change', () => batchToCustom.classList.toggle('hidden', batchToSelect.value !== 'direct'));
 cancelEditBtn.addEventListener('click', cancelEdit);
 
 function autoFillIncome() {
@@ -850,6 +859,15 @@ function autoFillIncome() {
         }
     }
 }
+
+goToSettingsBtn.addEventListener('click', () => {
+    mainPage.classList.add('hidden');
+    settingsPage.classList.remove('hidden');
+});
+backToMainBtn.addEventListener('click', () => {
+    mainPage.classList.remove('hidden');
+    settingsPage.classList.add('hidden');
+});
 
 function initialSetup() {
     dateInput.value = getTodayString();

@@ -17,6 +17,9 @@ button { background-color: #007bff; color: white; font-weight: bold; cursor: poi
 button.setting-save-btn { background-color: #28a745; margin-top: 0.5em; }
 button:hover { opacity: 0.8; }
 
+.page-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em; }
+.page-nav button { padding: 0.5em 1em; font-size: 0.9em; width: auto; background-color: #6c757d; }
+
 #start-gps-btn, #end-gps-btn { line-height: 1.4; padding-top: 0.7em; padding-bottom: 0.7em; word-break: keep-all; }
 #start-gps-btn { background-color: #17a2b8; }
 #end-gps-btn { background-color: #ffc107; color: #333; }

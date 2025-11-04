@@ -1,3 +1,4 @@
+/** 버전: 3.5 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -47,7 +48,6 @@ const dailySummaryDiv = document.getElementById('daily-summary');
 const dailyTbody = document.querySelector('#daily-records-table tbody');
 const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyMonthSelect = document.getElementById('monthly-month-select');
-const monthlySummaryDiv = document.getElementById('monthly-summary');
 const monthlyDetailedSummaryDiv = document.getElementById('monthly-detailed-summary');
 const monthlyTbody = document.querySelector('#monthly-records-table tbody');
 const yearlyYearSelect = document.getElementById('yearly-year-select');
@@ -260,8 +260,20 @@ function displayDailyRecords() {
         tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;
         dailyTbody.appendChild(tr);
     });
+    
     const dailyNet = dailyIncome - dailyExpense;
-    dailySummaryDiv.innerHTML = `<strong>${selectedDate} 요약</strong> | 수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 일당: <strong class="income">${formatToManwon(dailyNet)} 만원</strong><br>거리: <strong>${dailyDistance.toFixed(1)} km</strong> | 이동건수: <strong>${dailyTripCount} 건</strong> | 대기시간: <strong>${dailyWaitingTime} 분</strong>`;
+    const waitHours = Math.floor(dailyWaitingTime / 60);
+    const waitMinutes = dailyWaitingTime % 60;
+    
+    dailySummaryDiv.innerHTML = `
+        <strong>${selectedDate} 요약</strong><br>
+        수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span><br>
+        지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span><br>
+        일당: <strong>${formatToManwon(dailyNet)} 만원</strong><br>
+        운행거리: <strong>${dailyDistance.toFixed(1)} km</strong><br>
+        이동건수: <strong>${dailyTripCount} 건</strong><br>
+        대기시간: <strong>${waitHours}시간 ${waitMinutes}분</strong>
+    `;
 }
 
 function displayMonthlyRecords() {
@@ -272,8 +284,7 @@ function displayMonthlyRecords() {
     monthlyTbody.innerHTML = '';
     monthlyDetailedSummaryDiv.classList.remove('hidden');
 
-    // 1. 월 전체 요약 정보 계산
-    let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalLiters = 0, totalFuelCost = 0, totalSuppliesCost = 0, totalWaitingTime = 0, totalTripCount = 0;
+    let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0, totalWaitingTime = 0;
     currentMonthRecords.forEach(r => {
         totalIncome += parseInt(r.income || 0);
         totalExpense += parseInt(r.cost || 0);
@@ -281,22 +292,22 @@ function displayMonthlyRecords() {
             totalDistance += parseFloat(r.distance || 0);
             totalTripCount++;
         }
-        if (r.type === '주유소') {
-            totalLiters += parseFloat(r.liters || 0);
-            totalFuelCost += parseInt(r.cost || 0);
-        } else if (['소모품', '요소수'].includes(r.type)) {
-            totalSuppliesCost += parseInt(r.cost || 0);
-        }
         totalWaitingTime += parseInt(r.waitingTime || 0);
     });
     const netIncome = totalIncome - totalExpense;
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
     
-    // 2. 월 전체 요약 정보 표시
-    monthlyDetailedSummaryDiv.innerHTML = `<strong>${parseInt(monthlyMonthSelect.value)}월 요약</strong><br>총 정산: <strong>${formatToManwon(netIncome)} 만원</strong> | 총 주유비: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> | 총 소모품비: <span class="cost">${formatToManwon(totalSuppliesCost)} 만원</span><br>총 대기시간: ${waitHours}시간 ${waitMinutes}분 | 총 이동 건수: ${totalTripCount} 건 | 총 운행거리: ${totalDistance.toFixed(1)} km`;
+    monthlyDetailedSummaryDiv.innerHTML = `
+        <strong>${parseInt(monthlyMonthSelect.value)}월 총계</strong><br>
+        총수입: <span class="income">${formatToManwon(totalIncome)} 만원</span><br>
+        총지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span><br>
+        총정산: <strong>${formatToManwon(netIncome)} 만원</strong><br>
+        총 운행거리: <strong>${totalDistance.toFixed(1)} km</strong><br>
+        총 이동건수: <strong>${totalTripCount} 건</strong><br>
+        총 대기시간: <strong>${waitHours}시간 ${waitMinutes}분</strong>
+    `;
 
-    // 3. 날짜별 데이터 합산
     const dailyData = {};
     currentMonthRecords.forEach(r => {
         const date = r.date;
@@ -315,7 +326,6 @@ function displayMonthlyRecords() {
         dailyData[date].waitingTime += parseInt(r.waitingTime || 0);
     });
 
-    // 4. 합산된 데이터를 테이블에 렌더링 (날짜 오름차순)
     const sortedDates = Object.keys(dailyData).sort();
     sortedDates.forEach(date => {
         const data = dailyData[date];
@@ -819,7 +829,8 @@ clearBtn.addEventListener('click', () => {
 });
 
 tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (event) => {
+        event.preventDefault(); // 스크롤 점프 현상 방지
         tabBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         viewContents.forEach(c => c.classList.remove('active'));

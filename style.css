@@ -1,7 +1,7 @@
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; margin: 0; padding: 0.5em; background-color: #f5f5f5; }
 .container { max-width: 600px; margin: auto; background-color: white; padding: 0.8em; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 h1, h2 { text-align: center; color: #333; }
-.logo { font-family: 'Helvetica Neue', Arial, sans-serif; font-weight: 300; font-size: 2.5em; color: #333; letter-spacing: 1px; margin: 0.5em 0; }
+.logo { font-family: 'Helvetica Neue', Arial, sans-serif; font-weight: 300; font-size: 2.5em; color: #333; letter-spacing: 1px; margin: 0; padding: 0.2em 0; }
 .logo-point { font-weight: 600; color: #007bff; }
 h2 { border-bottom: 2px solid #eee; padding-bottom: 0.5em; margin-top: 2.5em; }
 h4 { margin-top: 0; margin-bottom: 0.5em; text-align: center; color: #555;}
@@ -17,7 +17,7 @@ button { background-color: #007bff; color: white; font-weight: bold; cursor: poi
 button.setting-save-btn { background-color: #28a745; margin-top: 0.5em; }
 button:hover { opacity: 0.8; }
 
-.page-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em; }
+.page-nav { display: flex; justify-content: space-between; align-items: center; }
 .page-nav button { padding: 0.5em 1em; font-size: 0.9em; width: auto; background-color: #6c757d; }
 
 #start-gps-btn, #end-gps-btn { line-height: 1.4; padding-top: 0.7em; padding-bottom: 0.7em; word-break: keep-all; }
@@ -30,7 +30,9 @@ button:hover { opacity: 0.8; }
 
 #submit-btn.edit-mode { background-color: #28a745; }
 #cancel-edit-btn { background-color: #6c757d; }
-.edit-btn { background-color: #fd7e14; padding: 0.4em 0.8em; font-size: 0.9em; margin-top: 0; }
+.edit-btn, .delete-btn { padding: 0.4em 0.8em; font-size: 0.9em; margin-top: 0; margin-left: 5px; }
+.edit-btn { background-color: #fd7e14; }
+.delete-btn { background-color: #dc3545; }
 
 .batch-apply-section { margin-top: 2.5em; }
 #batch-apply-btn { background-color: #6f42c1; }
@@ -80,8 +82,10 @@ th { background-color: #f2f2f2; }
 .responsive-table th, .responsive-table td { border: 1px solid #ddd; }
 .yearly-summary-table th, .yearly-summary-table td { border: 1px solid #ddd; text-align: center;}
 
-.progress-bar-container { background-color: #e9ecef; border-radius: .25rem; height: 1rem; margin-top: 0.5em; }
-.progress-bar { background-color: #17a2b8; height: 1rem; border-radius: .25rem; text-align: center; color: white; font-size: 0.8em; line-height: 1rem; }
+.progress-bar-container { background-color: #e9ecef; border-radius: .25rem; height: 1.5rem; overflow: hidden; display: flex; }
+.progress-bar { height: 100%; text-align: center; color: white; font-size: 0.8em; line-height: 1.5rem; white-space: nowrap; transition: width 0.6s ease; }
+.progress-bar-used { background-color: #17a2b8; }
+.progress-bar-remaining { background-color: #e9ecef; color: #555;}
 
 .note { color: #555; font-size: 0.9em; }
 .note a { color: #0056b3; text-decoration: none; margin-right: 5px; }
@@ -91,10 +95,10 @@ th { background-color: #f2f2f2; }
 .hidden { display: none; }
 .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin-top: 2em; }
 .action-buttons button { width: 100%; margin: 0; }
-#export-csv-btn { background-color: #28a745; }
-#export-json-btn { background-color: #6c757d; }
-#import-json-btn { background-color: #fd7e14; }
-#clear-btn { background-color: #dc3545; }
+#export-csv-btn { background-color: #198754; }
+#export-json-btn { background-color: #5a6268; }
+#import-json-btn { background-color: #e0a800; }
+#clear-btn { background-color: #c82333; }
 #gdrive-save-btn { background-color: #4285F4; }
 #gdrive-load-btn { background-color: #34A853; }
 

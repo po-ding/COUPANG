@@ -134,7 +134,7 @@ function gisLoaded() {
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        callback: '', // The callback is handled by the promise
+        callback: '',
     });
     gisInited = true;
 }
@@ -143,6 +143,7 @@ function handleAuthClick(callback) {
     if (gapi.client.getToken() === null) {
         tokenClient.callback = (resp) => {
             if (resp.error !== undefined) {
+                alert("Google 인증에 실패했습니다. 팝업 차단을 확인해주세요.");
                 throw(resp);
             }
             if (callback) callback();
@@ -182,46 +183,29 @@ async function saveToGoogleDrive() {
     const delimiter = "\r\n--" + boundary + "\r\n";
     const close_delim = "\r\n--" + boundary + "--";
 
-    const metadata = {
-        'name': BACKUP_FILE_NAME,
-        'mimeType': 'application/json',
-    };
-
     let multipartRequestBody;
     let path;
     let method;
 
-    if (fileId) { // 파일이 있으면 업데이트
+    if (fileId) {
         path = `/upload/drive/v3/files/${fileId}?uploadType=multipart`;
         method = 'PATCH';
         multipartRequestBody =
-            delimiter +
-            'Content-Type: application/json\r\n\r\n' +
-            JSON.stringify({ name: BACKUP_FILE_NAME }) +
-            delimiter +
-            'Content-Type: application/json\r\n\r\n' +
-            dataToSave +
-            close_delim;
-    } else { // 파일이 없으면 새로 생성
+            delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify({ name: BACKUP_FILE_NAME }) +
+            delimiter + 'Content-Type: application/json\r\n\r\n' + dataToSave + close_delim;
+    } else {
         path = '/upload/drive/v3/files?uploadType=multipart';
         method = 'POST';
         multipartRequestBody =
-            delimiter +
-            'Content-Type: application/json\r\n\r\n' +
-            JSON.stringify(metadata) +
-            delimiter +
-            'Content-Type: application/json\r\n\r\n' +
-            dataToSave +
-            close_delim;
+            delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify({ name: BACKUP_FILE_NAME, mimeType: 'application/json' }) +
+            delimiter + 'Content-Type: application/json\r\n\r\n' + dataToSave + close_delim;
     }
 
     try {
         await gapi.client.request({
             'path': path,
             'method': method,
-            'headers': {
-                'Content-Type': 'multipart/related; boundary="' + boundary + '"'
-            },
+            'headers': { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' },
             'body': multipartRequestBody
         });
         alert('Google Drive에 데이터를 성공적으로 저장했습니다!');
@@ -233,7 +217,7 @@ async function saveToGoogleDrive() {
 async function loadFromGoogleDrive() {
     const fileId = await findBackupFile();
     if (!fileId) {
-        alert('Google Drive에서 백업 파일을 찾을 수 없습니다.');
+        alert('Google Drive에서 백업 파일을 찾을 수 없습니다. 먼저 저장해주세요.');
         return;
     }
 
@@ -256,7 +240,6 @@ async function loadFromGoogleDrive() {
             alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
             location.reload();
         }
-
     } catch (err) {
         alert("불러오기 실패: " + err.message);
     }
@@ -410,7 +393,7 @@ function displayDailyRecords() {
             detailsCell = `<span class="note">${r.notes || ''}</span>`;
             moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
         }
-        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="수정"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button></td>`;
+        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></td>`;
         dailyTbody.appendChild(tr);
     });
     const dailyNet = dailyIncome - dailyExpense;
@@ -458,7 +441,7 @@ function displayMonthlyRecords() {
             <td data-label="거리(km)">${data.distance.toFixed(1)}</td>
             <td data-label="건수">${data.tripCount}</td>
             <td data-label="대기">${waitHours > 0 ? waitHours + 'h ' : ''}${waitMinutes}m</td>
-            <td data-label="수정"><button class="edit-btn" onclick="editDailyRecord('${day}')">수정</button></td>
+            <td data-label="관리"><button class="edit-btn" onclick="editDailyRecord('${day}')">수정</button><button class="delete-btn" onclick="deleteDailyRecord('${day}')">삭제</button></td>
         `;
         monthlyTbody.appendChild(tr);
 
@@ -487,7 +470,7 @@ function displayMonthlyRecords() {
     const subsidyLimit = parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0;
     const remainingLiters = subsidyLimit - totalLiters;
     const progressPercent = subsidyLimit > 0 ? Math.min(100, (totalLiters / subsidyLimit * 100)).toFixed(1) : 0;
-    subsidySummaryDiv.innerHTML = `월 한도: <strong>${subsidyLimit.toLocaleString()} L</strong> | 사용량: ${totalLiters.toFixed(2)} L | 잔여량: <strong>${remainingLiters.toFixed(2)} L</strong><div class="progress-bar-container"><div class="progress-bar" style="width: ${progressPercent}%;">${progressPercent > 10 ? progressPercent + '%' : ''}</div></div>`;
+    subsidySummaryDiv.innerHTML = `<div class="progress-label">월 한도: ${subsidyLimit.toLocaleString()} L | 사용: ${totalLiters.toFixed(1)} L | 잔여: ${remainingLiters.toFixed(1)} L</div><div class="progress-bar-container"><div class="progress-bar progress-bar-used" style="width: ${progressPercent}%;"></div></div>`;
     
     let prevMonthDate = new Date(`${selectedPeriod}-01`);
     prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
@@ -580,7 +563,7 @@ function displayCurrentMonthData() {
 
     const netIncome = totalIncome - totalExpense;
     const operatingDays = new Set(currentMonthRecords.map(r => r.date)).size;
-    const avgIncome = operatingDays > 0 ? Math.round(netIncome / operatingDays) : 0;
+    const avgIncome = operatingDays > 0 ? netIncome / operatingDays : 0;
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
     
@@ -589,7 +572,7 @@ function displayCurrentMonthData() {
     currentMonthWaitingTime.textContent = `${waitHours}시간 ${waitMinutes}분`;
     currentMonthIncome.textContent = `${formatToManwon(totalIncome)} 만원`;
     currentMonthExpense.textContent = `${formatToManwon(totalExpense)} 만원`;
-    currentMonthAvgIncome.textContent = `${avgIncome.toLocaleString('ko-KR')} 원`;
+    currentMonthAvgIncome.textContent = `${formatToManwon(avgIncome)} 만원`;
 }
 
 function displayCumulativeData() {
@@ -658,6 +641,24 @@ function updateAllDisplays() {
     if (activeView === 'yearly-view') displayYearlyRecords();
     displayCumulativeData();
     displayCurrentMonthData();
+}
+
+function deleteRecord(id) {
+    if (confirm('이 기록을 정말로 삭제하시겠습니까?')) {
+        let records = JSON.parse(localStorage.getItem('records')) || [];
+        records = records.filter(r => r.id !== id);
+        localStorage.setItem('records', JSON.stringify(records));
+        updateAllDisplays();
+    }
+}
+
+function deleteDailyRecord(date) {
+    if (confirm(`${date}의 모든 기록을 삭제하시겠습니까?`)) {
+        let records = JSON.parse(localStorage.getItem('records')) || [];
+        records = records.filter(r => r.date !== date);
+        localStorage.setItem('records', JSON.stringify(records));
+        updateAllDisplays();
+    }
 }
 
 function editRecord(id) {
@@ -1028,7 +1029,12 @@ backToMainBtn.addEventListener('click', () => {
     backToMainBtn.classList.add('hidden');
 });
 
+gdriveSaveBtn.addEventListener('click', () => handleAuthClick(saveToGoogleDrive));
+gdriveLoadBtn.addEventListener('click', () => handleAuthClick(loadFromGoogleDrive));
+
 function initialSetup() {
+    gapiLoaded();
+    gisLoaded();
     dateInput.value = getTodayString();
     timeInput.value = getCurrentTimeString();
     dailyDatePicker.value = getTodayString();

@@ -22,9 +22,17 @@ const fuelDetails = document.getElementById('fuel-details');
 const fuelUnitPriceInput = document.getElementById('fuel-unit-price');
 const fuelLitersInput = document.getElementById('fuel-liters');
 const fuelBrandSelect = document.getElementById('fuel-brand');
+const ureaDetails = document.getElementById('urea-details');
+const ureaUnitPriceInput = document.getElementById('urea-unit-price');
+const ureaLitersInput = document.getElementById('urea-liters');
+const ureaStationInput = document.getElementById('urea-station');
 const supplyDetails = document.getElementById('supply-details');
 const supplyItemInput = document.getElementById('supply-item');
 const supplyMileageInput = document.getElementById('supply-mileage');
+
+const submitBtn = document.getElementById('submit-btn');
+const cancelEditBtn = document.getElementById('cancel-edit-btn');
+const editIdInput = document.getElementById('edit-id');
 
 const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
@@ -106,7 +114,8 @@ function populateCenterSelectors() {
 
 function toggleUI(type) {
     transportDetails.classList.toggle('hidden', !['화물운송', '공차이동'].includes(type));
-    fuelDetails.classList.toggle('hidden', type !== '주유');
+    fuelDetails.classList.toggle('hidden', type !== '주유소');
+    ureaDetails.classList.toggle('hidden', type !== '요소수');
     supplyDetails.classList.toggle('hidden', type !== '소모품');
 
     if(type === '소모품') {
@@ -217,8 +226,11 @@ function displayDailyRecords() {
             if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
             if (r.waitingTime > 0) detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
             moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
-        } else if (r.type === '주유') {
+        } else if (r.type === '주유소') {
             detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+        } else if (r.type === '요소수') {
+            detailsCell = `<strong>${parseFloat(r.ureaLiters || 0).toFixed(2)} L</strong> @ ${parseInt(r.ureaUnitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.ureaStation || ''}</span>`;
             moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
         } else if (r.type === '소모품') {
             detailsCell = `<strong>${r.supplyItem || '기타 소모품'}</strong><br><span class="note">@ ${parseInt(r.mileage || 0).toLocaleString()} km</span>`;
@@ -227,7 +239,7 @@ function displayDailyRecords() {
             detailsCell = `<span class="note">${r.notes || ''}</span>`;
             moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
         }
-        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td>`;
+        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="수정"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button></td>`;
         dailyTbody.appendChild(tr);
     });
     const dailyNet = dailyIncome - dailyExpense;
@@ -275,6 +287,7 @@ function displayMonthlyRecords() {
             <td data-label="거리(km)">${data.distance.toFixed(1)}</td>
             <td data-label="건수">${data.tripCount}</td>
             <td data-label="대기">${waitHours > 0 ? waitHours + 'h ' : ''}${waitMinutes}m</td>
+            <td data-label="수정"><button class="edit-btn" onclick="editDailyRecord('${day}')">수정</button></td>
         `;
         monthlyTbody.appendChild(tr);
 
@@ -284,10 +297,10 @@ function displayMonthlyRecords() {
         totalTripCount += data.tripCount;
         totalWaitingTime += data.waitingTime;
         data.records.forEach(r => {
-            if (r.type === '주유') {
+            if (r.type === '주유소') {
                 totalLiters += parseFloat(r.liters || 0);
                 totalFuelCost += parseInt(r.cost || 0);
-            } else if (r.type === '소모품') {
+            } else if (['소모품', '요소수'].includes(r.type)) {
                 totalSuppliesCost += parseInt(r.cost || 0);
             }
         });
@@ -360,7 +373,7 @@ function displayYearlyRecords() {
             monthlyData[month].distance += parseFloat(r.distance || 0);
             monthlyData[month].tripCount++;
         }
-        if(r.type === '주유') monthlyData[month].liters += parseFloat(r.liters || 0);
+        if(r.type === '주유소') monthlyData[month].liters += parseFloat(r.liters || 0);
         monthlyData[month].waitingTime += parseInt(r.waitingTime || 0);
     });
 
@@ -386,12 +399,10 @@ function displayCurrentMonthData() {
     currentMonthTitle.textContent = `${currentMonth}월 실시간 요약`;
     currentMonthAvgIncomeLabel.textContent = `${currentMonth}월 평균 수익`;
 
-    let totalIncome = 0, totalExpense = 0, totalFuelCost = 0, totalSuppliesCost = 0, totalTripCount = 0, totalWaitingTime = 0;
+    let totalIncome = 0, totalExpense = 0, totalTripCount = 0, totalWaitingTime = 0;
     currentMonthRecords.forEach(r => {
         totalIncome += parseInt(r.income || 0);
         totalExpense += parseInt(r.cost || 0);
-        if (r.type === '주유') totalFuelCost += parseInt(r.cost || 0);
-        if (r.type === '소모품') totalSuppliesCost += parseInt(r.cost || 0);
         if (['화물운송', '공차이동'].includes(r.type)) totalTripCount++;
         totalWaitingTime += parseInt(r.waitingTime || 0);
     });
@@ -416,10 +427,10 @@ function displayCumulativeData() {
     allRecords.forEach(r => {
         cumulativeIncome += parseInt(r.income || 0);
         cumulativeExpense += parseInt(r.cost || 0);
-        if (r.type === '주유') {
+        if (r.type === '주유소') {
             cumulativeFuelCost += parseInt(r.cost || 0);
             cumulativeTotalLiters += parseFloat(r.liters || 0);
-        } else if (r.type === '소모품') {
+        } else if (['소모품', '요소수'].includes(r.type)) {
             cumulativeSuppliesCost += parseInt(r.cost || 0);
         }
         cumulativeWaitingTime += parseInt(r.waitingTime || 0);
@@ -478,36 +489,124 @@ function updateAllDisplays() {
     displayCurrentMonthData();
 }
 
-recordForm.addEventListener('submit', function(event) {
-    event.preventDefault();
-    const tripDistance = parseFloat(manualDistanceInput.value) || 0;
-    let currentMileage = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
-    if (['화물운송', '공차이동'].includes(typeSelect.value)) {
-        currentMileage += tripDistance;
-        localStorage.setItem('total_vehicle_mileage', currentMileage);
-    }
+function editRecord(id) {
+    const records = JSON.parse(localStorage.getItem('records')) || [];
+    const recordToEdit = records.find(r => r.id === id);
+    if (!recordToEdit) return;
+
+    dateInput.value = recordToEdit.date;
+    timeInput.value = recordToEdit.time;
+    typeSelect.value = recordToEdit.type;
+    
+    populateCenterSelectors();
+    fromSelect.value = recordToEdit.from;
+    toSelect.value = recordToEdit.to;
+    
+    manualDistanceInput.value = recordToEdit.distance;
+    incomeInput.value = (recordToEdit.income / 10000).toFixed(2);
+    costInput.value = (recordToEdit.cost / 10000).toFixed(2);
+    
+    fuelLitersInput.value = recordToEdit.liters;
+    fuelUnitPriceInput.value = recordToEdit.unitPrice;
+    fuelBrandSelect.value = recordToEdit.brand;
+
+    ureaLitersInput.value = recordToEdit.ureaLiters;
+    ureaUnitPriceInput.value = recordToEdit.ureaUnitPrice;
+    ureaStationInput.value = recordToEdit.ureaStation;
+
+    supplyItemInput.value = recordToEdit.supplyItem;
+    supplyMileageInput.value = recordToEdit.mileage;
+    
+    waitingTimeInput.value = recordToEdit.waitingTime;
+    
+    toggleUI(recordToEdit.type);
+    
+    editIdInput.value = id;
+    submitBtn.textContent = '기록 수정하기';
+    submitBtn.classList.add('edit-mode');
+    cancelEditBtn.classList.remove('hidden');
+
+    window.scrollTo(0, 0);
+}
+
+function cancelEdit() {
+    recordForm.reset();
+    editIdInput.value = '';
+    submitBtn.textContent = '기록 저장하기';
+    submitBtn.classList.remove('edit-mode');
+    cancelEditBtn.classList.add('hidden');
+    initialSetup();
+}
+
+function editDailyRecord(date) {
+    dailyDatePicker.value = date;
+    tabBtns.forEach(b => b.classList.remove('active'));
+    document.querySelector('.tab-btn[data-view="daily"]').classList.add('active');
+    viewContents.forEach(c => c.classList.remove('active'));
+    document.getElementById('daily-view').classList.add('active');
+    updateAllDisplays();
+    window.scrollTo(0, recordForm.scrollHeight);
+}
+
+function getFormData(isNew = false) {
     const fromValue = (fromSelect.value === 'direct') ? fromCustom.value : fromSelect.value;
     const toValue = (toSelect.value === 'direct') ? toCustom.value : toSelect.value;
     addCenter(fromValue); addCenter(toValue);
-    const newRecord = {
-        id: Date.now(),
+    
+    const formData = {
         date: dateInput.value, time: timeInput.value, type: typeSelect.value,
         from: fromValue, to: toValue, 
-        distance: tripDistance,
+        distance: parseFloat(manualDistanceInput.value) || 0,
         start_gps: startCoordsInput.value,
         end_gps: endCoordsInput.value,
         cost: Math.round((parseFloat(costInput.value) || 0) * 10000),
         income: Math.round((parseFloat(incomeInput.value) || 0) * 10000),
-        liters: fuelLitersInput.value || 0, unitPrice: fuelUnitPriceInput.value || 0, brand: fuelBrandSelect.value || '',
-        supplyItem: supplyItemInput.value || '', mileage: supplyMileageInput.value || 0,
-        waitingTime: waitingTimeInput.value || 0
+        liters: parseFloat(fuelLitersInput.value) || 0,
+        unitPrice: parseInt(fuelUnitPriceInput.value) || 0,
+        brand: fuelBrandSelect.value || '',
+        ureaLiters: parseFloat(ureaLitersInput.value) || 0,
+        ureaUnitPrice: parseInt(ureaUnitPriceInput.value) || 0,
+        ureaStation: ureaStationInput.value || '',
+        supplyItem: supplyItemInput.value || '',
+        mileage: parseInt(supplyMileageInput.value) || 0,
+        waitingTime: parseInt(waitingTimeInput.value) || 0
     };
-    const records = JSON.parse(localStorage.getItem('records')) || [];
-    records.push(newRecord);
+    if (isNew) formData.id = Date.now();
+    return formData;
+}
+
+recordForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+    const editingId = parseInt(editIdInput.value);
+    
+    let records = JSON.parse(localStorage.getItem('records')) || [];
+    const tripDistance = parseFloat(manualDistanceInput.value) || 0;
+    
+    if (editingId) {
+        const recordIndex = records.findIndex(r => r.id === editingId);
+        if (recordIndex > -1) {
+            const oldRecord = records[recordIndex];
+            const oldDistance = parseFloat(oldRecord.distance) || 0;
+            
+            let currentMileage = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
+            if (['화물운송', '공차이동'].includes(oldRecord.type)) {
+                currentMileage = currentMileage - oldDistance + tripDistance;
+                localStorage.setItem('total_vehicle_mileage', currentMileage);
+            }
+            records[recordIndex] = { ...oldRecord, ...getFormData() };
+        }
+    } else {
+        let currentMileage = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
+        if (['화물운송', '공차이동'].includes(typeSelect.value)) {
+            currentMileage += tripDistance;
+            localStorage.setItem('total_vehicle_mileage', currentMileage);
+        }
+        records.push(getFormData(true));
+    }
+    
     records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     localStorage.setItem('records', JSON.stringify(records));
-    recordForm.reset();
-    initialSetup();
+    cancelEdit();
 });
 
 subsidySaveBtn.addEventListener('click', () => {
@@ -530,7 +629,7 @@ function exportToCsv() {
         alert('저장할 기록이 없습니다.');
         return;
     }
-    const headers = ['날짜', '시간', '구분', '출발지', '도착지', '운행거리(km)', '대기시간(분)', '출발GPS', '도착GPS', '수입(원)', '지출(원)', '주유량(L)', '단가(원/L)', '주유브랜드', '소모품내역', '교체시점(km)'];
+    const headers = ['날짜', '시간', '구분', '출발지', '도착지', '운행거리(km)', '대기시간(분)', '출발GPS', '도착GPS', '수입(원)', '지출(원)', '주유량(L)', '단가(원/L)', '주유브랜드', '요소수주입량(L)','요소수단가(원/L)','요소수주입처', '소모품내역', '교체시점(km)'];
     const escapeCsvCell = (cell) => {
         if (cell == null) return '';
         const str = String(cell);
@@ -539,7 +638,7 @@ function exportToCsv() {
     };
     const csvRows = [headers.join(',')];
     records.forEach(r => {
-        const row = [r.date, r.time, r.type, r.from, r.to, r.distance, r.waitingTime, r.start_gps, r.end_gps, r.income, r.cost, r.liters, r.unitPrice, r.brand, r.supplyItem, r.mileage];
+        const row = [r.date, r.time, r.type, r.from, r.to, r.distance, r.waitingTime, r.start_gps, r.end_gps, r.income, r.cost, r.liters, r.unitPrice, r.brand, r.ureaLiters, r.ureaUnitPrice, r.ureaStation, r.supplyItem, r.mileage];
         csvRows.push(row.map(escapeCsvCell).join(','));
     });
     const csvString = '\uFEFF' + csvRows.join('\n');
@@ -641,10 +740,11 @@ endGpsBtn.addEventListener('click', () => getGPS('end'));
 startWaitBtn.addEventListener('click', startWaitTimer);
 endWaitBtn.addEventListener('click', stopWaitTimer);
 
-function calculateCost() {
-    const unitPrice = parseFloat(fuelUnitPriceInput.value) || 0;
-    const liters = parseFloat(fuelLitersInput.value) || 0;
-    if (document.activeElement === fuelLitersInput || document.activeElement === fuelUnitPriceInput) {
+function calculateCost(type) {
+    const unitPrice = parseFloat(type === 'fuel' ? fuelUnitPriceInput.value : ureaUnitPriceInput.value) || 0;
+    const liters = parseFloat(type === 'fuel' ? fuelLitersInput.value : ureaLitersInput.value) || 0;
+    
+    if ( (document.activeElement === (type === 'fuel' ? fuelLitersInput : ureaLitersInput)) || (document.activeElement === (type === 'fuel' ? fuelUnitPriceInput : ureaUnitPriceInput)) ) {
         if (unitPrice > 0 && liters > 0) {
             costInput.value = (Math.round(unitPrice * liters) / 10000).toFixed(2);
         }
@@ -652,19 +752,32 @@ function calculateCost() {
 }
 function calculateLiters() {
     const costInManwon = parseFloat(costInput.value) || 0;
-    const unitPrice = parseFloat(fuelUnitPriceInput.value) || 0;
-    if (document.activeElement === costInput && typeSelect.value === '주유') {
-        if (costInManwon > 0 && unitPrice > 0) {
-            fuelLitersInput.value = ((costInManwon * 10000) / unitPrice).toFixed(2);
+    const type = typeSelect.value;
+    
+    if (document.activeElement === costInput) {
+        if (type === '주유소') {
+            const unitPrice = parseFloat(fuelUnitPriceInput.value) || 0;
+            if (costInManwon > 0 && unitPrice > 0) {
+                fuelLitersInput.value = ((costInManwon * 10000) / unitPrice).toFixed(2);
+            }
+        } else if (type === '요소수') {
+            const unitPrice = parseFloat(ureaUnitPriceInput.value) || 0;
+            if (costInManwon > 0 && unitPrice > 0) {
+                ureaLitersInput.value = ((costInManwon * 10000) / unitPrice).toFixed(2);
+            }
         }
     }
 }
-fuelUnitPriceInput.addEventListener('input', calculateCost);
-fuelLitersInput.addEventListener('input', calculateLiters);
+fuelUnitPriceInput.addEventListener('input', () => calculateCost('fuel'));
+fuelLitersInput.addEventListener('input', () => calculateCost('fuel'));
+ureaUnitPriceInput.addEventListener('input', () => calculateCost('urea'));
+ureaLitersInput.addEventListener('input', () => calculateCost('urea'));
 costInput.addEventListener('input', calculateLiters);
+
 typeSelect.addEventListener('change', () => toggleUI(typeSelect.value));
 fromSelect.addEventListener('change', () => fromCustom.classList.toggle('hidden', fromSelect.value !== 'direct'));
 toSelect.addEventListener('change', () => toCustom.classList.toggle('hidden', toSelect.value !== 'direct'));
+cancelEditBtn.addEventListener('click', cancelEdit);
 
 function initialSetup() {
     dateInput.value = getTodayString();
@@ -688,6 +801,7 @@ function initialSetup() {
     if (waitTimerInterval) clearInterval(waitTimerInterval);
     waitStartTime = null;
 
+    cancelEdit();
     updateAllDisplays();
 }
 initialSetup();

@@ -272,59 +272,87 @@ function displayMonthlyRecords() {
     const selectedPeriod = `${monthlyYearSelect.value}-${monthlyMonthSelect.value}`;
     const currentMonthRecords = allRecords.filter(r => r.date.startsWith(selectedPeriod));
     
-    monthlyTbody.innerHTML = '';
-    let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalLiters = 0, totalFuelCost = 0, totalSuppliesCost = 0, totalWaitingTime = 0, totalTripCount = 0;
+    // 월별 상세 요약 섹션은 숨김 처리
+    monthlyDetailedSummaryDiv.innerHTML = ''; 
+    monthlyDetailedSummaryDiv.classList.add('hidden');
 
-    currentMonthRecords.forEach(r => {
-        totalIncome += parseInt(r.income || 0);
-        totalExpense += parseInt(r.cost || 0);
-        if (['화물운송', '공차이동'].includes(r.type)) {
-            totalDistance += parseFloat(r.distance || 0);
-            totalTripCount++;
+    monthlyTbody.innerHTML = '';
+
+    // 1. 날짜별로 기록을 그룹화합니다.
+    const recordsByDate = currentMonthRecords.reduce((acc, record) => {
+        if (!acc[record.date]) {
+            acc[record.date] = [];
         }
-        if (r.type === '주유소') {
-            totalLiters += parseFloat(r.liters || 0);
-            totalFuelCost += parseInt(r.cost || 0);
-        } else if (['소모품', '요소수'].includes(r.type)) {
-            totalSuppliesCost += parseInt(r.cost || 0);
-        }
-        totalWaitingTime += parseInt(r.waitingTime || 0);
+        acc[record.date].push(record);
+        return acc;
+    }, {});
+
+    // 날짜를 내림차순으로 정렬 (최신 날짜가 위로)
+    const sortedDates = Object.keys(recordsByDate).sort().reverse();
+
+    // 2. 정렬된 각 날짜에 대해 요약 및 기록을 표시합니다.
+    sortedDates.forEach(date => {
+        const dailyRecords = recordsByDate[date];
+        let dailyIncome = 0, dailyExpense = 0, dailyDistance = 0, dailyTripCount = 0, dailyWaitingTime = 0;
+
+        // 해당 날짜의 요약 정보 계산
+        dailyRecords.forEach(r => {
+            dailyIncome += parseInt(r.income || 0);
+            dailyExpense += parseInt(r.cost || 0);
+            if (['화물운송', '공차이동'].includes(r.type)) {
+                dailyDistance += parseFloat(r.distance || 0);
+                dailyTripCount++;
+            }
+            dailyWaitingTime += parseInt(r.waitingTime || 0);
+        });
+        const dailyNet = dailyIncome - dailyExpense;
+
+        // 일별 요약 정보 행(Row) 생성
+        const summaryTr = document.createElement('tr');
+        summaryTr.style.backgroundColor = '#f2f2f2'; // 배경색으로 구분
+        summaryTr.style.fontWeight = 'bold';
         
-        const tr = document.createElement('tr');
-        let detailsCell = '', moneyCell = '', actionCell = '';
-        if (['화물운송', '공차이동'].includes(r.type)) {
-            detailsCell = `<strong>${r.from} → ${r.to}</strong><br><span class="note">${r.distance} km</span>`;
-            let gpsLinks = '';
-            if (r.start_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.start_gps}" target="_blank">📍출발점</a> `;
-            if (r.end_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.end_gps}" target="_blank">🏁도착점</a>`;
-            if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
-            if (r.waitingTime > 0) detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
-            moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
-        } else if (r.type === '주유소') {
-            detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else if (r.type === '요소수') {
-            detailsCell = `<strong>${parseFloat(r.ureaLiters || 0).toFixed(2)} L</strong> @ ${parseInt(r.ureaUnitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.ureaStation || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else if (r.type === '소모품') {
-            detailsCell = `<strong>${r.supplyItem || '기타 소모품'}</strong><br><span class="note">@ ${parseInt(r.mileage || 0).toLocaleString()} km</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else {
-            detailsCell = `<span class="note">${r.notes || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        }
-        actionCell = `<div class="action-cell"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></div>`;
-        tr.innerHTML = `<td data-label="일시">${r.date.substring(5)} ${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="구간 / 내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;
-        monthlyTbody.appendChild(tr);
+        const summaryTd = document.createElement('td');
+        summaryTd.colSpan = 5; // 테이블의 모든 열을 합침
+        summaryTd.innerHTML = `<strong>${date} 요약</strong> | 수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span> | 지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span> | 일당: <strong class="income">${formatToManwon(dailyNet)} 만원</strong><br>거리: <strong>${dailyDistance.toFixed(1)} km</strong> | 이동건수: <strong>${dailyTripCount} 건</strong> | 대기시간: <strong>${dailyWaitingTime} 분</strong>`;
+        summaryTd.style.textAlign = 'center';
+        summaryTd.style.padding = '10px';
+        
+        summaryTr.appendChild(summaryTd);
+        monthlyTbody.appendChild(summaryTr);
+
+        // 해당 날짜의 개별 기록들을 테이블에 추가
+        dailyRecords.forEach(r => {
+            const tr = document.createElement('tr');
+            let detailsCell = '', moneyCell = '', actionCell = '';
+            if (['화물운송', '공차이동'].includes(r.type)) {
+                detailsCell = `<strong>${r.from} → ${r.to}</strong><br><span class="note">${r.distance} km</span>`;
+                if (r.waitingTime > 0) detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
+                moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
+            } else if (r.type === '주유소') {
+                detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
+                moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+            } else if (r.type === '요소수') {
+                detailsCell = `<strong>${parseFloat(r.ureaLiters || 0).toFixed(2)} L</strong> @ ${parseInt(r.ureaUnitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.ureaStation || ''}</span>`;
+                moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+            } else if (r.type === '소모품') {
+                detailsCell = `<strong>${r.supplyItem || '기타 소모품'}</strong><br><span class="note">@ ${parseInt(r.mileage || 0).toLocaleString()} km</span>`;
+                moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+            } else {
+                detailsCell = `<span class="note">${r.notes || ''}</span>`;
+                moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+            }
+            actionCell = `<div class="action-cell"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></div>`;
+            
+            // 일별 요약이 있으므로, 각 기록의 날짜 표시는 시간만으로 간소화
+            tr.innerHTML = `<td data-label="일시">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="구간 / 내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;
+            monthlyTbody.appendChild(tr);
+        });
     });
 
-    const netIncome = totalIncome - totalExpense;
-    const waitHours = Math.floor(totalWaitingTime / 60);
-    const waitMinutes = totalWaitingTime % 60;
-    
-    monthlyDetailedSummaryDiv.innerHTML = `<strong>${parseInt(monthlyMonthSelect.value)}월 요약</strong><br>총 정산: <strong>${formatToManwon(netIncome)} 만원</strong> | 총 주유비: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> | 총 소모품비: <span class="cost">${formatToManwon(totalSuppliesCost)} 만원</span><br>총 대기시간: ${waitHours}시간 ${waitMinutes}분 | 총 이동 건수: ${totalTripCount} 건 | 총 운행거리: ${totalDistance.toFixed(1)} km`;
-
+    // --- 월 전체에 대한 비교 그래프와 보조금 요약은 그대로 유지 ---
     const subsidyLimit = parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0;
+    const totalLiters = currentMonthRecords.reduce((sum, r) => sum + (r.type === '주유소' ? parseFloat(r.liters || 0) : 0), 0);
     const remainingLiters = subsidyLimit - totalLiters;
     const progressPercent = subsidyLimit > 0 ? Math.min(100, (totalLiters / subsidyLimit * 100)).toFixed(1) : 0;
     subsidySummaryDiv.innerHTML = `<div class="progress-label">월 한도: ${subsidyLimit.toLocaleString()} L | 사용: ${totalLiters.toFixed(1)} L | 잔여: ${remainingLiters.toFixed(1)} L</div><div class="progress-bar-container"><div class="progress-bar progress-bar-used" style="width: ${progressPercent}%;"></div></div>`;
@@ -343,6 +371,10 @@ function displayMonthlyRecords() {
     });
     const prevNetIncome = prevTotalIncome - prevTotalExpense;
     
+    const totalIncome = currentMonthRecords.reduce((sum, r) => sum + parseInt(r.income || 0), 0);
+    const totalExpense = currentMonthRecords.reduce((sum, r) => sum + parseInt(r.cost || 0), 0);
+    const netIncome = totalIncome - totalExpense;
+
     updateComparisonGraph({
         current: { income: totalIncome, expense: totalExpense, net: netIncome },
         previous: { income: prevTotalIncome, expense: prevTotalExpense, net: prevNetIncome }

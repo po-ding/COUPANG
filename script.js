@@ -1,4 +1,4 @@
-/** 버전: 3.6 | 최종 수정일: 2025-11-04 */
+/** 버전: 3.7 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -45,13 +45,14 @@ const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
 
 // Renamed view variables
+const todayDatePicker = document.getElementById('today-date-picker');
 const todaySummaryDiv = document.getElementById('today-summary');
 const todayTbody = document.querySelector('#today-records-table tbody');
 
 const dailyYearSelect = document.getElementById('daily-year-select');
 const dailyMonthSelect = document.getElementById('daily-month-select');
 const dailySummaryDiv = document.getElementById('daily-summary');
-const dailyTbody = document.querySelector('#daily-records-table tbody');
+const dailyTbody = document.querySelector('#daily-summary-table tbody');
 
 const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
@@ -247,18 +248,11 @@ function createSummaryHTML(title, records) {
     `;
 }
 
-function displayTodayRecords(dateToShow) {
+function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
-    const selectedDate = dateToShow || getTodayString();
-    
-    let title;
-    if (dateToShow) {
-        const dateObj = new Date(dateToShow);
-        title = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }) + ' 요약';
-    } else {
-        const today = new Date();
-        title = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }) + ' (오늘) 요약';
-    }
+    const selectedDate = todayDatePicker.value || getTodayString();
+    const dateObj = new Date(selectedDate);
+    const title = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }) + ' 요약';
 
     const filteredRecords = records.filter(r => r.date === selectedDate);
     
@@ -379,16 +373,16 @@ function displayMonthlyRecords() {
 }
 
 function viewDateDetails(date) {
-    // Switch to the 'today' tab
+    todayDatePicker.value = date;
+    
     tabBtns.forEach(b => b.classList.remove('active'));
     document.querySelector('.tab-btn[data-view="today"]').classList.add('active');
+    
     viewContents.forEach(c => c.classList.remove('active'));
     document.getElementById('today-view').classList.add('active');
 
-    // Display records for the selected date
-    displayTodayRecords(date);
+    displayTodayRecords();
     
-    // Scroll to the top of the view section for better UX
     const viewSection = document.querySelector('.view-section');
     if(viewSection) {
         viewSection.scrollIntoView({ behavior: 'smooth' });
@@ -838,6 +832,7 @@ tabBtns.forEach(btn => {
     });
 });
 
+todayDatePicker.addEventListener('change', displayTodayRecords);
 dailyYearSelect.addEventListener('change', displayDailyRecords);
 dailyMonthSelect.addEventListener('change', displayDailyRecords);
 monthlyYearSelect.addEventListener('change', displayMonthlyRecords);
@@ -926,6 +921,7 @@ function initialSetup() {
     populateCenterSelectors();
     populateSelectors();
     cancelEdit();
+    todayDatePicker.value = getTodayString();
     updateAllDisplays();
 }
 

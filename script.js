@@ -247,9 +247,19 @@ function createSummaryHTML(title, records) {
     `;
 }
 
-function displayTodayRecords() {
+function displayTodayRecords(dateToShow) {
     const records = JSON.parse(localStorage.getItem('records')) || [];
-    const selectedDate = getTodayString();
+    const selectedDate = dateToShow || getTodayString();
+    
+    let title;
+    if (dateToShow) {
+        const dateObj = new Date(dateToShow);
+        title = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }) + ' 요약';
+    } else {
+        const today = new Date();
+        title = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }) + ' (오늘) 요약';
+    }
+
     const filteredRecords = records.filter(r => r.date === selectedDate);
     
     todayTbody.innerHTML = '';
@@ -259,68 +269,53 @@ function displayTodayRecords() {
         let detailsCell = '', moneyCell = '', actionCell = '';
         if (['화물운송', '공차이동'].includes(r.type)) {
             detailsCell = `<strong>${r.from} → ${r.to}</strong><br><span class="note">${r.distance} km</span>`;
-            let gpsLinks = '';
-            if (r.start_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.start_gps}" target="_blank">📍출발점</a> `;
-            if (r.end_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.end_gps}" target="_blank">🏁도착점</a>`;
-            if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
             if (r.waitingTime > 0) detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
-            moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
+            moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)}</span>` : '') + (r.cost > 0 ? ` <span class="cost">-${formatToManwon(r.cost)}</span>` : '');
         } else if (r.type === '주유소') {
-            detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else if (r.type === '요소수') {
-            detailsCell = `<strong>${parseFloat(r.ureaLiters || 0).toFixed(2)} L</strong> @ ${parseInt(r.ureaUnitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.ureaStation || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else if (r.type === '소모품') {
-            detailsCell = `<strong>${r.supplyItem || '기타 소모품'}</strong><br><span class="note">@ ${parseInt(r.mileage || 0).toLocaleString()} km</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+            detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)}</span>`;
         } else {
-            detailsCell = `<span class="note">${r.notes || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
+            detailsCell = `<strong>${r.supplyItem || r.type}</strong>`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)}</span>`;
         }
         actionCell = `<div class="action-cell"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></div>`;
-        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;
+        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;
         todayTbody.appendChild(tr);
     });
     
-    todaySummaryDiv.innerHTML = createSummaryHTML(`${selectedDate} (오늘) 요약`, filteredRecords);
+    todaySummaryDiv.innerHTML = createSummaryHTML(title, filteredRecords);
 }
 
-function displayDailySummaryRecords() {
+function displayDailyRecords() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const selectedPeriod = `${dailyYearSelect.value}-${dailyMonthSelect.value}`;
     const currentMonthRecords = allRecords.filter(r => r.date.startsWith(selectedPeriod));
 
     dailyTbody.innerHTML = '';
     dailySummaryDiv.classList.remove('hidden');
-
     dailySummaryDiv.innerHTML = createSummaryHTML(`${parseInt(dailyMonthSelect.value)}월 총계`, currentMonthRecords);
 
-    const dailyData = {};
+    const recordsByDate = {};
     currentMonthRecords.forEach(r => {
-        const date = r.date;
-        if (!dailyData[date]) {
-            dailyData[date] = { income: 0, expense: 0, distance: 0, tripCount: 0, waitingTime: 0, liters: 0 };
+        if (!recordsByDate[r.date]) {
+            recordsByDate[r.date] = { income: 0, expense: 0, distance: 0, tripCount: 0, waitingTime: 0, liters: 0 };
         }
-        dailyData[date].income += parseInt(r.income || 0);
-        dailyData[date].expense += parseInt(r.cost || 0);
+        recordsByDate[r.date].income += parseInt(r.income || 0);
+        recordsByDate[r.date].expense += parseInt(r.cost || 0);
         if (['화물운송', '공차이동'].includes(r.type)) {
-            dailyData[date].distance += parseFloat(r.distance || 0);
-            dailyData[date].tripCount++;
+            recordsByDate[r.date].distance += parseFloat(r.distance || 0);
+            recordsByDate[r.date].tripCount++;
         }
-        if (r.type === '주유소') {
-            dailyData[date].liters += parseFloat(r.liters || 0);
-        }
-        dailyData[date].waitingTime += parseInt(r.waitingTime || 0);
+        if (r.type === '주유소') recordsByDate[r.date].liters += parseFloat(r.liters || 0);
+        recordsByDate[r.date].waitingTime += parseInt(r.waitingTime || 0);
     });
 
-    const sortedDates = Object.keys(dailyData).sort();
-    sortedDates.forEach(date => {
-        const data = dailyData[date];
+    Object.keys(recordsByDate).sort().forEach(date => {
+        const data = recordsByDate[date];
         const day = date.substring(8, 10);
         const dailyNet = data.income - data.expense;
-        const dailyWaitHours = Math.floor(data.waitingTime / 60);
-        const dailyWaitMinutes = data.waitingTime % 60;
+        const waitHours = Math.floor(data.waitingTime / 60);
+        const waitMinutes = data.waitingTime % 60;
         
         const tr = document.createElement('tr');
         if (date === getTodayString()) {
@@ -328,48 +323,47 @@ function displayDailySummaryRecords() {
              tr.style.backgroundColor = '#e9f5ff';
         }
         tr.innerHTML = `
-            <td data-label="일">${parseInt(day)}일</td>
-            <td data-label="총수입(만원)"><span class="income">${formatToManwon(data.income)}</span></td>
-            <td data-label="총지출(만원)"><span class="cost">${formatToManwon(data.expense)}</span></td>
-            <td data-label="정산(만원)"><strong>${formatToManwon(dailyNet)}</strong></td>
-            <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
-            <td data-label="이동건수">${data.tripCount}</td>
-            <td data-label="대기시간">${dailyWaitHours}h ${dailyWaitMinutes}m</td>
-            <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
+            <td>${parseInt(day)}일</td>
+            <td><span class="income">${formatToManwon(data.income)}</span></td>
+            <td><span class="cost">${formatToManwon(data.expense)}</span></td>
+            <td><strong>${formatToManwon(dailyNet)}</strong></td>
+            <td>${data.distance.toFixed(1)}</td>
+            <td>${data.tripCount}</td>
+            <td>${waitHours}h ${waitMinutes}m</td>
+            <td>${data.liters.toFixed(2)}</td>
+            <td><button class="edit-btn" onclick="viewDateDetails('${date}')">상세</button></td>
         `;
         dailyTbody.appendChild(tr);
     });
 }
         
-function displayMonthlySummaryRecords() {
+function displayMonthlyRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedYear = monthlyYearSelect.value;
     
-    const monthlyData = {};
+    const recordsByMonth = {};
     for(let i=1; i<=12; i++) {
         const monthKey = `${selectedYear}-${i.toString().padStart(2, '0')}`;
-        monthlyData[monthKey] = { income: 0, expense: 0, distance: 0, liters: 0, tripCount: 0, waitingTime: 0 };
+        recordsByMonth[monthKey] = { income: 0, expense: 0, distance: 0, liters: 0, tripCount: 0, waitingTime: 0 };
     }
 
     records.filter(r => r.date.startsWith(selectedYear)).forEach(r => {
         const monthKey = r.date.substring(0, 7);
-        monthlyData[monthKey].income += parseInt(r.income || 0);
-        monthlyData[monthKey].expense += parseInt(r.cost || 0);
+        recordsByMonth[monthKey].income += parseInt(r.income || 0);
+        recordsByMonth[monthKey].expense += parseInt(r.cost || 0);
         if(['화물운송','공차이동'].includes(r.type)) {
-            monthlyData[monthKey].distance += parseFloat(r.distance || 0);
-            monthlyData[monthKey].tripCount++;
+            recordsByMonth[monthKey].distance += parseFloat(r.distance || 0);
+            recordsByMonth[monthKey].tripCount++;
         }
-        if(r.type === '주유소') monthlyData[monthKey].liters += parseFloat(r.liters || 0);
-        monthlyData[monthKey].waitingTime += parseInt(r.waitingTime || 0);
+        if(r.type === '주유소') recordsByMonth[monthKey].liters += parseFloat(r.liters || 0);
+        recordsByMonth[monthKey].waitingTime += parseInt(r.waitingTime || 0);
     });
 
     monthlyTbody.innerHTML = '';
     const currentMonthKey = new Date().toISOString().slice(0, 7);
     
-    const sortedMonths = Object.keys(monthlyData).sort((a, b) => a.localeCompare(b));
-
-    sortedMonths.forEach(monthKey => {
-        const data = monthlyData[monthKey];
+    Object.keys(recordsByMonth).sort().forEach(monthKey => {
+        const data = recordsByMonth[monthKey];
         const month = monthKey.substring(5, 7);
         const netIncome = data.income - data.expense;
         const waitHours = Math.floor(data.waitingTime / 60);
@@ -382,6 +376,23 @@ function displayMonthlySummaryRecords() {
         tr.innerHTML = `<td>${parseInt(month)}월</td><td><span class="income">${formatToManwon(data.income)}</span></td><td><span class="cost">${formatToManwon(data.expense)}</span></td><td><strong>${formatToManwon(netIncome)}</strong></td><td>${data.distance.toFixed(1)}</td><td>${data.tripCount}</td><td>${waitHours}h ${waitMinutes}m</td><td>${data.liters.toFixed(2)}</td>`;
         monthlyTbody.appendChild(tr);
     });
+}
+
+function viewDateDetails(date) {
+    // Switch to the 'today' tab
+    tabBtns.forEach(b => b.classList.remove('active'));
+    document.querySelector('.tab-btn[data-view="today"]').classList.add('active');
+    viewContents.forEach(c => c.classList.remove('active'));
+    document.getElementById('today-view').classList.add('active');
+
+    // Display records for the selected date
+    displayTodayRecords(date);
+    
+    // Scroll to the top of the view section for better UX
+    const viewSection = document.querySelector('.view-section');
+    if(viewSection) {
+        viewSection.scrollIntoView({ behavior: 'smooth' });
+    }
 }
 
 function displayCurrentMonthData() {
@@ -513,8 +524,8 @@ function populateSelectors() {
 function updateAllDisplays() {
     const activeView = document.querySelector('.view-content.active').id;
     if (activeView === 'today-view') displayTodayRecords();
-    if (activeView === 'daily-view') displayDailySummaryRecords();
-    if (activeView === 'monthly-view') displayMonthlySummaryRecords();
+    if (activeView === 'daily-view') displayDailyRecords();
+    if (activeView === 'monthly-view') displayMonthlyRecords();
     displayCumulativeData();
     displayCurrentMonthData();
 }
@@ -818,7 +829,7 @@ clearBtn.addEventListener('click', () => {
 
 tabBtns.forEach(btn => {
     btn.addEventListener('click', (event) => {
-        event.preventDefault(); // 스크롤 점프 현상 방지
+        event.preventDefault(); 
         tabBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         viewContents.forEach(c => c.classList.remove('active'));
@@ -827,9 +838,9 @@ tabBtns.forEach(btn => {
     });
 });
 
-dailyYearSelect.addEventListener('change', displayDailySummaryRecords);
-dailyMonthSelect.addEventListener('change', displayDailySummaryRecords);
-monthlyYearSelect.addEventListener('change', displayMonthlySummaryRecords);
+dailyYearSelect.addEventListener('change', displayDailyRecords);
+dailyMonthSelect.addEventListener('change', displayDailyRecords);
+monthlyYearSelect.addEventListener('change', displayMonthlyRecords);
 
 startGpsBtn.addEventListener('click', () => getGPS('start'));
 endGpsBtn.addEventListener('click', () => getGPS('end'));

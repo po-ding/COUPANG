@@ -1,3 +1,4 @@
+javascript
 /** 버전: 2.4 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
@@ -275,47 +276,55 @@ function displayMonthlyRecords() {
     monthlyTbody.innerHTML = '';
     let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalLiters = 0, totalFuelCost = 0, totalSuppliesCost = 0, totalWaitingTime = 0, totalTripCount = 0;
 
+    const dailyAggregates = {};
+
     currentMonthRecords.forEach(r => {
-        totalIncome += parseInt(r.income || 0);
-        totalExpense += parseInt(r.cost || 0);
+        const day = r.date;
+        if (!dailyAggregates[day]) {
+            dailyAggregates[day] = { income: 0, cost: 0, distance: 0, tripCount: 0, waitingTime: 0, records: [] };
+        }
+        dailyAggregates[day].income += parseInt(r.income || 0);
+        dailyAggregates[day].cost += parseInt(r.cost || 0);
         if (['화물운송', '공차이동'].includes(r.type)) {
-            totalDistance += parseFloat(r.distance || 0);
-            totalTripCount++;
+            dailyAggregates[day].distance += parseFloat(r.distance || 0);
+            dailyAggregates[day].tripCount++;
         }
-        if (r.type === '주유소') {
-            totalLiters += parseFloat(r.liters || 0);
-            totalFuelCost += parseInt(r.cost || 0);
-        } else if (['소모품', '요소수'].includes(r.type)) {
-            totalSuppliesCost += parseInt(r.cost || 0);
-        }
-        totalWaitingTime += parseInt(r.waitingTime || 0);
+        dailyAggregates[day].waitingTime += parseInt(r.waitingTime || 0);
+        dailyAggregates[day].records.push(r);
+    });
+    
+    Object.keys(dailyAggregates).sort().reverse().forEach(day => {
+        const data = dailyAggregates[day];
+        const netIncome = data.income - data.cost;
+        const waitHours = Math.floor(data.waitingTime / 60);
+        const waitMinutes = data.waitingTime % 60;
         
         const tr = document.createElement('tr');
-        let detailsCell = '', moneyCell = '', actionCell = '';
-        if (['화물운송', '공차이동'].includes(r.type)) {
-            detailsCell = `<strong>${r.from} → ${r.to}</strong><br><span class="note">${r.distance} km</span>`;
-            let gpsLinks = '';
-            if (r.start_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.start_gps}" target="_blank">📍출발점</a> `;
-            if (r.end_gps) gpsLinks += `<a href="https://www.google.com/maps?q=${r.end_gps}" target="_blank">🏁도착점</a>`;
-            if(gpsLinks) detailsCell += `<br><span class="note">${gpsLinks}</span>`;
-            if (r.waitingTime > 0) detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
-            moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)} 만원</span> ` : '') + (r.cost > 0 ? `<span class="cost">-${formatToManwon(r.cost)} 만원</span>` : '');
-        } else if (r.type === '주유소') {
-            detailsCell = `<strong>${parseFloat(r.liters || 0).toFixed(2)} L</strong> @ ${parseInt(r.unitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.brand || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else if (r.type === '요소수') {
-            detailsCell = `<strong>${parseFloat(r.ureaLiters || 0).toFixed(2)} L</strong> @ ${parseInt(r.ureaUnitPrice || 0).toLocaleString()} 원/L<br><span class="note">${r.ureaStation || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else if (r.type === '소모품') {
-            detailsCell = `<strong>${r.supplyItem || '기타 소모품'}</strong><br><span class="note">@ ${parseInt(r.mileage || 0).toLocaleString()} km</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        } else {
-            detailsCell = `<span class="note">${r.notes || ''}</span>`;
-            moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
-        }
-        actionCell = `<div class="action-cell"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></div>`;
-        tr.innerHTML = `<td data-label="일시">${r.date.substring(5)} ${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="구간 / 내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;
+        tr.innerHTML = `
+            <td data-label="일자">${day.substring(5)}</td>
+            <td data-label="수입"><span class="income">${formatToManwon(data.income)}</span></td>
+            <td data-label="지출"><span class="cost">${formatToManwon(data.cost)}</span></td>
+            <td data-label="정산"><strong>${formatToManwon(netIncome)}</strong></td>
+            <td data-label="거리(km)">${data.distance.toFixed(1)}</td>
+            <td data-label="건수">${data.tripCount}</td>
+            <td data-label="대기">${waitHours > 0 ? waitHours + 'h ' : ''}${waitMinutes}m</td>
+            <td data-label="관리"><button class="edit-btn" onclick="editDailyRecord('${day}')">관리</button></td>
+        `;
         monthlyTbody.appendChild(tr);
+
+        totalIncome += data.income;
+        totalExpense += data.cost;
+        totalDistance += data.distance;
+        totalTripCount += data.tripCount;
+        totalWaitingTime += data.waitingTime;
+        data.records.forEach(r => {
+            if (r.type === '주유소') {
+                totalLiters += parseFloat(r.liters || 0);
+                totalFuelCost += parseInt(r.cost || 0);
+            } else if (['소모품', '요소수'].includes(r.type)) {
+                totalSuppliesCost += parseInt(r.cost || 0);
+            }
+        });
     });
 
     const netIncome = totalIncome - totalExpense;
@@ -323,7 +332,7 @@ function displayMonthlyRecords() {
     
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
-    monthlyDetailedSummaryDiv.innerHTML = `월별 정산: <strong>${formatToManwon(netIncome)} 만원</strong> | 월별 주유비: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> | 월별 소모품비: <span class="cost">${formatToManwon(totalSuppliesCost)} 만원</span><br>월별 대기시간: ${waitHours}시간 ${waitMinutes}분 | 월별 이동 건수: ${totalTripCount} 건`;
+    monthlyDetailedSummaryDiv.innerHTML = `월별 정산: <strong>${formatToManwon(netIncome)} 만원</strong> | 월별 주유비: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> | 월별 소모품비: <span class="cost">${formatToManwon(totalSuppliesCost)} 만원</span><br>월별 대기시간: ${waitHours}시간 ${waitMinutes}분 | 월별 이동 건수: ${totalTripCount} 건 | 월별 총 운행거리: ${totalDistance.toFixed(1)} km`;
 
     const subsidyLimit = parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0;
     const remainingLiters = subsidyLimit - totalLiters;
@@ -482,10 +491,29 @@ function displayCumulativeData() {
     cumulativeAvgEconomy.textContent = `${avgFuelEconomy} km/L`;
     cumulativeCostPerKm.textContent = `${costPerKm.toLocaleString('ko-KR')} 원`;
 
-    let mileageBreakdownHtml = '<strong>월별 운행기록:</strong><br>';
-    Object.keys(monthlyMileage).sort().reverse().forEach(month => {
-        mileageBreakdownHtml += `${month}: ${monthlyMileage[month].toFixed(1)} km<br>`;
+    let mileageBreakdownHtml = '<h4>월별 운행기록</h4>';
+    const last12Months = {};
+    for (let i = 0; i < 12; i++) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthKey = d.toISOString().slice(0, 7);
+        last12Months[monthKey] = monthlyMileage[monthKey] || 0;
+    }
+
+    const maxMileage = Math.max(...Object.values(last12Months), 1);
+    mileageBreakdownHtml += '<div class="graph-body">';
+    Object.keys(last12Months).sort().forEach(month => {
+        const percent = (last12Months[month] / maxMileage * 100);
+        mileageBreakdownHtml += `
+            <div class="bar-group">
+                <div class="bar-container">
+                    <div class="bar current" style="height: ${percent}%;" title="${month}: ${last12Months[month].toFixed(1)}km"></div>
+                </div>
+                <div class="bar-label">${parseInt(month.substring(5, 7))}월</div>
+            </div>
+        `;
     });
+    mileageBreakdownHtml += '</div>';
     monthlyMileageBreakdown.innerHTML = mileageBreakdownHtml;
 }
 
@@ -950,6 +978,7 @@ function initialSetup() {
     if (waitTimerInterval) clearInterval(waitTimerInterval);
     waitStartTime = null;
 
+    cancelEdit();
     updateAllDisplays();
 }
 

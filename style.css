@@ -95,6 +95,8 @@ th { background-color: #f2f2f2; }
 #export-json-btn { background-color: #6c757d; }
 #import-json-btn { background-color: #fd7e14; }
 #clear-btn { background-color: #dc3545; }
+#gdrive-save-btn { background-color: #4285F4; }
+#gdrive-load-btn { background-color: #34A853; }
 
 @media screen and (max-width: 768px) {
     .responsive-table thead { display: none; }

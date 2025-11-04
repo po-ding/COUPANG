@@ -1,3 +1,10 @@
+// <<< 1. 여기에 발급받은 API 키와 클라이언트 ID를 입력하세요! >>>
+const API_KEY = 'YOUR_GOOGLE_API_KEY';
+const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+const BACKUP_FILE_NAME = 'cargonote_backup.json';
+
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
 const clearBtn = document.getElementById('clear-btn');
@@ -5,6 +12,8 @@ const exportCsvBtn = document.getElementById('export-csv-btn');
 const exportJsonBtn = document.getElementById('export-json-btn');
 const importJsonBtn = document.getElementById('import-json-btn');
 const importFileInput = document.getElementById('import-file-input');
+const gdriveSaveBtn = document.getElementById('gdrive-save-btn');
+const gdriveLoadBtn = document.getElementById('gdrive-load-btn');
 const dateInput = document.getElementById('date');
 const timeInput = document.getElementById('time');
 const typeSelect = document.getElementById('type');
@@ -99,6 +108,9 @@ const waitingTimeInput = document.getElementById('waiting-time');
 
 let waitStartTime = null;
 let waitTimerInterval = null;
+let tokenClient;
+let gapiInited = false;
+let gisInited = false;
 
 const getTodayString = () => new Date().toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\. /g, '-').slice(0, -1);
 const getCurrentTimeString = () => new Date().toLocaleTimeString('ko-KR', {hour12: false, hour: '2-digit', minute: '2-digit'});
@@ -107,6 +119,149 @@ const formatToManwon = (valueInWon) => {
     if (!valueInWon && valueInWon !== 0) return '0';
     return Math.round(valueInWon / 10000).toLocaleString('ko-KR');
 };
+
+function gapiLoaded() {
+    gapi.load('client', initializeGapiClient);
+}
+async function initializeGapiClient() {
+    await gapi.client.init({
+        apiKey: API_KEY,
+        discoveryDocs: [DISCOVERY_DOC],
+    });
+    gapiInited = true;
+}
+function gisLoaded() {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // The callback is handled by the promise
+    });
+    gisInited = true;
+}
+
+function handleAuthClick(callback) {
+    if (gapi.client.getToken() === null) {
+        tokenClient.callback = (resp) => {
+            if (resp.error !== undefined) {
+                throw(resp);
+            }
+            if (callback) callback();
+        };
+        if (gapi.client.getToken() === null) {
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        } else {
+            tokenClient.requestAccessToken({prompt: ''});
+        }
+    } else {
+        if (callback) callback();
+    }
+}
+
+async function findBackupFile() {
+    try {
+        const response = await gapi.client.drive.files.list({
+            'q': `name='${BACKUP_FILE_NAME}' and mimeType='application/json' and trashed=false`,
+            'fields': 'files(id, name)',
+        });
+        if (response.result.files && response.result.files.length > 0) {
+            return response.result.files[0].id;
+        } else {
+            return null;
+        }
+    } catch (err) {
+        alert("백업 파일을 찾는데 실패했습니다: " + err.message);
+        return null;
+    }
+}
+
+async function saveToGoogleDrive() {
+    const dataToSave = localStorage.getItem('records') || '[]';
+    const fileId = await findBackupFile();
+    
+    const boundary = '-------314159265358979323846';
+    const delimiter = "\r\n--" + boundary + "\r\n";
+    const close_delim = "\r\n--" + boundary + "--";
+
+    const metadata = {
+        'name': BACKUP_FILE_NAME,
+        'mimeType': 'application/json',
+    };
+
+    let multipartRequestBody;
+    let path;
+    let method;
+
+    if (fileId) { // 파일이 있으면 업데이트
+        path = `/upload/drive/v3/files/${fileId}?uploadType=multipart`;
+        method = 'PATCH';
+        multipartRequestBody =
+            delimiter +
+            'Content-Type: application/json\r\n\r\n' +
+            JSON.stringify({ name: BACKUP_FILE_NAME }) +
+            delimiter +
+            'Content-Type: application/json\r\n\r\n' +
+            dataToSave +
+            close_delim;
+    } else { // 파일이 없으면 새로 생성
+        path = '/upload/drive/v3/files?uploadType=multipart';
+        method = 'POST';
+        multipartRequestBody =
+            delimiter +
+            'Content-Type: application/json\r\n\r\n' +
+            JSON.stringify(metadata) +
+            delimiter +
+            'Content-Type: application/json\r\n\r\n' +
+            dataToSave +
+            close_delim;
+    }
+
+    try {
+        await gapi.client.request({
+            'path': path,
+            'method': method,
+            'headers': {
+                'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+            },
+            'body': multipartRequestBody
+        });
+        alert('Google Drive에 데이터를 성공적으로 저장했습니다!');
+    } catch(err) {
+        alert("저장 실패: " + err.message);
+    }
+}
+
+async function loadFromGoogleDrive() {
+    const fileId = await findBackupFile();
+    if (!fileId) {
+        alert('Google Drive에서 백업 파일을 찾을 수 없습니다.');
+        return;
+    }
+
+    try {
+        const response = await gapi.client.drive.files.get({
+            fileId: fileId,
+            alt: 'media'
+        });
+        
+        const content = response.body;
+        const data = JSON.parse(content);
+
+        if (!Array.isArray(data)) {
+            alert('오류: Google Drive의 파일이 올바른 형식이 아닙니다.');
+            return;
+        }
+
+        if (confirm('Google Drive의 데이터로 현재 앱의 모든 기록을 덮어쓰시겠습니까?')) {
+            localStorage.setItem('records', JSON.stringify(data));
+            alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
+            location.reload();
+        }
+
+    } catch (err) {
+        alert("불러오기 실패: " + err.message);
+    }
+}
+
 
 function getCenters() {
     const defaultCenters = ['안성', '안산', '용인', '이천', '인천'];

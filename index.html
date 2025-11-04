@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>운송 기록부</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
 <body>
     <div class="container">
@@ -149,14 +151,6 @@
                     </table>
                 </div>
             </div>
-            
-            <div class="action-buttons">
-                <button id="export-csv-btn">엑셀(CSV)로 저장</button>
-                <button id="export-json-btn">JSON으로 저장 (백업)</button>
-                <button id="import-json-btn">JSON 불러오기 (복원)</button>
-                <button id="clear-btn">모든 기록 삭제하기</button>
-            </div>
-            <input type="file" id="import-file-input" class="hidden" accept=".json">
         </div>
 
         <!-- =============================================================== -->
@@ -211,6 +205,17 @@
                     <div id="batch-status"></div>
                 </fieldset>
             </div>
+            
+            <div class="mileage-management">
+                <h2>총 주행거리 관리</h2>
+                <fieldset>
+                    <legend>현재 총 주행거리(km) 수동 설정</legend>
+                    <div class="input-group">
+                        <input type="number" id="total-mileage">
+                        <button id="total-mileage-save-btn" class="setting-save-btn">주행거리 저장</button>
+                    </div>
+                </fieldset>
+            </div>
 
             <div class="subsidy-management">
                 <h2>유가보조금 관리</h2>
@@ -224,16 +229,15 @@
                 <div id="subsidy-summary" class="subsidy-summary"></div>
             </div>
 
-            <div class="mileage-management">
-                <h2>총 주행거리 관리</h2>
-                <fieldset>
-                    <legend>현재 총 주행거리(km) 수동 설정</legend>
-                    <div class="input-group">
-                        <input type="number" id="total-mileage">
-                        <button id="total-mileage-save-btn" class="setting-save-btn">주행거리 저장</button>
-                    </div>
-                </fieldset>
+            <div class="action-buttons">
+                <button id="gdrive-save-btn">Google Drive에 저장</button>
+                <button id="gdrive-load-btn">Google Drive에서 불러오기</button>
+                <button id="export-csv-btn">엑셀(CSV)로 저장</button>
+                <button id="export-json-btn">JSON으로 저장 (백업)</button>
+                <button id="import-json-btn">JSON 불러오기 (복원)</button>
+                <button id="clear-btn">모든 기록 삭제하기</button>
             </div>
+            <input type="file" id="import-file-input" class="hidden" accept=".json">
         </div>
     </div>
 

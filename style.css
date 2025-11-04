@@ -54,7 +54,7 @@ button:hover { opacity: 0.8; }
 .view-content.active { display: block; }
 
 .selector-group { display: flex; gap: 1em; justify-content: center; margin-bottom: 1em; }
-.summary { background-color: #e9f5ff; border-radius: 4px; padding: 1em; margin-bottom: 1em; line-height: 1.8; }
+.summary { background-color: #e9f5ff; border-radius: 4px; padding: 1em; margin-bottom: 1em; line-height: 2; }
 .subsidy-summary { background-color: #f8f9fa; border: 1px solid #eee; text-align: center; border-radius: 4px; padding: 1em; margin-bottom: 1em; line-height: 1.8; }
 
 .comparison-graph { border: 1px solid #eee; padding: 1em; border-radius: 4px; margin-bottom: 1em; }
@@ -108,10 +108,34 @@ th { background-color: #f2f2f2; }
     .responsive-table thead { display: none; }
     .responsive-table, .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
     .responsive-table tr { margin-bottom: 1em; border: 1px solid #ddd; border-radius: 4px; }
-    .responsive-table td { text-align: right; padding-left: 50%; position: relative; border: none; border-bottom: 1px solid #eee; }
+    .responsive-table td { text-align: right; padding-left: 50%; position: relative; border: none; border-bottom: 1px solid #eee; box-sizing: border-box; }
     .responsive-table td:before { content: attr(data-label); position: absolute; left: 0; width: 45%; padding-left: 1em; font-weight: bold; text-align: left; }
-    .responsive-table tr td:last-child { border-bottom: none; }
     
-    #monthly-view, #yearly-view { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    #monthly-records-table, .yearly-summary-table { width: auto; white-space: nowrap; }
+    /* 관리 버튼 셀 레이아웃 수정 */
+    .responsive-table tr td:last-child {
+        border-bottom: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-left: 1em;
+    }
+    .responsive-table tr td:last-child:before {
+        position: static;
+        width: auto;
+        padding-left: 0;
+    }
+    .responsive-table tr td:last-child .action-cell {
+        width: auto;
+        flex-shrink: 0;
+    }
+
+    /* 탭 표시 오류 수정 및 스크롤 기능 적용 */
+    #monthly-view, #yearly-view {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    #monthly-records-table, .yearly-summary-table {
+        width: auto;
+        white-space: nowrap;
+    }
 }

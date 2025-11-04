@@ -216,23 +216,42 @@ function stopWaitTimer() {
     waitStartTime = null;
 }
 
+// 요약 정보 HTML 생성 함수 (일별, 월별 공통 사용)
+function createSummaryHTML(title, records) {
+    let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0, totalWaitingTime = 0;
+    records.forEach(r => {
+        totalIncome += parseInt(r.income || 0);
+        totalExpense += parseInt(r.cost || 0);
+        if (['화물운송', '공차이동'].includes(r.type)) {
+            totalDistance += parseFloat(r.distance || 0);
+            totalTripCount++;
+        }
+        totalWaitingTime += parseInt(r.waitingTime || 0);
+    });
+    
+    const netIncome = totalIncome - totalExpense;
+    const waitHours = Math.floor(totalWaitingTime / 60);
+    const waitMinutes = totalWaitingTime % 60;
+    
+    return `
+        <strong>${title}</strong><br>
+        총수입: <span class="income">${formatToManwon(totalIncome)} 만원</span><br>
+        총지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span><br>
+        정산: <strong>${formatToManwon(netIncome)} 만원</strong><br>
+        총 운행거리: <strong>${totalDistance.toFixed(1)} km</strong><br>
+        총 이동건수: <strong>${totalTripCount} 건</strong><br>
+        총 대기시간: <strong>${waitHours}시간 ${waitMinutes}분</strong>
+    `;
+}
+
 function displayDailyRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedDate = dailyDatePicker.value;
     const filteredRecords = records.filter(r => r.date === selectedDate);
     
     dailyTbody.innerHTML = '';
-    let dailyIncome = 0, dailyExpense = 0, dailyDistance = 0, dailyTripCount = 0, dailyWaitingTime = 0;
-
+    
     filteredRecords.forEach(r => {
-        dailyIncome += parseInt(r.income || 0);
-        dailyExpense += parseInt(r.cost || 0);
-        if (['화물운송', '공차이동'].includes(r.type)) {
-            dailyDistance += parseFloat(r.distance || 0);
-            dailyTripCount++;
-        }
-        dailyWaitingTime += parseInt(r.waitingTime || 0);
-        
         const tr = document.createElement('tr');
         let detailsCell = '', moneyCell = '', actionCell = '';
         if (['화물운송', '공차이동'].includes(r.type)) {
@@ -261,19 +280,7 @@ function displayDailyRecords() {
         dailyTbody.appendChild(tr);
     });
     
-    const dailyNet = dailyIncome - dailyExpense;
-    const waitHours = Math.floor(dailyWaitingTime / 60);
-    const waitMinutes = dailyWaitingTime % 60;
-    
-    dailySummaryDiv.innerHTML = `
-        <strong>${selectedDate} 요약</strong><br>
-        수입: <span class="income">${formatToManwon(dailyIncome)} 만원</span><br>
-        지출: <span class="cost">${formatToManwon(dailyExpense)} 만원</span><br>
-        일당: <strong>${formatToManwon(dailyNet)} 만원</strong><br>
-        운행거리: <strong>${dailyDistance.toFixed(1)} km</strong><br>
-        이동건수: <strong>${dailyTripCount} 건</strong><br>
-        대기시간: <strong>${waitHours}시간 ${waitMinutes}분</strong>
-    `;
+    dailySummaryDiv.innerHTML = createSummaryHTML(`${selectedDate} 요약`, filteredRecords);
 }
 
 function displayMonthlyRecords() {
@@ -284,29 +291,7 @@ function displayMonthlyRecords() {
     monthlyTbody.innerHTML = '';
     monthlyDetailedSummaryDiv.classList.remove('hidden');
 
-    let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0, totalWaitingTime = 0;
-    currentMonthRecords.forEach(r => {
-        totalIncome += parseInt(r.income || 0);
-        totalExpense += parseInt(r.cost || 0);
-        if (['화물운송', '공차이동'].includes(r.type)) {
-            totalDistance += parseFloat(r.distance || 0);
-            totalTripCount++;
-        }
-        totalWaitingTime += parseInt(r.waitingTime || 0);
-    });
-    const netIncome = totalIncome - totalExpense;
-    const waitHours = Math.floor(totalWaitingTime / 60);
-    const waitMinutes = totalWaitingTime % 60;
-    
-    monthlyDetailedSummaryDiv.innerHTML = `
-        <strong>${parseInt(monthlyMonthSelect.value)}월 총계</strong><br>
-        총수입: <span class="income">${formatToManwon(totalIncome)} 만원</span><br>
-        총지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span><br>
-        총정산: <strong>${formatToManwon(netIncome)} 만원</strong><br>
-        총 운행거리: <strong>${totalDistance.toFixed(1)} km</strong><br>
-        총 이동건수: <strong>${totalTripCount} 건</strong><br>
-        총 대기시간: <strong>${waitHours}시간 ${waitMinutes}분</strong>
-    `;
+    monthlyDetailedSummaryDiv.innerHTML = createSummaryHTML(`${parseInt(monthlyMonthSelect.value)}월 총계`, currentMonthRecords);
 
     const dailyData = {};
     currentMonthRecords.forEach(r => {

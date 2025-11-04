@@ -10,9 +10,11 @@
     <div class="container">
 
         <div class="page-nav">
-            <button id="back-to-main-btn" class="hidden">← 뒤로 가기</button>
             <h1 class="logo">cargo<span class="logo-point">note</span></h1>
-            <button id="go-to-settings-btn">설정 ⚙️</button>
+            <div class="nav-buttons">
+                <button id="back-to-main-btn" class="hidden">←</button>
+                <button id="go-to-settings-btn">⚙️</button>
+            </div>
         </div>
 
         <!-- =============================================================== -->
@@ -213,7 +215,7 @@
                         <input type="number" id="total-mileage">
                         <button id="total-mileage-save-btn" class="setting-save-btn">주행거리 저장</button>
                     </div>
-                    <p id="current-month-mileage" class="summary-note"></p>
+                    <div id="monthly-mileage-breakdown" class="summary-note"></div>
                 </fieldset>
             </div>
 

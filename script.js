@@ -643,24 +643,6 @@ function updateAllDisplays() {
     displayCurrentMonthData();
 }
 
-function deleteRecord(id) {
-    if (confirm('이 기록을 정말로 삭제하시겠습니까?')) {
-        let records = JSON.parse(localStorage.getItem('records')) || [];
-        records = records.filter(r => r.id !== id);
-        localStorage.setItem('records', JSON.stringify(records));
-        updateAllDisplays();
-    }
-}
-
-function deleteDailyRecord(date) {
-    if (confirm(`${date}의 모든 기록을 삭제하시겠습니까?`)) {
-        let records = JSON.parse(localStorage.getItem('records')) || [];
-        records = records.filter(r => r.date !== date);
-        localStorage.setItem('records', JSON.stringify(records));
-        updateAllDisplays();
-    }
-}
-
 function editRecord(id) {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const recordToEdit = records.find(r => r.id === id);

@@ -572,22 +572,17 @@ function cancelEdit() {
     submitBtn.textContent = '기록 저장하기';
     submitBtn.classList.remove('edit-mode');
     cancelEditBtn.classList.add('hidden');
-    
-    // 폼 초기화 후 다시 기본값 설정
-    dateInput.value = getTodayString();
-    timeInput.value = getCurrentTimeString();
-    gpsStatus.textContent = 'GPS 상태: 대기 중';
-    startCoordsInput.value = '';
-    endCoordsInput.value = '';
-    manualDistanceInput.value = '';
-    waitStatus.textContent = '대기 상태: 대기 중';
-    waitingTimeInput.value = '';
-    startWaitBtn.disabled = false;
-    endWaitBtn.disabled = true;
-    if (waitTimerInterval) clearInterval(waitTimerInterval);
-    waitStartTime = null;
+    initialSetup();
+}
 
-    toggleUI(typeSelect.value);
+function editDailyRecord(date) {
+    dailyDatePicker.value = date;
+    tabBtns.forEach(b => b.classList.remove('active'));
+    document.querySelector('.tab-btn[data-view="daily"]').classList.add('active');
+    viewContents.forEach(c => c.classList.remove('active'));
+    document.getElementById('daily-view').classList.add('active');
+    updateAllDisplays();
+    window.scrollTo(0, recordForm.scrollHeight);
 }
 
 function getFormData(isNew = false) {
@@ -622,25 +617,22 @@ recordForm.addEventListener('submit', function(event) {
     const editingId = parseInt(editIdInput.value);
     
     let records = JSON.parse(localStorage.getItem('records')) || [];
+    const tripDistance = parseFloat(manualDistanceInput.value) || 0;
     
-    if (editingId) { // 수정 모드
+    if (editingId) {
         const recordIndex = records.findIndex(r => r.id === editingId);
         if (recordIndex > -1) {
             const oldRecord = records[recordIndex];
-            const newRecordData = getFormData();
-            
-            // 주행거리 변경 시 누적 마일리지 재계산
             const oldDistance = parseFloat(oldRecord.distance) || 0;
-            const newDistance = parseFloat(newRecordData.distance) || 0;
+            
             let currentMileage = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
             if (['화물운송', '공차이동'].includes(oldRecord.type)) {
-                currentMileage = currentMileage - oldDistance + newDistance;
+                currentMileage = currentMileage - oldDistance + tripDistance;
                 localStorage.setItem('total_vehicle_mileage', currentMileage);
             }
-            records[recordIndex] = { ...oldRecord, ...newRecordData };
+            records[recordIndex] = { ...oldRecord, ...getFormData() };
         }
-    } else { // 추가 모드
-        const tripDistance = parseFloat(manualDistanceInput.value) || 0;
+    } else {
         let currentMileage = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
         if (['화물운송', '공차이동'].includes(typeSelect.value)) {
             currentMileage += tripDistance;
@@ -659,9 +651,7 @@ recordForm.addEventListener('submit', function(event) {
     
     records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     localStorage.setItem('records', JSON.stringify(records));
-    
     cancelEdit();
-    updateAllDisplays();
 });
 
 batchApplyBtn.addEventListener('click', () => {
@@ -926,7 +916,7 @@ function initialSetup() {
     if (waitTimerInterval) clearInterval(waitTimerInterval);
     waitStartTime = null;
 
-    cancelEdit(); // 폼 초기화 및 수정 모드 해제
+    cancelEdit();
     updateAllDisplays();
 }
 initialSetup();

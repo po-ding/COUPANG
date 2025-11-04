@@ -20,7 +20,6 @@ button.setting-save-btn { background-color: #28a745; margin-top: 0.5em; }
 button:hover { opacity: 0.8; }
 
 .page-nav { display: flex; justify-content: space-between; align-items: center; }
-.page-nav .logo { text-align: left; }
 .page-nav .nav-buttons { display: flex; gap: 0.5em; }
 .page-nav button { padding: 0.5em 1em; font-size: 0.9em; width: auto; background-color: #6c757d; }
 

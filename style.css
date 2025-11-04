@@ -29,6 +29,10 @@ button:hover { opacity: 0.8; }
 #cancel-edit-btn { background-color: #6c757d; }
 .edit-btn { background-color: #fd7e14; padding: 0.4em 0.8em; font-size: 0.9em; margin-top: 0; }
 
+.batch-apply-section { margin-top: 2.5em; }
+#batch-apply-btn { background-color: #6f42c1; }
+#batch-status { text-align: center; font-size: 0.9em; color: #17a2b8; margin-top: 0.8em; font-weight: bold; }
+
 .view-section { margin-top: 2em; }
 .view-tabs { display: flex; border-bottom: 2px solid #ddd; }
 .tab-btn { background-color: #f1f1f1; color: #555; border: 1px solid #ccc; border-bottom: none; cursor: pointer; padding: 12px 15px; margin-bottom: -2px; border-radius: 6px 6px 0 0; flex: 1; font-size: 1em; font-weight: 500; transition: all 0.2s ease-in-out; }

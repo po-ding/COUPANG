@@ -48,6 +48,12 @@ const monthlyTbody = document.querySelector('#monthly-records-table tbody');
 const yearlyYearSelect = document.getElementById('yearly-year-select');
 const yearlyTbody = document.querySelector('#yearly-summary-table tbody');
 
+const batchFromSelect = document.getElementById('batch-from-center');
+const batchToSelect = document.getElementById('batch-to-center');
+const batchIncomeInput = document.getElementById('batch-income');
+const batchApplyBtn = document.getElementById('batch-apply-btn');
+const batchStatus = document.getElementById('batch-status');
+
 const subsidyLimitInput = document.getElementById('subsidy-limit');
 const subsidySaveBtn = document.getElementById('subsidy-save-btn');
 const subsidySummaryDiv = document.getElementById('subsidy-summary');
@@ -109,7 +115,10 @@ function addCenter(newCenter) {
 function populateCenterSelectors() {
     const centers = getCenters();
     const options = centers.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="direct">직접 입력</option>';
-    fromSelect.innerHTML = options; toSelect.innerHTML = options;
+    fromSelect.innerHTML = options;
+    toSelect.innerHTML = options;
+    batchFromSelect.innerHTML = fromSelect.innerHTML.replace('<option value="direct">직접 입력</option>', '');
+    batchToSelect.innerHTML = toSelect.innerHTML.replace('<option value="direct">직접 입력</option>', '');
 }
 
 function toggleUI(type) {
@@ -601,12 +610,55 @@ recordForm.addEventListener('submit', function(event) {
             currentMileage += tripDistance;
             localStorage.setItem('total_vehicle_mileage', currentMileage);
         }
-        records.push(getFormData(true));
+        
+        const newRecord = getFormData(true);
+        if (newRecord.type === '화물운송' && newRecord.income > 0) {
+            const fareKey = `${newRecord.from}-${newRecord.to}`;
+            const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+            fares[fareKey] = newRecord.income;
+            localStorage.setItem('saved_fares', JSON.stringify(fares));
+        }
+        records.push(newRecord);
     }
     
     records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     localStorage.setItem('records', JSON.stringify(records));
     cancelEdit();
+});
+
+batchApplyBtn.addEventListener('click', () => {
+    const from = batchFromSelect.value;
+    const to = batchToSelect.value;
+    const income = parseFloat(batchIncomeInput.value) || 0;
+
+    if (!from || !to || income <= 0) {
+        alert('출발지, 도착지를 선택하고 유효한 운송 수입을 입력하세요.');
+        return;
+    }
+
+    let records = JSON.parse(localStorage.getItem('records')) || [];
+    let updatedCount = 0;
+    
+    const recordsToUpdate = records.filter(r => r.type === '화물운송' && r.from === from && r.to === to && r.income === 0);
+
+    if (recordsToUpdate.length === 0) {
+        alert('해당 구간의 미정산(수입 0원) 기록이 없습니다.');
+        return;
+    }
+    
+    if (confirm(`정말로 '${from} -> ${to}' 구간의 미정산 기록 ${recordsToUpdate.length}건에 운임 ${income}만원을 일괄 적용하시겠습니까?`)) {
+        records = records.map(r => {
+            if (r.type === '화물운송' && r.from === from && r.to === to && r.income === 0) {
+                updatedCount++;
+                return { ...r, income: income * 10000 };
+            }
+            return r;
+        });
+        localStorage.setItem('records', JSON.stringify(records));
+        batchStatus.textContent = `✅ ${updatedCount}건의 운임이 성공적으로 적용되었습니다!`;
+        updateAllDisplays();
+        setTimeout(() => batchStatus.textContent = '', 3000);
+    }
 });
 
 subsidySaveBtn.addEventListener('click', () => {
@@ -741,10 +793,13 @@ startWaitBtn.addEventListener('click', startWaitTimer);
 endWaitBtn.addEventListener('click', stopWaitTimer);
 
 function calculateCost(type) {
-    const unitPrice = parseFloat(type === 'fuel' ? fuelUnitPriceInput.value : ureaUnitPriceInput.value) || 0;
-    const liters = parseFloat(type === 'fuel' ? fuelLitersInput.value : ureaLitersInput.value) || 0;
+    const unitPriceInput = type === 'fuel' ? fuelUnitPriceInput : ureaUnitPriceInput;
+    const litersInput = type === 'fuel' ? fuelLitersInput : ureaLitersInput;
     
-    if ( (document.activeElement === (type === 'fuel' ? fuelLitersInput : ureaLitersInput)) || (document.activeElement === (type === 'fuel' ? fuelUnitPriceInput : ureaUnitPriceInput)) ) {
+    const unitPrice = parseFloat(unitPriceInput.value) || 0;
+    const liters = parseFloat(litersInput.value) || 0;
+    
+    if ( (document.activeElement === litersInput) || (document.activeElement === unitPriceInput) ) {
         if (unitPrice > 0 && liters > 0) {
             costInput.value = (Math.round(unitPrice * liters) / 10000).toFixed(2);
         }
@@ -777,7 +832,24 @@ costInput.addEventListener('input', calculateLiters);
 typeSelect.addEventListener('change', () => toggleUI(typeSelect.value));
 fromSelect.addEventListener('change', () => fromCustom.classList.toggle('hidden', fromSelect.value !== 'direct'));
 toSelect.addEventListener('change', () => toCustom.classList.toggle('hidden', toSelect.value !== 'direct'));
+fromSelect.addEventListener('change', autoFillIncome);
+toSelect.addEventListener('change', autoFillIncome);
 cancelEditBtn.addEventListener('click', cancelEdit);
+
+function autoFillIncome() {
+    if (typeSelect.value !== '화물운송') return;
+
+    const from = fromSelect.value;
+    const to = toSelect.value;
+    
+    if (from && to && from !== 'direct' && to !== 'direct') {
+        const fareKey = `${from}-${to}`;
+        const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+        if (fares[fareKey]) {
+            incomeInput.value = (fares[fareKey] / 10000).toFixed(2);
+        }
+    }
+}
 
 function initialSetup() {
     dateInput.value = getTodayString();

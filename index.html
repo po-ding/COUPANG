@@ -140,18 +140,20 @@
             </div>
         </div>
 
-        <div class="subsidy-management">
-            <h2>유가보조금 관리</h2>
+        <div class="batch-apply-section">
+            <h2>운임 일괄 적용 (후정산)</h2>
             <fieldset>
-                <legend>월 한도 설정</legend>
-                <div class="input-group">
-                    <input type="number" id="subsidy-limit" placeholder="월 한도 (L) 입력">
-                    <button id="subsidy-save-btn" class="setting-save-btn">설정 저장</button>
+                <legend>미정산 구간 운임 입력</legend>
+                <div class="input-group row">
+                    <select id="batch-from-center"></select>
+                    <select id="batch-to-center"></select>
                 </div>
+                <input type="number" id="batch-income" step="0.01" placeholder="적용할 운송 수입 (만원)">
+                <button type="button" id="batch-apply-btn">일괄 적용하기</button>
+                <div id="batch-status"></div>
             </fieldset>
-            <div id="subsidy-summary" class="subsidy-summary"></div>
         </div>
-        
+
         <div class="data-summary-section">
             <h2>데이터 요약</h2>
             <div id="current-month-summary-container">
@@ -187,6 +189,19 @@
                     <button id="total-mileage-save-btn" class="setting-save-btn">주행거리 저장</button>
                 </div>
             </fieldset>
+        </div>
+
+        <!-- <<< 유가보조금 관리 섹션 위치 이동 >>> -->
+        <div class="subsidy-management">
+            <h2>유가보조금 관리</h2>
+            <fieldset>
+                <legend>월 한도 설정</legend>
+                <div class="input-group">
+                    <input type="number" id="subsidy-limit" placeholder="월 한도 (L) 입력">
+                    <button id="subsidy-save-btn" class="setting-save-btn">설정 저장</button>
+                </div>
+            </fieldset>
+            <div id="subsidy-summary" class="subsidy-summary"></div>
         </div>
 
         <div class="action-buttons">

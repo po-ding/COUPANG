@@ -1,4 +1,4 @@
-/** 버전: 2.2 | 최종 수정일: 2025-11-04 */
+/** 버전: 2.3 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -68,7 +68,7 @@ const subsidySaveBtn = document.getElementById('subsidy-save-btn');
 const subsidySummaryDiv = document.getElementById('subsidy-summary');
 const totalMileageInput = document.getElementById('total-mileage');
 const totalMileageSaveBtn = document.getElementById('total-mileage-save-btn');
-const currentMonthMileage = document.getElementById('current-month-mileage');
+const monthlyMileageBreakdown = document.getElementById('monthly-mileage-breakdown');
 
 const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
@@ -236,7 +236,7 @@ function displayDailyRecords() {
         dailyWaitingTime += parseInt(r.waitingTime || 0);
         
         const tr = document.createElement('tr');
-        let detailsCell = '', moneyCell = '';
+        let detailsCell = '', moneyCell = '', actionCell = '';
         if (['화물운송', '공차이동'].includes(r.type)) {
             detailsCell = `<strong>${r.from} → ${r.to}</strong><br><span class="note">${r.distance} km</span>`;
             let gpsLinks = '';
@@ -258,7 +258,8 @@ function displayDailyRecords() {
             detailsCell = `<span class="note">${r.notes || ''}</span>`;
             moneyCell = `<span class="cost">-${formatToManwon(r.cost)} 만원</span>`;
         }
-        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></td>`;
+        actionCell = `<div class="action-cell"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></div>`;
+        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type === '화물운송' ? '운송' : r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;
         dailyTbody.appendChild(tr);
     });
     const dailyNet = dailyIncome - dailyExpense;
@@ -306,7 +307,7 @@ function displayMonthlyRecords() {
             <td data-label="거리(km)">${data.distance.toFixed(1)}</td>
             <td data-label="건수">${data.tripCount}</td>
             <td data-label="대기">${waitHours > 0 ? waitHours + 'h ' : ''}${waitMinutes}m</td>
-            <td data-label="관리"><button class="edit-btn" onclick="editDailyRecord('${day}')">수정</button><button class="delete-btn" onclick="deleteDailyRecord('${day}')">삭제</button></td>
+            <td data-label="관리"><button class="edit-btn" onclick="editDailyRecord('${day}')">관리</button></td>
         `;
         monthlyTbody.appendChild(tr);
 
@@ -397,12 +398,16 @@ function displayYearlyRecords() {
     });
 
     yearlyTbody.innerHTML = '';
+    const currentMonth = new Date().getMonth() + 1;
     for(const month in monthlyData) {
         const data = monthlyData[month];
         const netIncome = data.income - data.expense;
         const waitHours = Math.floor(data.waitingTime / 60);
         const waitMinutes = data.waitingTime % 60;
         const tr = document.createElement('tr');
+        if (parseInt(month) === currentMonth) {
+            tr.style.fontWeight = 'bold';
+        }
         tr.innerHTML = `<td>${parseInt(month)}월</td><td><span class="income">${formatToManwon(data.income)}</span></td><td><span class="cost">${formatToManwon(data.expense)}</span></td><td><strong>${formatToManwon(netIncome)}</strong></td><td>${data.distance.toFixed(1)}</td><td>${data.tripCount}</td><td>${waitHours}h ${waitMinutes}m</td><td>${data.liters.toFixed(2)}</td>`;
         yearlyTbody.appendChild(tr);
     }
@@ -443,6 +448,8 @@ function displayCurrentMonthData() {
 function displayCumulativeData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     let cumulativeIncome = 0, cumulativeExpense = 0, cumulativeFuelCost = 0, cumulativeSuppliesCost = 0, cumulativeTotalLiters = 0, cumulativeWaitingTime = 0, cumulativeTripCount = 0;
+    let monthlyMileage = {};
+
     allRecords.forEach(r => {
         cumulativeIncome += parseInt(r.income || 0);
         cumulativeExpense += parseInt(r.cost || 0);
@@ -455,6 +462,8 @@ function displayCumulativeData() {
         cumulativeWaitingTime += parseInt(r.waitingTime || 0);
         if (['화물운송', '공차이동'].includes(r.type)) {
             cumulativeTripCount++;
+            const monthKey = r.date.substring(0, 7);
+            monthlyMileage[monthKey] = (monthlyMileage[monthKey] || 0) + parseFloat(r.distance);
         }
     });
     const cumulativeNetIncome = cumulativeIncome - cumulativeExpense;
@@ -478,6 +487,12 @@ function displayCumulativeData() {
     cumulativeNetIncome.textContent = `${formatToManwon(cumulativeNetIncome)} 만원`;
     cumulativeAvgEconomy.textContent = `${avgFuelEconomy} km/L`;
     cumulativeCostPerKm.textContent = `${costPerKm.toLocaleString('ko-KR')} 원`;
+
+    let mileageBreakdownHtml = '<strong>월별 운행기록:</strong><br>';
+    Object.keys(monthlyMileage).sort().reverse().forEach(month => {
+        mileageBreakdownHtml += `${month}: ${monthlyMileage[month].toFixed(1)} km<br>`;
+    });
+    monthlyMileageBreakdown.innerHTML = mileageBreakdownHtml;
 }
 
 function populateSelectors() {
@@ -572,17 +587,21 @@ function cancelEdit() {
     submitBtn.textContent = '기록 저장하기';
     submitBtn.classList.remove('edit-mode');
     cancelEditBtn.classList.add('hidden');
-    initialSetup();
-}
+    
+    dateInput.value = getTodayString();
+    timeInput.value = getCurrentTimeString();
+    gpsStatus.textContent = 'GPS 상태: 대기 중';
+    startCoordsInput.value = '';
+    endCoordsInput.value = '';
+    manualDistanceInput.value = '';
+    waitStatus.textContent = '대기 상태: 대기 중';
+    waitingTimeInput.value = '';
+    startWaitBtn.disabled = false;
+    endWaitBtn.disabled = true;
+    if (waitTimerInterval) clearInterval(waitTimerInterval);
+    waitStartTime = null;
 
-function editDailyRecord(date) {
-    dailyDatePicker.value = date;
-    tabBtns.forEach(b => b.classList.remove('active'));
-    document.querySelector('.tab-btn[data-view="daily"]').classList.add('active');
-    viewContents.forEach(c => c.classList.remove('active'));
-    document.getElementById('daily-view').classList.add('active');
-    updateAllDisplays();
-    window.scrollTo(0, recordForm.scrollHeight);
+    toggleUI(typeSelect.value);
 }
 
 function getFormData(isNew = false) {
@@ -617,22 +636,24 @@ recordForm.addEventListener('submit', function(event) {
     const editingId = parseInt(editIdInput.value);
     
     let records = JSON.parse(localStorage.getItem('records')) || [];
-    const tripDistance = parseFloat(manualDistanceInput.value) || 0;
     
     if (editingId) {
         const recordIndex = records.findIndex(r => r.id === editingId);
         if (recordIndex > -1) {
             const oldRecord = records[recordIndex];
-            const oldDistance = parseFloat(oldRecord.distance) || 0;
+            const newRecordData = getFormData();
             
+            const oldDistance = parseFloat(oldRecord.distance) || 0;
+            const newDistance = parseFloat(newRecordData.distance) || 0;
             let currentMileage = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
             if (['화물운송', '공차이동'].includes(oldRecord.type)) {
-                currentMileage = currentMileage - oldDistance + tripDistance;
+                currentMileage = currentMileage - oldDistance + newDistance;
                 localStorage.setItem('total_vehicle_mileage', currentMileage);
             }
-            records[recordIndex] = { ...oldRecord, ...getFormData() };
+            records[recordIndex] = { ...oldRecord, ...newRecordData };
         }
     } else {
+        const tripDistance = parseFloat(manualDistanceInput.value) || 0;
         let currentMileage = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
         if (['화물운송', '공차이동'].includes(typeSelect.value)) {
             currentMileage += tripDistance;
@@ -651,7 +672,9 @@ recordForm.addEventListener('submit', function(event) {
     
     records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     localStorage.setItem('records', JSON.stringify(records));
+    
     cancelEdit();
+    updateAllDisplays();
 });
 
 batchApplyBtn.addEventListener('click', () => {
@@ -794,6 +817,7 @@ clearBtn.addEventListener('click', () => {
         localStorage.removeItem('logistics_centers');
         localStorage.removeItem('fuel_subsidy_limit');
         localStorage.removeItem('total_vehicle_mileage');
+        localStorage.removeItem('saved_fares');
         alert('모든 데이터가 삭제되었습니다.');
         location.reload();
     }
@@ -916,7 +940,7 @@ function initialSetup() {
     if (waitTimerInterval) clearInterval(waitTimerInterval);
     waitStartTime = null;
 
-    cancelEdit();
     updateAllDisplays();
 }
-initialSetup();
+
+document.addEventListener('DOMContentLoaded', initialSetup);

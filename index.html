@@ -10,9 +10,11 @@
     <div class="container">
 
         <div class="page-nav">
-            <button id="back-to-main-btn" class="hidden">← 뒤로 가기</button>
             <h1 class="logo">cargo<span class="logo-point">note</span></h1>
-            <button id="go-to-settings-btn">설정 ⚙️</button>
+            <div class="nav-buttons">
+                <button id="back-to-main-btn" class="hidden">←</button>
+                <button id="go-to-settings-btn">⚙️</button>
+            </div>
         </div>
 
         <!-- =============================================================== -->
@@ -186,6 +188,18 @@
                     </div>
                 </div>
             </div>
+            
+            <div class="mileage-management">
+                <h2>총 주행거리 관리</h2>
+                <fieldset>
+                    <legend>현재 총 주행거리(km) 수동 설정</legend>
+                    <div class="input-group">
+                        <input type="number" id="total-mileage">
+                        <button id="total-mileage-save-btn" class="setting-save-btn">주행거리 저장</button>
+                    </div>
+                    <div id="monthly-mileage-breakdown" class="summary-note"></div>
+                </fieldset>
+            </div>
 
             <div class="batch-apply-section">
                 <h2>운임 일괄 적용</h2>
@@ -202,18 +216,6 @@
                     <input type="number" id="batch-income" step="0.01" placeholder="적용할 운송 수입 (만원)">
                     <button type="button" id="batch-apply-btn">일괄 적용하기</button>
                     <div id="batch-status"></div>
-                </fieldset>
-            </div>
-            
-            <div class="mileage-management">
-                <h2>총 주행거리 관리</h2>
-                <fieldset>
-                    <legend>현재 총 주행거리(km) 수동 설정</legend>
-                    <div class="input-group">
-                        <input type="number" id="total-mileage">
-                        <button id="total-mileage-save-btn" class="setting-save-btn">주행거리 저장</button>
-                    </div>
-                    <div id="monthly-mileage-breakdown" class="summary-note"></div>
                 </fieldset>
             </div>
 

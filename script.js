@@ -1,4 +1,4 @@
-/** 버전: 3.7 | 최종 수정일: 2025-11-04 */
+/** 버전: 3.8 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -239,20 +239,20 @@ function createSummaryHTML(title, records) {
     
     return `
         <strong>${title}</strong><br>
-        총수입: <span class="income">${formatToManwon(totalIncome)} 만원</span><br>
-        총지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span><br>
+        수입: <span class="income">${formatToManwon(totalIncome)} 만원</span><br>
+        지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span><br>
         정산: <strong>${formatToManwon(netIncome)} 만원</strong><br>
-        총 운행거리: <strong>${totalDistance.toFixed(1)} km</strong><br>
-        총 이동건수: <strong>${totalTripCount} 건</strong><br>
-        총 대기시간: <strong>${waitHours}시간 ${waitMinutes}분</strong>
+        운행거리: <strong>${totalDistance.toFixed(1)} km</strong><br>
+        이동건수: <strong>${totalTripCount} 건</strong><br>
+        대기시간: <strong>${waitHours}시간 ${waitMinutes}분</strong>
     `;
 }
 
 function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
-    const selectedDate = todayDatePicker.value || getTodayString();
-    const dateObj = new Date(selectedDate);
-    const title = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }) + ' 요약';
+    const selectedDate = todayDatePicker.value;
+    const dateObj = new Date(selectedDate + 'T00:00:00'); // Ensure correct date parsing
+    const title = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
 
     const filteredRecords = records.filter(r => r.date === selectedDate);
     
@@ -279,6 +279,7 @@ function displayTodayRecords() {
     
     todaySummaryDiv.innerHTML = createSummaryHTML(title, filteredRecords);
 }
+
 
 function displayDailyRecords() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];

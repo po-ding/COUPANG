@@ -1,4 +1,3 @@
-/** 버전: 3.3 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -316,7 +315,7 @@ function displayMonthlyRecords() {
         dailyData[date].waitingTime += parseInt(r.waitingTime || 0);
     });
 
-    // 4. 합산된 데이터를 테이블에 렌더링
+    // 4. 합산된 데이터를 테이블에 렌더링 (날짜 오름차순)
     const sortedDates = Object.keys(dailyData).sort();
     sortedDates.forEach(date => {
         const data = dailyData[date];
@@ -326,6 +325,10 @@ function displayMonthlyRecords() {
         const dailyWaitMinutes = data.waitingTime % 60;
         
         const tr = document.createElement('tr');
+        if (date === getTodayString()) {
+             tr.style.fontWeight = 'bold';
+             tr.style.backgroundColor = '#e9f5ff';
+        }
         tr.innerHTML = `
             <td data-label="일">${parseInt(day)}일</td>
             <td data-label="총수입(만원)"><span class="income">${formatToManwon(data.income)}</span></td>
@@ -365,11 +368,7 @@ function displayYearlyRecords() {
     yearlyTbody.innerHTML = '';
     const currentMonthKey = new Date().toISOString().slice(0, 7);
     
-    const sortedMonths = Object.keys(monthlyData).sort((a, b) => {
-        if (a === currentMonthKey) return -1;
-        if (b === currentMonthKey) return 1;
-        return a.localeCompare(b);
-    });
+    const sortedMonths = Object.keys(monthlyData).sort((a, b) => a.localeCompare(b));
 
     sortedMonths.forEach(monthKey => {
         const data = monthlyData[monthKey];

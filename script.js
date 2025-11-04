@@ -1,4 +1,4 @@
-/** 버전: 3.2 | 최종 수정일: 2025-11-04 */
+/** 버전: 3.3 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -50,7 +50,6 @@ const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyMonthSelect = document.getElementById('monthly-month-select');
 const monthlySummaryDiv = document.getElementById('monthly-summary');
 const monthlyDetailedSummaryDiv = document.getElementById('monthly-detailed-summary');
-const comparisonGraphDiv = document.getElementById('comparison-graph');
 const monthlyTbody = document.querySelector('#monthly-records-table tbody');
 const yearlyYearSelect = document.getElementById('yearly-year-select');
 const yearlyTbody = document.querySelector('#yearly-summary-table tbody');
@@ -274,7 +273,7 @@ function displayMonthlyRecords() {
     monthlyTbody.innerHTML = '';
     monthlyDetailedSummaryDiv.classList.remove('hidden');
 
-    // 1. 월 전체 요약 정보 계산 및 표시
+    // 1. 월 전체 요약 정보 계산
     let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalLiters = 0, totalFuelCost = 0, totalSuppliesCost = 0, totalWaitingTime = 0, totalTripCount = 0;
     currentMonthRecords.forEach(r => {
         totalIncome += parseInt(r.income || 0);
@@ -295,81 +294,50 @@ function displayMonthlyRecords() {
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
     
+    // 2. 월 전체 요약 정보 표시
     monthlyDetailedSummaryDiv.innerHTML = `<strong>${parseInt(monthlyMonthSelect.value)}월 요약</strong><br>총 정산: <strong>${formatToManwon(netIncome)} 만원</strong> | 총 주유비: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> | 총 소모품비: <span class="cost">${formatToManwon(totalSuppliesCost)} 만원</span><br>총 대기시간: ${waitHours}시간 ${waitMinutes}분 | 총 이동 건수: ${totalTripCount} 건 | 총 운행거리: ${totalDistance.toFixed(1)} km`;
 
-    // 2. 날짜별로 기록을 그룹화
-    const recordsByDate = currentMonthRecords.reduce((acc, record) => {
-        if (!acc[record.date]) acc[record.date] = [];
-        acc[record.date].push(record);
-        return acc;
-    }, {});
+    // 3. 날짜별 데이터 합산
+    const dailyData = {};
+    currentMonthRecords.forEach(r => {
+        const date = r.date;
+        if (!dailyData[date]) {
+            dailyData[date] = { income: 0, expense: 0, distance: 0, tripCount: 0, waitingTime: 0, liters: 0 };
+        }
+        dailyData[date].income += parseInt(r.income || 0);
+        dailyData[date].expense += parseInt(r.cost || 0);
+        if (['화물운송', '공차이동'].includes(r.type)) {
+            dailyData[date].distance += parseFloat(r.distance || 0);
+            dailyData[date].tripCount++;
+        }
+        if (r.type === '주유소') {
+            dailyData[date].liters += parseFloat(r.liters || 0);
+        }
+        dailyData[date].waitingTime += parseInt(r.waitingTime || 0);
+    });
 
-    // 3. 날짜별 합산 테이블 생성
-    const sortedDates = Object.keys(recordsByDate).sort().reverse();
+    // 4. 합산된 데이터를 테이블에 렌더링
+    const sortedDates = Object.keys(dailyData).sort();
     sortedDates.forEach(date => {
-        const dailyRecords = recordsByDate[date];
-        let dailyIncome = 0, dailyExpense = 0, dailyDistance = 0, dailyTripCount = 0;
-
-        dailyRecords.forEach(r => {
-            dailyIncome += parseInt(r.income || 0);
-            dailyExpense += parseInt(r.cost || 0);
-            if (['화물운송', '공차이동'].includes(r.type)) {
-                dailyDistance += parseFloat(r.distance || 0);
-                dailyTripCount++;
-            }
-        });
-        const dailyNet = dailyIncome - dailyExpense;
-
+        const data = dailyData[date];
+        const day = date.substring(8, 10);
+        const dailyNet = data.income - data.expense;
+        const dailyWaitHours = Math.floor(data.waitingTime / 60);
+        const dailyWaitMinutes = data.waitingTime % 60;
+        
         const tr = document.createElement('tr');
-        const actionCell = `<div class="action-cell"><button class="edit-btn" onclick="editDailyRecord('${date}')">상세</button><button class="delete-btn" onclick="deleteDailyRecord('${date}')">삭제</button></div>`;
         tr.innerHTML = `
-            <td data-label="날짜">${date.substring(5)}</td>
-            <td data-label="총수입"><span class="income">${formatToManwon(dailyIncome)}</span></td>
-            <td data-label="총지출"><span class="cost">${formatToManwon(dailyExpense)}</span></td>
-            <td data-label="일당"><strong>${formatToManwon(dailyNet)}</strong></td>
-            <td data-label="운행거리">${dailyDistance.toFixed(1)}</td>
-            <td data-label="이동건수">${dailyTripCount}</td>
-            <td data-label="관리">${actionCell}</td>
+            <td data-label="일">${parseInt(day)}일</td>
+            <td data-label="총수입(만원)"><span class="income">${formatToManwon(data.income)}</span></td>
+            <td data-label="총지출(만원)"><span class="cost">${formatToManwon(data.expense)}</span></td>
+            <td data-label="정산(만원)"><strong>${formatToManwon(dailyNet)}</strong></td>
+            <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
+            <td data-label="이동건수">${data.tripCount}</td>
+            <td data-label="대기시간">${dailyWaitHours}h ${dailyWaitMinutes}m</td>
+            <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
         `;
         monthlyTbody.appendChild(tr);
     });
-
-    // 4. 이전 달과 성과 비교 그래프 업데이트
-    let prevMonthDate = new Date(`${selectedPeriod}-01`);
-    prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
-    const prevYear = prevMonthDate.getFullYear();
-    const prevMonth = (prevMonthDate.getMonth() + 1).toString().padStart(2, '0');
-    const prevPeriod = `${prevYear}-${prevMonth}`;
-    const prevMonthRecords = allRecords.filter(r => r.date.startsWith(prevPeriod));
-    
-    let prevTotalIncome = 0, prevTotalExpense = 0;
-    prevMonthRecords.forEach(r => {
-        prevTotalIncome += parseInt(r.income || 0);
-        prevTotalExpense += parseInt(r.cost || 0);
-    });
-    const prevNetIncome = prevTotalIncome - prevTotalExpense;
-    
-    updateComparisonGraph({
-        current: { income: totalIncome, expense: totalExpense, net: netIncome },
-        previous: { income: prevTotalIncome, expense: prevTotalExpense, net: prevNetIncome }
-    });
-}
-
-function updateComparisonGraph(data) {
-    const { current, previous } = data;
-    if (!comparisonGraphDiv) return;
-    const maxValue = Math.max(current.income, current.expense, previous.income, previous.expense, 1);
-
-    const getPercent = (value) => (value / maxValue * 100);
-
-    comparisonGraphDiv.innerHTML = `
-        <h4>이전 달 대비 성과 비교</h4>
-        <div class="graph-body">
-            <div class="bar-group"><div class="bar-container"><div class="bar previous" style="height: ${getPercent(previous.income)}%;" title="이전달: ${formatToManwon(previous.income)}만원"></div><div class="bar current" style="height: ${getPercent(current.income)}%;" title="이번달: ${formatToManwon(current.income)}만원"></div></div><div class="bar-label">수입</div></div>
-            <div class="bar-group"><div class="bar-container"><div class="bar previous" style="height: ${getPercent(previous.expense)}%;" title="이전달: ${formatToManwon(previous.expense)}만원"></div><div class="bar current" style="height: ${getPercent(current.expense)}%;" title="이번달: ${formatToManwon(current.expense)}만원"></div></div><div class="bar-label">지출</div></div>
-            <div class="bar-group"><div class="bar-container"><div class="bar previous" style="height: ${getPercent(previous.net < 0 ? 0 : previous.net)}%;" title="이전달: ${formatToManwon(previous.net)}만원"></div><div class="bar current" style="height: ${getPercent(current.net < 0 ? 0 : current.net)}%;" title="이번달: ${formatToManwon(current.net)}만원"></div></div><div class="bar-label">정산</div></div>
-        </div>
-        <div class="graph-legend"><div class="legend-item"><span class="legend-color" style="background-color: #6c757d;"></span> 이전 달</div><div class="legend-item"><span class="legend-color" style="background-color: #007bff;"></span> 이번 달</div></div>`;
 }
         
 function displayYearlyRecords() {
@@ -563,15 +531,6 @@ function deleteRecord(id) {
     }
 }
 
-function deleteDailyRecord(date) {
-    if (confirm(`${date}의 모든 기록을 삭제하시겠습니까?`)) {
-        let records = JSON.parse(localStorage.getItem('records')) || [];
-        records = records.filter(r => r.date !== date);
-        localStorage.setItem('records', JSON.stringify(records));
-        updateAllDisplays();
-    }
-}
-
 function editRecord(id) {
     if (mainPage.classList.contains('hidden')) {
         backToMainBtn.click();
@@ -636,16 +595,6 @@ function cancelEdit() {
     waitStartTime = null;
 
     toggleUI(typeSelect.value);
-}
-
-function editDailyRecord(date) {
-    dailyDatePicker.value = date;
-    tabBtns.forEach(b => b.classList.remove('active'));
-    document.querySelector('.tab-btn[data-view="daily"]').classList.add('active');
-    viewContents.forEach(c => c.classList.remove('active'));
-    document.getElementById('daily-view').classList.add('active');
-    updateAllDisplays();
-    window.scrollTo(0, recordForm.scrollHeight);
 }
 
 function getFormData(isNew = false) {
@@ -968,8 +917,8 @@ backToMainBtn.addEventListener('click', () => {
 function initialSetup() {
     populateCenterSelectors();
     populateSelectors();
-    cancelEdit(); // 이 함수 안에서 오늘 날짜로 기본 설정됨
-    dailyDatePicker.value = getTodayString(); // 명시적으로 오늘 날짜 설정
+    cancelEdit();
+    dailyDatePicker.value = getTodayString();
     updateAllDisplays();
 }
 

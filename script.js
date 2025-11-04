@@ -1,4 +1,4 @@
-/** 버전: 2.0 | 최종 수정일: 2025-11-04 */
+/** 버전: 2.1 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');

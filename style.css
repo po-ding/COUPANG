@@ -20,7 +20,6 @@ button.setting-save-btn { background-color: #28a745; margin-top: 0.5em; }
 button:hover { opacity: 0.8; }
 
 .page-nav { display: flex; justify-content: space-between; align-items: center; }
-.page-nav .logo { text-align: left; }
 .page-nav .nav-buttons { display: flex; gap: 0.5em; }
 .page-nav button { padding: 0.5em 1em; font-size: 0.9em; width: auto; background-color: #6c757d; }
 
@@ -34,8 +33,8 @@ button:hover { opacity: 0.8; }
 
 #submit-btn.edit-mode { background-color: #28a745; }
 #cancel-edit-btn { background-color: #6c757d; }
-.edit-btn, .delete-btn { padding: 0.4em 0.8em; font-size: 0.9em; margin-top: 0; margin-left: 5px; }
-.edit-btn { background-color: #fd7e14; }
+.edit-btn, .delete-btn { padding: 0.4em 0.8em; font-size: 0.9em; margin-top: 0; }
+.edit-btn { background-color: #fd7e14; margin-left: 5px; }
 .delete-btn { background-color: #dc3545; }
 
 .batch-apply-section { margin-top: 2.5em; }
@@ -90,6 +89,7 @@ th { background-color: #f2f2f2; }
 .progress-bar { height: 100%; text-align: center; color: white; font-size: 0.8em; line-height: 1.5rem; white-space: nowrap; transition: width 0.6s ease; }
 .progress-bar-used { background-color: #17a2b8; }
 .progress-bar-remaining { background-color: #e9ecef; color: #555;}
+.summary-note { font-size: 0.9em; text-align: center; color: #555; margin-top: 0.5em; }
 
 .note { color: #555; font-size: 0.9em; }
 .note a { color: #0056b3; text-decoration: none; margin-right: 5px; }
@@ -103,8 +103,6 @@ th { background-color: #f2f2f2; }
 #export-json-btn { background-color: #5a6268; }
 #import-json-btn { background-color: #e0a800; }
 #clear-btn { background-color: #c82333; }
-#gdrive-save-btn { background-color: #4285F4; }
-#gdrive-load-btn { background-color: #34A853; }
 
 @media screen and (max-width: 768px) {
     .responsive-table thead { display: none; }

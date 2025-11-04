@@ -68,6 +68,7 @@ const subsidySaveBtn = document.getElementById('subsidy-save-btn');
 const subsidySummaryDiv = document.getElementById('subsidy-summary');
 const totalMileageInput = document.getElementById('total-mileage');
 const totalMileageSaveBtn = document.getElementById('total-mileage-save-btn');
+const currentMonthMileage = document.getElementById('current-month-mileage');
 
 const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');

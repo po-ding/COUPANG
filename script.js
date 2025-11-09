@@ -1,4 +1,4 @@
-/** 버전: 5.0 | 최종 수정일: 2025-11-04 (지역별 주소 정보 관리 기능 추가) */
+/** 버전: 5.1 | 최종 수정일: 2025-11-04 (UI/UX 개선) */
 
 // =========================================================================
 // API 키가 입력되었습니다.
@@ -87,6 +87,9 @@ const cumulativeCostPerKm = document.getElementById('cumulative-cost-per-km');
 const startGpsBtn = document.getElementById('start-gps-btn');
 const endGpsBtn = document.getElementById('end-gps-btn');
 const gpsStatus = document.getElementById('gps-status');
+// MODIFIED START: 주소 표시 div DOM 요소 추가
+const addressDisplay = document.getElementById('address-display');
+// MODIFIED END
 const startCoordsInput = document.getElementById('start-coords');
 const endCoordsInput = document.getElementById('end-coords');
 const manualDistanceInput = document.getElementById('manual-distance');
@@ -104,9 +107,7 @@ const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
 const newCenterNameInput = document.getElementById('new-center-name');
 const newCenterGpsInput = document.getElementById('new-center-gps');
-// MODIFIED START: 주소 입력란 DOM 요소 추가
 const newCenterAddressInput = document.getElementById('new-center-address');
-// MODIFIED END
 const addCenterBtn = document.getElementById('add-center-btn');
 
 const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
@@ -152,8 +153,6 @@ function getCenters() {
     return storedCenters.sort((a, b) => a.localeCompare(b, 'ko'));
 }
 
-// MODIFIED START: 데이터 구조 변경에 따른 함수 수정 및 추가
-// 이제 locations는 { '센터이름': { gps: '좌표', address: '주소' } } 형태가 됩니다.
 function getSavedLocations() {
     return JSON.parse(localStorage.getItem('saved_locations')) || {};
 }
@@ -161,7 +160,7 @@ function getSavedLocations() {
 function saveLocationData(centerName, data) {
     if (!centerName || centerName === 'direct') return false;
     const locations = getSavedLocations();
-    locations[centerName] = data; // { gps, address } 객체를 통째로 저장
+    locations[centerName] = data;
     localStorage.setItem('saved_locations', JSON.stringify(locations));
     return true;
 }
@@ -189,7 +188,6 @@ function addCenter(newCenter, gpsCoords = '', address = '') {
     }
     return false;
 }
-// MODIFIED END
 
 function populateCenterSelectors() {
     const centers = getCenters();
@@ -234,6 +232,7 @@ function getGPS(point) {
     }
     const statusText = point === 'start' ? '출발' : '도착';
     gpsStatus.textContent = `GPS 상태: ${statusText} 지점 위치 수신 중...`;
+    addressDisplay.innerHTML = ''; // 주소 표시란 초기화
 
     navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -296,6 +295,31 @@ function stopWaitTimer() {
     endWaitBtn.disabled = true;
     waitStartTime = null;
 }
+
+// MODIFIED START: 선택된 지역의 주소를 표시하는 새 함수
+function updateAddressDisplay() {
+    const fromValue = fromSelect.value;
+    const toValue = toSelect.value;
+    const locations = getSavedLocations();
+    
+    const fromData = locations[fromValue] || {};
+    const toData = locations[toValue] || {};
+
+    let addressHtml = '';
+    if (fromData.address) {
+        addressHtml += `<div><strong>출발지 주소:</strong> ${fromData.address}</div>`;
+    }
+    if (toData.address) {
+        addressHtml += `<div><strong>도착지 주소:</strong> ${toData.address}</div>`;
+    }
+
+    addressDisplay.innerHTML = addressHtml;
+    // 주소가 표시되면, GPS 상태 텍스트는 간결하게 유지
+    if(addressHtml) {
+        gpsStatus.textContent = 'GPS 상태: 대기 중';
+    }
+}
+// MODIFIED END
 
 function createSummaryHTML(title, records) {
     let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0, totalWaitingTime = 0;
@@ -667,6 +691,7 @@ function editRecord(id) {
     cancelEditBtn.classList.remove('hidden');
 
     window.scrollTo(0, 0);
+    updateAddressDisplay();
 }
 
 function cancelEdit() {
@@ -688,6 +713,10 @@ function cancelEdit() {
     endWaitBtn.disabled = true;
     if (waitTimerInterval) clearInterval(waitTimerInterval);
     waitStartTime = null;
+    
+    // MODIFIED START: 주소 표시란 초기화
+    addressDisplay.innerHTML = '';
+    // MODIFIED END
 
     toggleUI(typeSelect.value);
 }
@@ -775,7 +804,6 @@ function calculateHaversineDistance(coords1Str, coords2Str) {
     return R * c;
 }
 
-// MODIFIED START: 데이터 구조 변경에 따라 GPS 좌표를 .gps 속성에서 가져오도록 수정
 async function autoFillDistance() {
     const from = fromSelect.value;
     const to = toSelect.value;
@@ -801,7 +829,6 @@ async function autoFillDistance() {
         }
     }
 }
-// MODIFIED END
 
 function exportToCsv() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
@@ -895,7 +922,6 @@ function importFromJson(event) {
     reader.readAsText(file);
 }
 
-// MODIFIED START: 주소 정보를 포함하여 목록을 표시하도록 수정
 function displayCenterList() {
     centerListContainer.innerHTML = '';
     const centers = getCenters();
@@ -928,7 +954,6 @@ function displayCenterList() {
         centerListContainer.appendChild(item);
     });
 }
-// MODIFIED END
 
 function deleteCenter(centerNameToDelete) {
     if (confirm(`'${centerNameToDelete}' 지역을 목록에서 정말 삭제하시겠습니까?\n(기존 기록은 변경되지 않습니다.)`)) {
@@ -944,7 +969,6 @@ function deleteCenter(centerNameToDelete) {
     }
 }
 
-// MODIFIED START: 주소 정보를 포함하여 수정 폼을 만들도록 수정
 function handleCenterEdit(e) {
     const item = e.target.closest('.center-item');
     const originalName = item.dataset.centerName;
@@ -969,9 +993,7 @@ function handleCenterEdit(e) {
     item.querySelector('.cancel-edit-btn').onclick = () => refreshCenterUI();
     item.querySelector('.edit-input').focus();
 }
-// MODIFIED END
 
-// MODIFIED START: 주소 정보를 포함하여 수정 내용을 저장하도록 수정
 function saveCenterEdit(item, originalName) {
     const newName = item.querySelector('.edit-input').value.trim();
     const newGps = item.querySelector('.edit-gps-input').value.trim();
@@ -1008,7 +1030,6 @@ function saveCenterEdit(item, originalName) {
     refreshCenterUI();
     updateAllDisplays();
 }
-// MODIFIED END
 
 function refreshCenterUI() {
     displayCenterList();
@@ -1195,21 +1216,26 @@ ureaLitersInput.addEventListener('input', () => calculateCost('urea'));
 costInput.addEventListener('input', calculateLiters);
 
 typeSelect.addEventListener('change', () => toggleUI(typeSelect.value));
+
+// MODIFIED START: 이벤트 리스너에 updateAddressDisplay() 호출 추가
 fromSelect.addEventListener('change', () => {
     fromCustom.classList.toggle('hidden', fromSelect.value !== 'direct');
     autoFillIncome();
     autoFillDistance();
+    updateAddressDisplay();
 });
 toSelect.addEventListener('change', () => {
     toCustom.classList.toggle('hidden', toSelect.value !== 'direct');
     autoFillIncome();
     autoFillDistance();
+    updateAddressDisplay();
 });
+// MODIFIED END
+
 batchFromSelect.addEventListener('change', () => batchFromCustom.classList.toggle('hidden', batchFromSelect.value !== 'direct'));
 batchToSelect.addEventListener('change', () => batchToCustom.classList.toggle('hidden', batchToSelect.value !== 'direct'));
 cancelEditBtn.addEventListener('click', cancelEdit);
 
-// MODIFIED START: 현위치 저장 버튼 로직 수정
 saveFromGpsBtn.addEventListener('click', () => {
     if (updateLocationGps(fromSelect.value, startCoordsInput.value)) {
         alert(`'${fromSelect.value}'의 GPS 위치가 저장/업데이트되었습니다.`);
@@ -1226,7 +1252,6 @@ saveToGpsBtn.addEventListener('click', () => {
         alert('도착지를 선택하고 GPS를 먼저 등록해주세요.');
     }
 });
-// MODIFIED END
 
 function autoFillIncome() {
     if (typeSelect.value !== '화물운송') return;
@@ -1257,20 +1282,18 @@ backToMainBtn.addEventListener('click', () => {
     backToMainBtn.classList.add('hidden');
 });
 
-// MODIFIED START: 주소 정보 포함하여 새 지역 추가
 addCenterBtn.addEventListener('click', () => {
     const newName = newCenterNameInput.value;
     const newGps = newCenterGpsInput.value;
-    const newAddress = newCenterAddressInput.value; // 주소 값 가져오기
-    if (addCenter(newName, newGps, newAddress)) { // addCenter 함수에 주소 전달
+    const newAddress = newCenterAddressInput.value;
+    if (addCenter(newName, newGps, newAddress)) {
         newCenterNameInput.value = '';
         newCenterGpsInput.value = '';
-        newCenterAddressInput.value = ''; // 입력란 비우기
+        newCenterAddressInput.value = '';
     } else {
         alert('지역 이름을 입력하거나, 이미 존재하지 않는 이름을 사용해주세요.');
     }
 });
-// MODIFIED END
 
 centerListContainer.addEventListener('click', (e) => {
     if (e.target.classList.contains('delete-btn')) {

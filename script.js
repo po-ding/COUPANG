@@ -1,4 +1,4 @@
-/** 버전: 4.3 | 최종 수정일: 2025-11-04 (모든 기능 구현 및 오류 수정) */
+/** 버전: 4.4 | 최종 수정일: 2025-11-04 (모든 기능 구현 및 오류 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -57,22 +57,7 @@ const dailyTbody = document.querySelector('#daily-summary-table tbody');
 const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
 
-const batchFromSelect = document.getElementById('batch-from-center');
-const batchToSelect = document.getElementById('batch-to-center');
-const batchFromCustom = document.getElementById('batch-from-custom');
-const batchToCustom = document.getElementById('batch-to-custom');
-const batchIncomeInput = document.getElementById('batch-income');
-const batchApplyBtn = document.getElementById('batch-apply-btn');
-const batchStatus = document.getElementById('batch-status');
-
-const subsidyLimitInput = document.getElementById('subsidy-limit');
-const subsidySaveBtn = document.getElementById('subsidy-save-btn');
-const subsidySummaryDiv = document.getElementById('subsidy-summary');
-const totalMileageInput = document.getElementById('total-mileage');
-const totalMileageSaveBtn = document.getElementById('total-mileage-save-btn');
-const monthlyMileageBreakdown = document.getElementById('monthly-mileage-breakdown');
-
-// -- [수정] 데이터 요약 카드 --
+// -- 데이터 요약 카드 --
 // 월별
 const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
@@ -106,7 +91,7 @@ const endWaitBtn = document.getElementById('end-wait-btn');
 const waitStatus = document.getElementById('wait-status');
 const waitingTimeInput = document.getElementById('waiting-time');
 
-// -- [추가] 아코디언(펼치기) UI 요소 --
+// -- 아코디언(펼치기) UI 요소 --
 const toggleCenterManagementBtn = document.getElementById('toggle-center-management');
 const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
@@ -115,9 +100,28 @@ const addCenterBtn = document.getElementById('add-center-btn');
 
 const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
 const batchApplyBody = document.getElementById('batch-apply-body');
+const batchFromSelect = document.getElementById('batch-from-center');
+const batchToSelect = document.getElementById('batch-to-center');
+const batchFromCustom = document.getElementById('batch-from-custom');
+const batchToCustom = document.getElementById('batch-to-custom');
+const batchIncomeInput = document.getElementById('batch-income');
+const batchApplyBtn = document.getElementById('batch-apply-btn');
+const batchStatus = document.getElementById('batch-status');
+
 const toggleSubsidyManagementBtn = document.getElementById('toggle-subsidy-management');
 const subsidyManagementBody = document.getElementById('subsidy-management-body');
+const subsidyLimitInput = document.getElementById('subsidy-limit');
+const subsidySaveBtn = document.getElementById('subsidy-save-btn');
+const subsidySummaryDiv = document.getElementById('subsidy-summary');
 
+const toggleMileageManagementBtn = document.getElementById('toggle-mileage-management');
+const mileageManagementBody = document.getElementById('mileage-management-body');
+const mileageCorrectionInput = document.getElementById('mileage-correction');
+const mileageCorrectionSaveBtn = document.getElementById('mileage-correction-save-btn');
+const monthlyMileageBreakdown = document.getElementById('monthly-mileage-breakdown');
+
+const toggleDataManagementBtn = document.getElementById('toggle-data-management');
+const dataManagementBody = document.getElementById('data-management-body');
 
 let waitStartTime = null;
 let waitTimerInterval = null;
@@ -134,7 +138,7 @@ function getCenters() {
     const defaultCenters = ['안성', '안산', '용인', '이천', '인천'];
     const storedCenters = JSON.parse(localStorage.getItem('logistics_centers')) || defaultCenters;
     if (!localStorage.getItem('logistics_centers')) localStorage.setItem('logistics_centers', JSON.stringify(storedCenters));
-    return storedCenters.sort((a, b) => a.localeCompare(b, 'ko')); // 가나다순 정렬
+    return storedCenters.sort((a, b) => a.localeCompare(b, 'ko'));
 }
 
 function addCenter(newCenter) {
@@ -169,7 +173,7 @@ function toggleUI(type) {
     supplyDetails.classList.toggle('hidden', type !== '소모품');
 
     if(type === '소모품') {
-        supplyMileageInput.value = localStorage.getItem('total_vehicle_mileage') || '';
+        supplyMileageInput.value = ''; // 소모품 선택 시 주행거리 칸은 비워둠
     }
 
     costInfoFieldset.classList.remove('hidden');
@@ -305,6 +309,7 @@ function displayTodayRecords() {
             moneyCell = `<span class="cost">-${formatToManwon(r.cost)}</span>`;
         } else {
             detailsCell = `<strong>${r.supplyItem || r.type}</strong>`;
+            if (r.mileage > 0) detailsCell += `<br><span class="note">${r.mileage.toLocaleString()} km</span>`;
             moneyCell = `<span class="cost">-${formatToManwon(r.cost)}</span>`;
         }
         actionCell = `<div class="action-cell"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></div>`;
@@ -469,7 +474,7 @@ function displayCurrentMonthData() {
 
 function displayCumulativeData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
-    let totalIncome = 0, totalExpense = 0, totalTripCount = 0, totalLiters = 0;
+    let totalIncome = 0, totalExpense = 0, totalTripCount = 0, totalLiters = 0, recordedDistance = 0;
     let monthlyMileage = {};
 
     allRecords.forEach(r => {
@@ -480,20 +485,23 @@ function displayCumulativeData() {
         }
         if (['화물운송', '공차이동'].includes(r.type)) {
             totalTripCount++;
+            const distance = parseFloat(r.distance || 0);
+            recordedDistance += distance;
             const monthKey = r.date.substring(0, 7);
-            monthlyMileage[monthKey] = (monthlyMileage[monthKey] || 0) + parseFloat(r.distance);
+            monthlyMileage[monthKey] = (monthlyMileage[monthKey] || 0) + distance;
         }
     });
 
+    const correction = parseFloat(localStorage.getItem('mileage_correction')) || 0;
+    const totalMileage = recordedDistance + correction;
     const netIncome = totalIncome - totalExpense;
-    const totalMileageValue = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
-    const avgEconomy = totalLiters > 0 && totalMileageValue > 0 ? (totalMileageValue / totalLiters).toFixed(2) : 0;
-    const costPerKm = totalMileageValue > 0 ? Math.round(totalExpense / totalMileageValue) : 0;
+    const avgEconomy = totalLiters > 0 && totalMileage > 0 ? (totalMileage / totalLiters).toFixed(2) : 0;
+    const costPerKm = totalMileage > 0 ? Math.round(totalExpense / totalMileage) : 0;
     const operatingDays = new Set(allRecords.map(r => r.date)).size;
     
     cumulativeOperatingDays.textContent = `${operatingDays} 일`;
     cumulativeTripCount.textContent = `${totalTripCount} 건`;
-    cumulativeTotalMileage.textContent = `${Math.round(totalMileageValue).toLocaleString()} km`;
+    cumulativeTotalMileage.textContent = `${Math.round(totalMileage).toLocaleString()} km`;
     cumulativeIncome.textContent = `${formatToManwon(totalIncome)} 만원`;
     cumulativeExpense.textContent = `${formatToManwon(totalExpense)} 만원`;
     cumulativeNetIncome.textContent = `${formatToManwon(netIncome)} 만원`;
@@ -694,14 +702,11 @@ function exportToCsv() {
 }
 
 function exportToJson() {
-    const records = localStorage.getItem('records');
-    if (!records || records === '[]') {
-        alert('저장할 기록이 없습니다.');
-        return;
-    }
     const backupData = {
-        records: JSON.parse(records),
-        centers: getCenters()
+        records: JSON.parse(localStorage.getItem('records') || '[]'),
+        centers: getCenters(),
+        mileage_correction: parseFloat(localStorage.getItem('mileage_correction')) || 0,
+        fuel_subsidy_limit: parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0
     };
     const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -713,11 +718,11 @@ function exportToJson() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    alert('모든 기록과 운송지역 목록이 JSON 파일로 성공적으로 저장(다운로드)되었습니다!');
+    alert('모든 데이터가 JSON 파일로 성공적으로 저장(다운로드)되었습니다!');
 }
 
 function importFromJson(event) {
-    if (!confirm('경고!\n현재 앱의 모든 기록과 운송지역 목록이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
+    if (!confirm('경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
         event.target.value = '';
         return;
     }
@@ -732,10 +737,13 @@ function importFromJson(event) {
             const content = e.target.result;
             const data = JSON.parse(content);
             
-            if (data && Array.isArray(data.records) && Array.isArray(data.centers)) {
+            if (data && Array.isArray(data.records)) {
                 localStorage.setItem('records', JSON.stringify(data.records));
-                localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
-            } else if (Array.isArray(data)) {
+                if(Array.isArray(data.centers)) localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
+                if(data.mileage_correction) localStorage.setItem('mileage_correction', data.mileage_correction);
+                if(data.fuel_subsidy_limit) localStorage.setItem('fuel_subsidy_limit', data.fuel_subsidy_limit);
+
+            } else if (Array.isArray(data)) { // 구버전 호환
                 localStorage.setItem('records', JSON.stringify(data));
             } else {
                 throw new Error('Invalid file format');
@@ -855,7 +863,7 @@ function updateCentersFromRecords() {
     }
 }
 
-// --- [가장 중요] 모든 이벤트 리스너(버튼 기능) 및 초기화 함수 ---
+// --- 모든 이벤트 리스너(버튼 기능) 및 초기화 함수 ---
 
 recordForm.addEventListener('submit', function(event) {
     event.preventDefault();
@@ -931,10 +939,10 @@ subsidySaveBtn.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-totalMileageSaveBtn.addEventListener('click', () => {
-    const newMileage = totalMileageInput.value;
-    localStorage.setItem('total_vehicle_mileage', newMileage);
-    alert(`총 주행거리가 ${parseInt(newMileage).toLocaleString()} km로 저장되었습니다.`);
+mileageCorrectionSaveBtn.addEventListener('click', () => {
+    const correction = mileageCorrectionInput.value;
+    localStorage.setItem('mileage_correction', correction);
+    alert(`주행거리 보정값이 ${correction} km로 저장되었습니다.`);
     displayCumulativeData();
 });
 
@@ -948,7 +956,7 @@ clearBtn.addEventListener('click', () => {
         localStorage.removeItem('records');
         localStorage.removeItem('logistics_centers');
         localStorage.removeItem('fuel_subsidy_limit');
-        localStorage.removeItem('total_vehicle_mileage');
+        localStorage.removeItem('mileage_correction');
         localStorage.removeItem('saved_fares');
         alert('모든 데이터가 삭제되었습니다.');
         location.reload();
@@ -1044,6 +1052,7 @@ goToSettingsBtn.addEventListener('click', () => {
     goToSettingsBtn.classList.add('hidden');
     backToMainBtn.classList.remove('hidden');
     displayCenterList();
+    mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || '0';
 });
 
 backToMainBtn.addEventListener('click', () => {
@@ -1071,17 +1080,12 @@ centerListContainer.addEventListener('click', (e) => {
     }
 });
 
-toggleCenterManagementBtn.addEventListener('click', () => {
-    centerManagementBody.classList.toggle('hidden');
-    toggleCenterManagementBtn.classList.toggle('active');
-});
-toggleBatchApplyBtn.addEventListener('click', () => {
-    batchApplyBody.classList.toggle('hidden');
-    toggleBatchApplyBtn.classList.toggle('active');
-});
-toggleSubsidyManagementBtn.addEventListener('click', () => {
-    subsidyManagementBody.classList.toggle('hidden');
-    toggleSubsidyManagementBtn.classList.toggle('active');
+[toggleCenterManagementBtn, toggleBatchApplyBtn, toggleSubsidyManagementBtn, toggleMileageManagementBtn, toggleDataManagementBtn].forEach(header => {
+    header.addEventListener('click', () => {
+        const body = header.nextElementSibling;
+        body.classList.toggle('hidden');
+        header.classList.toggle('active');
+    });
 });
 
 function initialSetup() {

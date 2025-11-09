@@ -194,16 +194,17 @@
                 </div>
             </div>
 
-            <div class="mileage-management">
-                <h2>총 주행거리 관리</h2>
+            <h2 id="toggle-mileage-management" class="collapsible-header">주행거리 보정 및 차트</h2>
+            <div id="mileage-management-body" class="collapsible-body hidden">
                 <fieldset>
-                    <legend>현재 총 주행거리(km) 수동 설정</legend>
+                    <legend>주행거리 보정 (+/- km)</legend>
                     <div class="input-group">
-                        <input type="number" id="total-mileage" placeholder="예: 123456">
-                        <button id="total-mileage-save-btn" class="setting-save-btn">주행거리 저장</button>
+                        <input type="number" id="mileage-correction" placeholder="예: -150 (차이가 나는 만큼 입력)">
+                        <button id="mileage-correction-save-btn" class="setting-save-btn">보정값 저장</button>
                     </div>
-                    <div id="monthly-mileage-breakdown" class="comparison-graph"></div>
+                    <p class="note">이 값은 기록된 누적 운행거리에 더해져 '총 운행거리'를 계산하는 데 사용됩니다.</p>
                 </fieldset>
+                <div id="monthly-mileage-breakdown" class="comparison-graph"></div>
             </div>
 
             <h2 id="toggle-center-management" class="collapsible-header">운송 지역 관리</h2>
@@ -251,13 +252,16 @@
                 <div id="subsidy-summary" class="subsidy-summary"></div>
             </div>
 
-            <div class="action-buttons">
-                <button id="export-json-btn">JSON 저장 (백업)</button>
-                <button id="import-json-btn">JSON 복원</button>
-                <button id="export-csv-btn">엑셀 저장</button> 
-                <button id="clear-btn">전체 데이터 삭제</button>
+            <h2 id="toggle-data-management" class="collapsible-header">데이터 관리</h2>
+            <div id="data-management-body" class="collapsible-body hidden">
+                <div class="action-buttons">
+                    <button id="export-json-btn">JSON 저장 (백업)</button>
+                    <button id="import-json-btn">JSON 복원</button>
+                    <button id="export-csv-btn">엑셀 저장</button> 
+                    <button id="clear-btn">전체 데이터 삭제</button>
+                </div>
+                <input type="file" id="import-file-input" class="hidden" accept=".json">
             </div>
-            <input type="file" id="import-file-input" class="hidden" accept=".json">
 
         </div>
     </div>

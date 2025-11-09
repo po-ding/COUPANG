@@ -1,4 +1,4 @@
-/** 버전: 3.8 | 최종 수정일: 2025-11-04 */
+/** 버전: 3.9 | 최종 수정일: 2025-11-04 */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -765,13 +765,21 @@ function exportToCsv() {
 }
 exportCsvBtn.addEventListener('click', exportToCsv);
 
+// ======[ 수정된 부분 1: 내보내기 기능 ]======
 function exportToJson() {
     const records = localStorage.getItem('records');
     if (!records || records === '[]') {
         alert('저장할 기록이 없습니다.');
         return;
     }
-    const blob = new Blob([records], { type: 'application/json' });
+
+    // 운송 기록과 운송 지역 목록을 하나의 객체로 묶음
+    const backupData = {
+        records: JSON.parse(records),
+        centers: getCenters()
+    };
+
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -781,12 +789,13 @@ function exportToJson() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    alert('모든 기록이 JSON 파일로 성공적으로 저장(다운로드)되었습니다!');
+    alert('모든 기록과 운송지역 목록이 JSON 파일로 성공적으로 저장(다운로드)되었습니다!');
 }
 exportJsonBtn.addEventListener('click', exportToJson);
 
+// ======[ 수정된 부분 2: 복원 기능 ]======
 function importFromJson(event) {
-    if (!confirm('경고!\n현재 앱의 모든 기록이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
+    if (!confirm('경고!\n현재 앱의 모든 기록과 운송지역 목록이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
         event.target.value = '';
         return;
     }
@@ -800,11 +809,19 @@ function importFromJson(event) {
         try {
             const content = e.target.result;
             const data = JSON.parse(content);
-            if (!Array.isArray(data)) {
-                alert('오류: 올바른 형식의 백업 파일(.json)이 아닙니다.');
-                return;
+            
+            // 새로운 형식(객체)과 이전 형식(배열)을 모두 처리
+            if (data && Array.isArray(data.records) && Array.isArray(data.centers)) {
+                // 신규 백업 파일: 기록과 지역 목록 모두 복원
+                localStorage.setItem('records', JSON.stringify(data.records));
+                localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
+            } else if (Array.isArray(data)) {
+                // 구형 백업 파일: 기록만 복원
+                localStorage.setItem('records', JSON.stringify(data));
+                // 운송 지역 목록은 앱 재시작 시 자동으로 재구성됨
+            } else {
+                throw new Error('Invalid file format');
             }
-            localStorage.setItem('records', JSON.stringify(data));
             alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
             location.reload();
         } catch (error) {
@@ -926,8 +943,46 @@ backToMainBtn.addEventListener('click', () => {
     backToMainBtn.classList.add('hidden');
 });
 
+// ======[ 새로 추가된 부분: 데이터 기반 지역 목록 자동 업데이트 함수 ]======
+/**
+ * 저장된 모든 기록을 스캔하여 'from'과 'to'에 사용된 지역 중
+ * 현재 지역 목록에 없는 곳이 있으면 자동으로 추가합니다.
+ * 데이터 동기화 및 유실 방지를 위해 앱 시작 시 실행됩니다.
+ */
+function updateCentersFromRecords() {
+    const records = JSON.parse(localStorage.getItem('records')) || [];
+    if (records.length === 0) return;
+
+    const centers = getCenters();
+    const centerSet = new Set(centers); // 빠른 조회를 위해 Set 사용
+    let needsUpdate = false;
+
+    records.forEach(r => {
+        // 출발지(from)가 유효하고, 목록에 없으면 추가
+        if (r.from && !centerSet.has(r.from)) {
+            centerSet.add(r.from);
+            centers.push(r.from);
+            needsUpdate = true;
+        }
+        // 도착지(to)가 유효하고, 목록에 없으면 추가
+        if (r.to && !centerSet.has(r.to)) {
+            centerSet.add(r.to);
+            centers.push(r.to);
+            needsUpdate = true;
+        }
+    });
+
+    // 변경된 사항이 있을 경우에만 localStorage에 다시 저장
+    if (needsUpdate) {
+        localStorage.setItem('logistics_centers', JSON.stringify(centers));
+    }
+}
+
+
+// ======[ 수정된 부분 3: 앱 초기화 설정 ]======
 function initialSetup() {
-    populateCenterSelectors();
+    updateCentersFromRecords(); // 가장 먼저 실행하여 지역 목록을 최신 상태로 만듦
+    populateCenterSelectors();  // 최신화된 목록으로 드롭다운 채우기
     populateSelectors();
     cancelEdit();
     todayDatePicker.value = getTodayString();

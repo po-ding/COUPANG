@@ -1,4 +1,4 @@
-/** 버전: 4.8 | 최종 수정일: 2025-11-04 (치명적 오류 수정 완료) */
+/** 버전: 4.9 | 최종 수정일: 2025-11-04 (사용자 요청 기능 개선) */
 
 // =========================================================================
 // API 키가 입력되었습니다.
@@ -367,7 +367,9 @@ function displayDailyRecords() {
         recordsByDate[r.date].waitingTime += parseInt(r.waitingTime || 0);
     });
 
-    Object.keys(recordsByDate).sort().forEach(date => {
+    // --- MODIFIED START: 날짜를 역순(최신순)으로 정렬하기 위해 .reverse() 추가 ---
+    Object.keys(recordsByDate).sort().reverse().forEach(date => {
+    // --- MODIFIED END ---
         const data = recordsByDate[date];
         const day = date.substring(8, 10);
         const dailyNet = data.income - data.expense;
@@ -394,6 +396,7 @@ function displayDailyRecords() {
     });
 }
         
+// --- MODIFIED START: 월별 탭에서 현재 달을 최상단에 표시하도록 함수 로직 변경 ---
 function displayMonthlyRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedYear = monthlyYearSelect.value;
@@ -406,6 +409,7 @@ function displayMonthlyRecords() {
 
     records.filter(r => r.date.startsWith(selectedYear)).forEach(r => {
         const monthKey = r.date.substring(0, 7);
+        if (!recordsByMonth[monthKey]) return; // In case of invalid date
         recordsByMonth[monthKey].income += parseInt(r.income || 0);
         recordsByMonth[monthKey].expense += parseInt(r.cost || 0);
         if(['화물운송','공차이동'].includes(r.type)) {
@@ -417,23 +421,39 @@ function displayMonthlyRecords() {
     });
 
     monthlyTbody.innerHTML = '';
-    const currentMonthKey = new Date().toISOString().slice(0, 7);
+    const now = new Date();
+    const currentYear = now.getFullYear().toString();
+    const currentMonthKey = now.toISOString().slice(0, 7);
     
-    Object.keys(recordsByMonth).sort().forEach(monthKey => {
+    const createRow = (monthKey, isCurrent = false) => {
         const data = recordsByMonth[monthKey];
         const month = monthKey.substring(5, 7);
         const netIncome = data.income - data.expense;
         const waitHours = Math.floor(data.waitingTime / 60);
         const waitMinutes = data.waitingTime % 60;
         const tr = document.createElement('tr');
-        if (monthKey === currentMonthKey) {
+        if (isCurrent) {
             tr.style.fontWeight = 'bold';
             tr.style.backgroundColor = '#e9f5ff';
         }
         tr.innerHTML = `<td>${parseInt(month)}월</td><td><span class="income">${formatToManwon(data.income)}</span></td><td><span class="cost">${formatToManwon(data.expense)}</span></td><td><strong>${formatToManwon(netIncome)}</strong></td><td>${data.distance.toFixed(1)}</td><td>${data.tripCount}</td><td>${waitHours}h ${waitMinutes}m</td><td>${data.liters.toFixed(2)}</td>`;
-        monthlyTbody.appendChild(tr);
+        return tr;
+    };
+
+    // 1. 현재 연도를 보고 있고, 현재 달 데이터가 있다면 먼저 그립니다.
+    if (selectedYear === currentYear && recordsByMonth[currentMonthKey]) {
+        monthlyTbody.appendChild(createRow(currentMonthKey, true));
+    }
+
+    // 2. 나머지 달들을 시간순으로 그립니다. (현재 달은 제외)
+    Object.keys(recordsByMonth).sort().forEach(monthKey => {
+        if (selectedYear === currentYear && monthKey === currentMonthKey) {
+            return; // 현재 달은 이미 그렸으므로 건너뜁니다.
+        }
+        monthlyTbody.appendChild(createRow(monthKey));
     });
 }
+// --- MODIFIED END ---
 
 function viewDateDetails(date) {
     todayDatePicker.value = date;
@@ -1174,78 +1194,4 @@ saveFromGpsBtn.addEventListener('click', () => {
 });
 saveToGpsBtn.addEventListener('click', () => {
     if (saveLocationGps(toSelect.value, endCoordsInput.value)) {
-        alert(`'${toSelect.value}'의 위치가 저장되었습니다.`);
-    } else {
-        alert('도착지를 선택하고 GPS를 먼저 등록해주세요.');
-    }
-});
-
-function autoFillIncome() {
-    if (typeSelect.value !== '화물운송') return;
-    const from = fromSelect.value;
-    const to = toSelect.value;
-    if (from && to && from !== 'direct' && to !== 'direct') {
-        const fareKey = `${from}-${to}`;
-        const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
-        if (fares[fareKey]) {
-            incomeInput.value = (fares[fareKey] / 10000).toFixed(2);
-        }
-    }
-}
-
-goToSettingsBtn.addEventListener('click', () => {
-    mainPage.classList.add('hidden');
-    settingsPage.classList.remove('hidden');
-    goToSettingsBtn.classList.add('hidden');
-    backToMainBtn.classList.remove('hidden');
-    displayCenterList();
-    mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || '0';
-});
-
-backToMainBtn.addEventListener('click', () => {
-    mainPage.classList.remove('hidden');
-    settingsPage.classList.add('hidden');
-    goToSettingsBtn.classList.remove('hidden');
-    backToMainBtn.classList.add('hidden');
-});
-
-addCenterBtn.addEventListener('click', () => {
-    const newName = newCenterNameInput.value;
-    const newGps = newCenterGpsInput.value;
-    if (addCenter(newName, newGps)) {
-        newCenterNameInput.value = '';
-        newCenterGpsInput.value = '';
-    } else {
-        alert('지역 이름을 입력하거나, 이미 존재하지 않는 이름을 사용해주세요.');
-    }
-});
-
-centerListContainer.addEventListener('click', (e) => {
-    if (e.target.classList.contains('delete-btn')) {
-        deleteCenter(e.target.closest('.center-item').dataset.centerName);
-    }
-    if (e.target.classList.contains('edit-btn')) {
-        handleCenterEdit(e);
-    }
-});
-
-[toggleCenterManagementBtn, toggleBatchApplyBtn, toggleSubsidyManagementBtn, toggleMileageManagementBtn, toggleDataManagementBtn].forEach(header => {
-    if(header) {
-        header.addEventListener('click', () => {
-            const body = header.nextElementSibling;
-            body.classList.toggle('hidden');
-            header.classList.toggle('active');
-        });
-    }
-});
-
-function initialSetup() {
-    updateCentersFromRecords(); 
-    populateCenterSelectors();
-    populateSelectors();
-    cancelEdit();
-    todayDatePicker.value = getTodayString();
-    updateAllDisplays();
-}
-
-document.addEventListener('DOMContentLoaded', initialSetup);
+        al

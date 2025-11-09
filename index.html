@@ -23,12 +23,12 @@
         <div id="main-page">
             
             <form id="record-form">
+                <!-- 날짜와 시간 입력을 숨김 처리 -->
+                <input type="hidden" id="date" required>
+                <input type="hidden" id="time" required>
+
                 <fieldset>
-                    <legend>기본 정보</legend>
-                    <div class="input-group">
-                        <input type="date" id="date" required>
-                        <input type="time" id="time" required>
-                    </div>
+                    <legend>기록 종류</legend>
                     <select id="type">
                         <option value="화물운송">화물운송</option>
                         <option value="공차이동">공차이동</option>
@@ -38,6 +38,7 @@
                         <option value="통행료">통행료</option>
                     </select>
                 </fieldset>
+
                 <fieldset id="transport-details">
                     <legend>운송 정보</legend>
                     <div class="input-group row">

@@ -168,6 +168,13 @@ function getGPS(point) {
 
     navigator.geolocation.getCurrentPosition(
         (position) => {
+            const gpsTime = new Date(position.timestamp);
+            const dateString = gpsTime.toISOString().slice(0, 10);
+            const timeString = gpsTime.toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit' });
+
+            dateInput.value = dateString;
+            timeInput.value = timeString;
+
             const coords = {
                 lat: position.coords.latitude.toFixed(6),
                 lon: position.coords.longitude.toFixed(6)
@@ -176,11 +183,11 @@ function getGPS(point) {
             
             if (point === 'start') {
                 startCoordsInput.value = coordsString;
-                gpsStatus.innerHTML = `✅ 출발 GPS 기록 완료!<br><span class="note">${coordsString}</span>`;
+                gpsStatus.innerHTML = `✅ 출발 GPS & 시간 기록 완료!<br><span class="note">${dateString} ${timeString}<br>${coordsString}</span>`;
             } else {
                 endCoordsInput.value = coordsString;
                 const start = startCoordsInput.value ? `출발: ${startCoordsInput.value}` : '출발점 미기록';
-                gpsStatus.innerHTML = `✅ 도착 GPS 기록 완료!<br><span class="note">${start}<br>도착: ${coordsString}</span>`;
+                gpsStatus.innerHTML = `✅ 도착 GPS & 시간 기록 완료!<br><span class="note">${dateString} ${timeString}<br>${start}<br>도착: ${coordsString}</span>`;
             }
         },
         (error) => {
@@ -809,6 +816,7 @@ function importFromJson(event) {
     reader.readAsText(file);
 }
 importJsonBtn.addEventListener('click', () => importFileInput.click());
+importFileInput.addEventListener('change', importFromJson);
 
 clearBtn.addEventListener('click', () => {
     if (confirm('정말로 모든 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {

@@ -1,4 +1,4 @@
-/** 버전: 4.6 | 최종 수정일: 2025-11-04 (치명적 오류 수정 완료) */
+/** 버전: 4.7 | 최종 수정일: 2025-11-04 (치명적 오류 수정 완료) */
 
 // =========================================================================
 // API 키가 입력되었습니다.
@@ -970,7 +970,6 @@ function refreshCenterUI() {
     populateCenterSelectors();
 }
 
-// [복구된 함수]
 function updateCentersFromRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     if (records.length === 0) return;
@@ -1062,4 +1061,190 @@ batchApplyBtn.addEventListener('click', () => {
     }
 });
 
-subsidySaveB
+subsidySaveBtn.addEventListener('click', () => {
+    const limit = subsidyLimitInput.value;
+    localStorage.setItem('fuel_subsidy_limit', limit);
+    alert(`보조금 한도가 ${limit}L로 저장되었습니다.`);
+    updateAllDisplays();
+});
+
+mileageCorrectionSaveBtn.addEventListener('click', () => {
+    const correction = mileageCorrectionInput.value;
+    localStorage.setItem('mileage_correction', correction);
+    alert(`주행거리 보정값이 ${correction} km로 저장되었습니다.`);
+    displayCumulativeData();
+});
+
+exportCsvBtn.addEventListener('click', exportToCsv);
+exportJsonBtn.addEventListener('click', exportToJson);
+importJsonBtn.addEventListener('click', () => importFileInput.click());
+importFileInput.addEventListener('change', importFromJson);
+
+clearBtn.addEventListener('click', () => {
+    if (confirm('정말로 모든 기록과 설정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+        localStorage.clear();
+        alert('모든 데이터가 삭제되었습니다.');
+        location.reload();
+    }
+});
+
+tabBtns.forEach(btn => {
+    btn.addEventListener('click', (event) => {
+        event.preventDefault(); 
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        viewContents.forEach(c => c.classList.remove('active'));
+        document.getElementById(btn.dataset.view + '-view').classList.add('active');
+        updateAllDisplays();
+    });
+});
+
+todayDatePicker.addEventListener('change', displayTodayRecords);
+dailyYearSelect.addEventListener('change', displayDailyRecords);
+dailyMonthSelect.addEventListener('change', displayDailyRecords);
+monthlyYearSelect.addEventListener('change', displayMonthlyRecords);
+
+startGpsBtn.addEventListener('click', () => getGPS('start'));
+endGpsBtn.addEventListener('click', () => getGPS('end'));
+
+startWaitBtn.addEventListener('click', startWaitTimer);
+endWaitBtn.addEventListener('click', stopWaitTimer);
+
+function calculateCost(type) {
+    const unitPriceInput = type === 'fuel' ? fuelUnitPriceInput : ureaUnitPriceInput;
+    const litersInput = type === 'fuel' ? fuelLitersInput : ureaLitersInput;
+    
+    const unitPrice = parseFloat(unitPriceInput.value) || 0;
+    const liters = parseFloat(litersInput.value) || 0;
+    
+    if ( (document.activeElement === litersInput) || (document.activeElement === unitPriceInput) ) {
+        if (unitPrice > 0 && liters > 0) {
+            costInput.value = (Math.round(unitPrice * liters) / 10000).toFixed(2);
+        }
+    }
+}
+
+function calculateLiters() {
+    const costInManwon = parseFloat(costInput.value) || 0;
+    const type = typeSelect.value;
+    
+    if (document.activeElement === costInput) {
+        if (type === '주유소') {
+            const unitPrice = parseFloat(fuelUnitPriceInput.value) || 0;
+            if (costInManwon > 0 && unitPrice > 0) {
+                fuelLitersInput.value = ((costInManwon * 10000) / unitPrice).toFixed(2);
+            }
+        } else if (type === '요소수') {
+            const unitPrice = parseFloat(ureaUnitPriceInput.value) || 0;
+            if (costInManwon > 0 && unitPrice > 0) {
+                ureaLitersInput.value = ((costInManwon * 10000) / unitPrice).toFixed(2);
+            }
+        }
+    }
+}
+
+fuelUnitPriceInput.addEventListener('input', () => calculateCost('fuel'));
+fuelLitersInput.addEventListener('input', () => calculateCost('fuel'));
+ureaUnitPriceInput.addEventListener('input', () => calculateCost('urea'));
+ureaLitersInput.addEventListener('input', () => calculateCost('urea'));
+costInput.addEventListener('input', calculateLiters);
+
+typeSelect.addEventListener('change', () => toggleUI(typeSelect.value));
+fromSelect.addEventListener('change', () => {
+    fromCustom.classList.toggle('hidden', fromSelect.value !== 'direct');
+    autoFillIncome();
+    autoFillDistance();
+});
+toSelect.addEventListener('change', () => {
+    toCustom.classList.toggle('hidden', toSelect.value !== 'direct');
+    autoFillIncome();
+    autoFillDistance();
+});
+batchFromSelect.addEventListener('change', () => batchFromCustom.classList.toggle('hidden', batchFromSelect.value !== 'direct'));
+batchToSelect.addEventListener('change', () => batchToCustom.classList.toggle('hidden', batchToSelect.value !== 'direct'));
+cancelEditBtn.addEventListener('click', cancelEdit);
+
+saveFromGpsBtn.addEventListener('click', () => {
+    if (saveLocationGps(fromSelect.value, startCoordsInput.value)) {
+        alert(`'${fromSelect.value}'의 위치가 저장되었습니다.`);
+    } else {
+        alert('출발지를 선택하고 GPS를 먼저 등록해주세요.');
+    }
+});
+saveToGpsBtn.addEventListener('click', () => {
+    if (saveLocationGps(toSelect.value, endCoordsInput.value)) {
+        alert(`'${toSelect.value}'의 위치가 저장되었습니다.`);
+    } else {
+        alert('도착지를 선택하고 GPS를 먼저 등록해주세요.');
+    }
+});
+
+function autoFillIncome() {
+    if (typeSelect.value !== '화물운송') return;
+    const from = fromSelect.value;
+    const to = toSelect.value;
+    if (from && to && from !== 'direct' && to !== 'direct') {
+        const fareKey = `${from}-${to}`;
+        const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+        if (fares[fareKey]) {
+            incomeInput.value = (fares[fareKey] / 10000).toFixed(2);
+        }
+    }
+}
+
+goToSettingsBtn.addEventListener('click', () => {
+    mainPage.classList.add('hidden');
+    settingsPage.classList.remove('hidden');
+    goToSettingsBtn.classList.add('hidden');
+    backToMainBtn.classList.remove('hidden');
+    displayCenterList();
+    mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || '0';
+});
+
+backToMainBtn.addEventListener('click', () => {
+    mainPage.classList.remove('hidden');
+    settingsPage.classList.add('hidden');
+    goToSettingsBtn.classList.remove('hidden');
+    backToMainBtn.classList.add('hidden');
+});
+
+addCenterBtn.addEventListener('click', () => {
+    const newName = newCenterNameInput.value;
+    const newGps = newCenterGpsInput.value;
+    if (addCenter(newName, newGps)) {
+        newCenterNameInput.value = '';
+        newCenterGpsInput.value = '';
+    } else {
+        alert('지역 이름을 입력하거나, 이미 존재하지 않는 이름을 사용해주세요.');
+    }
+});
+
+centerListContainer.addEventListener('click', (e) => {
+    if (e.target.classList.contains('delete-btn')) {
+        deleteCenter(e.target.closest('.center-item').dataset.centerName);
+    }
+    if (e.target.classList.contains('edit-btn')) {
+        handleCenterEdit(e);
+    }
+});
+
+[toggleCenterManagementBtn, toggleBatchApplyBtn, toggleSubsidyManagementBtn, toggleMileageManagementBtn, toggleDataManagementBtn].forEach(header => {
+    if(header) {
+        header.addEventListener('click', () => {
+            const body = header.nextElementSibling;
+            body.classList.toggle('hidden');
+            header.classList.toggle('active');
+        });
+    }
+});
+
+function initialSetup() {
+    updateCentersFromRecords(); 
+    populateCenterSelectors();
+    populateSelectors();
+    cancelEdit();
+    todayDatePicker.value = getTodayString();
+    updateAllDisplays();
+}
+
+document.addEventListener('DOMContentLoaded', initialSetup);

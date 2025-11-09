@@ -1,4 +1,4 @@
-/** 버전: 3.8 | 최종 수정일: 2025-11-04 */
+/** 버전: 4.0 | 최종 수정일: 2025-11-04 */
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; margin: 0; padding: 0.5em; background-color: #f5f5f5; }
 .container { max-width: 600px; margin: auto; background-color: white; padding: 0.8em; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -33,16 +33,22 @@ button:hover { opacity: 0.8; }
 
 #submit-btn.edit-mode { background-color: #28a745; }
 #cancel-edit-btn { background-color: #6c757d; }
-.edit-btn, .delete-btn { padding: 0.35em 0.7em; font-size: 0.85em; margin: 0; }
+.edit-btn, .delete-btn { padding: 0.35em 0.7em; font-size: 0.85em; margin: 0 4px; }
 .edit-btn { background-color: #fd7e14; }
 .delete-btn { background-color: #dc3545; }
 .action-cell { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
 
-/* [추가] 운송 지역 관리 스타일 */
-.center-management { margin-top: 2.5em; }
+.collapsible-header { cursor: pointer; user-select: none; }
+.collapsible-header span { transition: transform 0.3s; display: inline-block; }
+.collapsible-header.active span { transform: rotate(180deg); }
+
 #center-list-container { display: flex; flex-direction: column; gap: 0.5em; }
 .center-item { display: flex; justify-content: space-between; align-items: center; background-color: #f8f9fa; padding: 0.5em 0.8em; border: 1px solid #eee; border-radius: 4px; }
-.center-item button { margin: 0; width: auto; flex-shrink: 0; }
+.center-item .center-name { flex-grow: 1; }
+.center-item .action-buttons { display: flex; gap: 0.5em; margin: 0; }
+.center-item button { margin: 0; width: auto; flex-shrink: 0; padding: 0.4em 0.8em; }
+#new-center-input-group button { width: 80px; flex-grow: 0; margin-top: 0; }
+.center-item .edit-input { flex-grow: 1; margin-right: 0.5em; }
 
 .batch-apply-section { margin-top: 2.5em; }
 #batch-apply-btn { background-color: #6f42c1; }

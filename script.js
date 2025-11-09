@@ -106,12 +106,18 @@ const endWaitBtn = document.getElementById('end-wait-btn');
 const waitStatus = document.getElementById('wait-status');
 const waitingTimeInput = document.getElementById('waiting-time');
 
-// -- [추가] 운송 지역 관리 요소 --
+// -- [추가] 아코디언(펼치기) UI 요소 --
 const toggleCenterManagementBtn = document.getElementById('toggle-center-management');
 const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
 const newCenterNameInput = document.getElementById('new-center-name');
 const addCenterBtn = document.getElementById('add-center-btn');
+
+const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
+const batchApplyBody = document.getElementById('batch-apply-body');
+const toggleSubsidyManagementBtn = document.getElementById('toggle-subsidy-management');
+const subsidyManagementBody = document.getElementById('subsidy-management-body');
+
 
 let waitStartTime = null;
 let waitTimerInterval = null;
@@ -128,7 +134,7 @@ function getCenters() {
     const defaultCenters = ['안성', '안산', '용인', '이천', '인천'];
     const storedCenters = JSON.parse(localStorage.getItem('logistics_centers')) || defaultCenters;
     if (!localStorage.getItem('logistics_centers')) localStorage.setItem('logistics_centers', JSON.stringify(storedCenters));
-    return storedCenters.sort((a, b) => a.localeCompare(b, 'ko')); // [수정] 가나다순 정렬
+    return storedCenters.sort((a, b) => a.localeCompare(b, 'ko')); // 가나다순 정렬
 }
 
 function addCenter(newCenter) {
@@ -346,15 +352,15 @@ function displayDailyRecords() {
              tr.style.backgroundColor = '#e9f5ff';
         }
         tr.innerHTML = `
-            <td>${parseInt(day)}일</td>
-            <td><span class="income">${formatToManwon(data.income)}</span></td>
-            <td><span class="cost">${formatToManwon(data.expense)}</span></td>
-            <td><strong>${formatToManwon(dailyNet)}</strong></td>
-            <td>${data.distance.toFixed(1)}</td>
-            <td>${data.tripCount}</td>
-            <td>${waitHours}h ${waitMinutes}m</td>
-            <td>${data.liters.toFixed(2)}</td>
-            <td><button class="edit-btn" onclick="viewDateDetails('${date}')">상세</button></td>
+            <td data-label="일">${parseInt(day)}일</td>
+            <td data-label="수입"><span class="income">${formatToManwon(data.income)}</span></td>
+            <td data-label="지출"><span class="cost">${formatToManwon(data.expense)}</span></td>
+            <td data-label="정산"><strong>${formatToManwon(dailyNet)}</strong></td>
+            <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
+            <td data-label="이동">${data.tripCount}</td>
+            <td data-label="대기">${waitHours}h ${waitMinutes}m</td>
+            <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
+            <td data-label="관리"><button class="edit-btn" onclick="viewDateDetails('${date}')">상세</button></td>
         `;
         dailyTbody.appendChild(tr);
     });
@@ -480,14 +486,14 @@ function displayCumulativeData() {
     });
 
     const netIncome = totalIncome - totalExpense;
-    const totalMileage = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
-    const avgEconomy = totalLiters > 0 && totalMileage > 0 ? (totalMileage / totalLiters).toFixed(2) : 0;
-    const costPerKm = totalMileage > 0 ? Math.round(totalExpense / totalMileage) : 0;
+    const totalMileageValue = parseFloat(localStorage.getItem('total_vehicle_mileage')) || 0;
+    const avgEconomy = totalLiters > 0 && totalMileageValue > 0 ? (totalMileageValue / totalLiters).toFixed(2) : 0;
+    const costPerKm = totalMileageValue > 0 ? Math.round(totalExpense / totalMileageValue) : 0;
     const operatingDays = new Set(allRecords.map(r => r.date)).size;
     
     cumulativeOperatingDays.textContent = `${operatingDays} 일`;
     cumulativeTripCount.textContent = `${totalTripCount} 건`;
-    cumulativeTotalMileage.textContent = `${Math.round(totalMileage).toLocaleString()} km`;
+    cumulativeTotalMileage.textContent = `${Math.round(totalMileageValue).toLocaleString()} km`;
     cumulativeIncome.textContent = `${formatToManwon(totalIncome)} 만원`;
     cumulativeExpense.textContent = `${formatToManwon(totalExpense)} 만원`;
     cumulativeNetIncome.textContent = `${formatToManwon(netIncome)} 만원`;
@@ -1068,6 +1074,14 @@ centerListContainer.addEventListener('click', (e) => {
 toggleCenterManagementBtn.addEventListener('click', () => {
     centerManagementBody.classList.toggle('hidden');
     toggleCenterManagementBtn.classList.toggle('active');
+});
+toggleBatchApplyBtn.addEventListener('click', () => {
+    batchApplyBody.classList.toggle('hidden');
+    toggleBatchApplyBtn.classList.toggle('active');
+});
+toggleSubsidyManagementBtn.addEventListener('click', () => {
+    subsidyManagementBody.classList.toggle('hidden');
+    toggleSubsidyManagementBtn.classList.toggle('active');
 });
 
 function initialSetup() {

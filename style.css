@@ -1,4 +1,4 @@
-/** 버전: 4.0 | 최종 수정일: 2025-11-04 */
+/** 버전: 4.1 | 최종 수정일: 2025-11-04 */
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; margin: 0; padding: 0.5em; background-color: #f5f5f5; }
 .container { max-width: 600px; margin: auto; background-color: white; padding: 0.8em; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -38,9 +38,36 @@ button:hover { opacity: 0.8; }
 .delete-btn { background-color: #dc3545; }
 .action-cell { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
 
-.collapsible-header { cursor: pointer; user-select: none; }
-.collapsible-header span { transition: transform 0.3s; display: inline-block; }
-.collapsible-header.active span { transform: rotate(180deg); }
+/* [추가] 아코디언(펼치기) 헤더 스타일 */
+.collapsible-header {
+    cursor: pointer; user-select: none;
+    background-color: #f8f9fa; border: 1px solid #eee;
+    border-radius: 6px; padding: 0.8em 1em;
+    margin-bottom: 0;
+    transition: background-color 0.2s;
+    border-bottom: 1px solid #ddd;
+}
+.collapsible-header:hover { background-color: #e9ecef; }
+.collapsible-header::after {
+    content: '+'; float: right; font-weight: bold;
+    font-size: 1.2em; line-height: 1;
+    transition: transform 0.3s;
+}
+.collapsible-header.active::after {
+    content: '−';
+    transform: rotate(180deg);
+}
+.collapsible-body {
+    padding: 1em;
+    border: 1px solid #eee;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    margin-top: -1em; /* 헤더와 붙이기 */
+    margin-bottom: 2em; /* 다음 섹션과 간격 */
+}
+.collapsible-body.hidden { display: none; }
+/* 아코디언 헤더에는 h2 기본 스타일 일부 제거 */
+h2.collapsible-header { border-bottom: none; }
 
 #center-list-container { display: flex; flex-direction: column; gap: 0.5em; }
 .center-item { display: flex; justify-content: space-between; align-items: center; background-color: #f8f9fa; padding: 0.5em 0.8em; border: 1px solid #eee; border-radius: 4px; }
@@ -50,9 +77,7 @@ button:hover { opacity: 0.8; }
 #new-center-input-group button { width: 80px; flex-grow: 0; margin-top: 0; }
 .center-item .edit-input { flex-grow: 1; margin-right: 0.5em; }
 
-.batch-apply-section { margin-top: 2.5em; }
-#batch-apply-btn { background-color: #6f42c1; }
-#batch-status { text-align: center; font-size: 0.9em; color: #17a2b8; margin-top: 0.8em; font-weight: bold; }
+.batch-apply-section, .subsidy-management { margin-top: 0; }
 
 .view-section { margin-top: 2em; }
 .view-tabs { display: flex; border-bottom: 2px solid #ddd; }
@@ -84,7 +109,7 @@ button:hover { opacity: 0.8; }
 
 .data-summary-section { margin-top: 2.5em; }
 #current-month-summary-container, #cumulative-summary-container { margin-bottom: 2em; }
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8em; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.8em; }
 .metric-card { background-color: #f8f9fa; border: 1px solid #eee; border-radius: 8px; padding: 1em; text-align: center; }
 .metric-card.highlight { background-color: #e7f5ff; border-color: #007bff; }
 .metric-label { font-size: 0.9em; color: #555; display: block; margin-bottom: 0.5em; }
@@ -117,24 +142,36 @@ th { background-color: #f2f2f2; }
 #clear-btn { background-color: #c82333; }
 
 @media screen and (max-width: 768px) {
-    .responsive-table thead { display: none; }
-    .responsive-table, .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
-    .responsive-table tr { margin-bottom: 1em; border: 1px solid #ddd; border-radius: 4px; }
-    .responsive-table td { text-align: right; padding-left: 50%; position: relative; border: none; border-bottom: 1px solid #eee; box-sizing: border-box; }
-    .responsive-table td:before { content: attr(data-label); position: absolute; left: 0; width: 45%; padding-left: 1em; font-weight: bold; text-align: left; }
-    .responsive-table tr td:last-child { border-bottom: none; }
+    /* [수정] 테이블 버튼 깨짐 방지 */
+    .responsive-table thead, .yearly-summary-table thead { display: none; }
+    .responsive-table, .responsive-table tbody, .responsive-table tr, .responsive-table td,
+    .yearly-summary-table, .yearly-summary-table tbody, .yearly-summary-table tr, .yearly-summary-table td { 
+        display: block; width: 100%; 
+    }
+    .responsive-table tr, .yearly-summary-table tr { 
+        margin-bottom: 1em; border: 1px solid #ddd; border-radius: 4px; 
+    }
+    .responsive-table td, .yearly-summary-table td { 
+        text-align: right; padding-left: 50%; position: relative; border: none; border-bottom: 1px solid #eee; box-sizing: border-box; 
+    }
+    .responsive-table td:before, .yearly-summary-table td:before { 
+        content: attr(data-label); position: absolute; left: 0; width: 45%; padding-left: 1em; font-weight: bold; text-align: left; 
+    }
+    .responsive-table tr td:last-child, .yearly-summary-table tr td:last-child { border-bottom: none; }
 
-    .responsive-table td[data-label="관리"] {
+    /* [수정] '관리' 항목 버튼 정렬 문제 해결 */
+    td[data-label="관리"] {
         display: flex;
         justify-content: flex-end;
         align-items: center;
-        padding-left: 1em;
+        padding-left: 1em !important;
     }
-     .responsive-table td[data-label="관리"]::before {
+     td[data-label="관리"]::before {
         flex-grow: 1;
         text-align: left;
     }
-    .responsive-table td[data-label="관리"] .action-cell {
+    td[data-label="관리"] .action-cell,
+    td[data-label="관리"] > button {
         flex-shrink: 0;
     }
     

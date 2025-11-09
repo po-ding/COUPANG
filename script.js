@@ -1,4 +1,4 @@
-/** 버전: 4.9.1 | 최종 수정일: 2025-11-04 (구문 오류 수정) */
+/** 버전: 5.0 | 최종 수정일: 2025-11-04 (지역별 주소 정보 관리 기능 추가) */
 
 // =========================================================================
 // API 키가 입력되었습니다.
@@ -104,6 +104,9 @@ const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
 const newCenterNameInput = document.getElementById('new-center-name');
 const newCenterGpsInput = document.getElementById('new-center-gps');
+// MODIFIED START: 주소 입력란 DOM 요소 추가
+const newCenterAddressInput = document.getElementById('new-center-address');
+// MODIFIED END
 const addCenterBtn = document.getElementById('add-center-btn');
 
 const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
@@ -149,33 +152,44 @@ function getCenters() {
     return storedCenters.sort((a, b) => a.localeCompare(b, 'ko'));
 }
 
+// MODIFIED START: 데이터 구조 변경에 따른 함수 수정 및 추가
+// 이제 locations는 { '센터이름': { gps: '좌표', address: '주소' } } 형태가 됩니다.
 function getSavedLocations() {
     return JSON.parse(localStorage.getItem('saved_locations')) || {};
 }
 
-function saveLocationGps(centerName, coords) {
-    if (!centerName || centerName === 'direct' || !coords) return false;
+function saveLocationData(centerName, data) {
+    if (!centerName || centerName === 'direct') return false;
     const locations = getSavedLocations();
-    locations[centerName] = coords;
+    locations[centerName] = data; // { gps, address } 객체를 통째로 저장
     localStorage.setItem('saved_locations', JSON.stringify(locations));
     return true;
 }
 
-function addCenter(newCenter, gpsCoords = '') {
+function updateLocationGps(centerName, coords) {
+    if (!centerName || centerName === 'direct' || !coords) return false;
+    const locations = getSavedLocations();
+    const existingData = locations[centerName] || { gps: '', address: '' };
+    existingData.gps = coords;
+    locations[centerName] = existingData;
+    localStorage.setItem('saved_locations', JSON.stringify(locations));
+    return true;
+}
+
+function addCenter(newCenter, gpsCoords = '', address = '') {
     if (!newCenter || newCenter.trim() === '') return false;
     const centers = getCenters();
     const trimmedCenter = newCenter.trim();
     if (!centers.includes(trimmedCenter)) { 
         centers.push(trimmedCenter);
         localStorage.setItem('logistics_centers', JSON.stringify(centers));
-        if (gpsCoords.trim()) {
-            saveLocationGps(trimmedCenter, gpsCoords.trim());
-        }
+        saveLocationData(trimmedCenter, { gps: gpsCoords.trim(), address: address.trim() });
         refreshCenterUI();
         return true;
     }
     return false;
 }
+// MODIFIED END
 
 function populateCenterSelectors() {
     const centers = getCenters();
@@ -761,14 +775,18 @@ function calculateHaversineDistance(coords1Str, coords2Str) {
     return R * c;
 }
 
+// MODIFIED START: 데이터 구조 변경에 따라 GPS 좌표를 .gps 속성에서 가져오도록 수정
 async function autoFillDistance() {
     const from = fromSelect.value;
     const to = toSelect.value;
     if (from === 'direct' || to === 'direct' || from === to) return;
 
     const locations = getSavedLocations();
-    const fromCoords = locations[from];
-    const toCoords = locations[to];
+    const fromData = locations[from] || {};
+    const toData = locations[to] || {};
+    
+    const fromCoords = fromData.gps;
+    const toCoords = toData.gps;
 
     if (fromCoords && toCoords) {
         gpsStatus.innerHTML = `경로 검색 중...`;
@@ -783,6 +801,7 @@ async function autoFillDistance() {
         }
     }
 }
+// MODIFIED END
 
 function exportToCsv() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
@@ -876,6 +895,7 @@ function importFromJson(event) {
     reader.readAsText(file);
 }
 
+// MODIFIED START: 주소 정보를 포함하여 목록을 표시하도록 수정
 function displayCenterList() {
     centerListContainer.innerHTML = '';
     const centers = getCenters();
@@ -887,7 +907,10 @@ function displayCenterList() {
     }
 
     centers.forEach(center => {
-        const gps = locations[center] || '';
+        const locationData = locations[center] || { gps: '', address: '' };
+        const gps = locationData.gps || '';
+        const address = locationData.address || '';
+        
         const item = document.createElement('div');
         item.className = 'center-item';
         item.dataset.centerName = center;
@@ -899,11 +922,13 @@ function displayCenterList() {
                     <button class="delete-btn">삭제</button>
                 </div>
             </div>
+            ${address ? `<span class="note">주소: ${address}</span>` : ''}
             ${gps ? `<span class="note">GPS: ${gps}</span>` : ''}
         `;
         centerListContainer.appendChild(item);
     });
 }
+// MODIFIED END
 
 function deleteCenter(centerNameToDelete) {
     if (confirm(`'${centerNameToDelete}' 지역을 목록에서 정말 삭제하시겠습니까?\n(기존 기록은 변경되지 않습니다.)`)) {
@@ -919,16 +944,20 @@ function deleteCenter(centerNameToDelete) {
     }
 }
 
+// MODIFIED START: 주소 정보를 포함하여 수정 폼을 만들도록 수정
 function handleCenterEdit(e) {
     const item = e.target.closest('.center-item');
     const originalName = item.dataset.centerName;
     const locations = getSavedLocations();
-    const originalGps = locations[originalName] || '';
+    const originalData = locations[originalName] || { gps: '', address: '' };
+    const originalGps = originalData.gps || '';
+    const originalAddress = originalData.address || '';
     
     item.innerHTML = `
         <div class="edit-form">
             <input type="text" class="edit-input" value="${originalName}" placeholder="지역 이름">
             <input type="text" class="edit-gps-input" value="${originalGps}" placeholder="GPS 좌표 (선택)">
+            <input type="text" class="edit-address-input" value="${originalAddress}" placeholder="주소 (선택)">
             <div class="action-buttons">
                 <button class="setting-save-btn">저장</button>
                 <button class="cancel-edit-btn">취소</button>
@@ -939,11 +968,14 @@ function handleCenterEdit(e) {
     item.querySelector('.setting-save-btn').onclick = () => saveCenterEdit(item, originalName);
     item.querySelector('.cancel-edit-btn').onclick = () => refreshCenterUI();
     item.querySelector('.edit-input').focus();
-} // --- FIX: 여기에 빠져있던 닫는 괄호 '}'를 추가했습니다. ---
+}
+// MODIFIED END
 
+// MODIFIED START: 주소 정보를 포함하여 수정 내용을 저장하도록 수정
 function saveCenterEdit(item, originalName) {
     const newName = item.querySelector('.edit-input').value.trim();
     const newGps = item.querySelector('.edit-gps-input').value.trim();
+    const newAddress = item.querySelector('.edit-address-input').value.trim();
 
     if (!newName) {
         alert('지역 이름은 비워둘 수 없습니다.');
@@ -962,9 +994,7 @@ function saveCenterEdit(item, originalName) {
     localStorage.setItem('logistics_centers', JSON.stringify(centers));
 
     delete locations[originalName];
-    if (newGps) {
-        locations[newName] = newGps;
-    }
+    locations[newName] = { gps: newGps, address: newAddress };
     localStorage.setItem('saved_locations', JSON.stringify(locations));
 
     let records = JSON.parse(localStorage.getItem('records')) || [];
@@ -978,6 +1008,7 @@ function saveCenterEdit(item, originalName) {
     refreshCenterUI();
     updateAllDisplays();
 }
+// MODIFIED END
 
 function refreshCenterUI() {
     displayCenterList();
@@ -1178,20 +1209,24 @@ batchFromSelect.addEventListener('change', () => batchFromCustom.classList.toggl
 batchToSelect.addEventListener('change', () => batchToCustom.classList.toggle('hidden', batchToSelect.value !== 'direct'));
 cancelEditBtn.addEventListener('click', cancelEdit);
 
+// MODIFIED START: 현위치 저장 버튼 로직 수정
 saveFromGpsBtn.addEventListener('click', () => {
-    if (saveLocationGps(fromSelect.value, startCoordsInput.value)) {
-        alert(`'${fromSelect.value}'의 위치가 저장되었습니다.`);
+    if (updateLocationGps(fromSelect.value, startCoordsInput.value)) {
+        alert(`'${fromSelect.value}'의 GPS 위치가 저장/업데이트되었습니다.`);
+        refreshCenterUI();
     } else {
         alert('출발지를 선택하고 GPS를 먼저 등록해주세요.');
     }
 });
 saveToGpsBtn.addEventListener('click', () => {
-    if (saveLocationGps(toSelect.value, endCoordsInput.value)) {
-        alert(`'${toSelect.value}'의 위치가 저장되었습니다.`);
+    if (updateLocationGps(toSelect.value, endCoordsInput.value)) {
+        alert(`'${toSelect.value}'의 GPS 위치가 저장/업데이트되었습니다.`);
+        refreshCenterUI();
     } else {
         alert('도착지를 선택하고 GPS를 먼저 등록해주세요.');
     }
 });
+// MODIFIED END
 
 function autoFillIncome() {
     if (typeSelect.value !== '화물운송') return;
@@ -1222,16 +1257,20 @@ backToMainBtn.addEventListener('click', () => {
     backToMainBtn.classList.add('hidden');
 });
 
+// MODIFIED START: 주소 정보 포함하여 새 지역 추가
 addCenterBtn.addEventListener('click', () => {
     const newName = newCenterNameInput.value;
     const newGps = newCenterGpsInput.value;
-    if (addCenter(newName, newGps)) {
+    const newAddress = newCenterAddressInput.value; // 주소 값 가져오기
+    if (addCenter(newName, newGps, newAddress)) { // addCenter 함수에 주소 전달
         newCenterNameInput.value = '';
         newCenterGpsInput.value = '';
+        newCenterAddressInput.value = ''; // 입력란 비우기
     } else {
         alert('지역 이름을 입력하거나, 이미 존재하지 않는 이름을 사용해주세요.');
     }
 });
+// MODIFIED END
 
 centerListContainer.addEventListener('click', (e) => {
     if (e.target.classList.contains('delete-btn')) {

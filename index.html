@@ -54,11 +54,11 @@
                     </div>
                     <div class="input-group row">
                         <button type="button" id="start-gps-btn">출발 GPS 등록</button>
-                        <button type="button" id="save-from-gps-btn" class="save-loc-btn">📍</button>
+                        <button type="button" id="save-from-gps-btn" class="save-loc-btn">📍 현위치 저장</button>
                     </div>
                     <div class="input-group row">
                         <button type="button" id="end-gps-btn">도착 GPS 등록</button>
-                        <button type="button" id="save-to-gps-btn" class="save-loc-btn">📍</button>
+                        <button type="button" id="save-to-gps-btn" class="save-loc-btn">📍 현위치 저장</button>
                     </div>
                     <div id="gps-status">GPS 상태: 대기 중</div>
                     <input type="hidden" id="start-coords">
@@ -218,6 +218,9 @@
                     <div class="input-group">
                         <input type="text" id="new-center-name" placeholder="추가할 지역 이름">
                         <input type="text" id="new-center-gps" placeholder="GPS 좌표 (선택, 예: 37.123,127.123)">
+                        <!-- MODIFIED START: 주소 입력란 추가 -->
+                        <input type="text" id="new-center-address" placeholder="주소 (선택)">
+                        <!-- MODIFIED END -->
                         <button type="button" id="add-center-btn">추가</button>
                     </div>
                 </fieldset>

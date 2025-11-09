@@ -128,7 +128,7 @@ function getCenters() {
     const defaultCenters = ['안성', '안산', '용인', '이천', '인천'];
     const storedCenters = JSON.parse(localStorage.getItem('logistics_centers')) || defaultCenters;
     if (!localStorage.getItem('logistics_centers')) localStorage.setItem('logistics_centers', JSON.stringify(storedCenters));
-    return storedCenters.sort(); // 항상 정렬된 상태로 반환
+    return storedCenters.sort((a, b) => a.localeCompare(b, 'ko')); // [수정] 가나다순 정렬
 }
 
 function addCenter(newCenter) {
@@ -418,7 +418,6 @@ function viewDateDetails(date) {
     }
 }
 
-// -- [수정] 월별 데이터 요약 기능 --
 function displayCurrentMonthData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const now = new Date();
@@ -455,7 +454,6 @@ function displayCurrentMonthData() {
     currentMonthAvgEconomy.textContent = `${avgEconomy} km/L`;
     currentMonthCostPerKm.textContent = `${costPerKm.toLocaleString()} 원`;
 
-    // 유가보조금 요약
     const subsidyLimit = parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0;
     const usedLiters = records.reduce((sum, r) => sum + (r.type === '주유소' ? parseFloat(r.liters || 0) : 0), 0);
     const remainingLiters = subsidyLimit - usedLiters;
@@ -463,7 +461,6 @@ function displayCurrentMonthData() {
     subsidySummaryDiv.innerHTML = `<div class="progress-label">월 한도: ${subsidyLimit.toLocaleString()} L | 사용: ${usedLiters.toFixed(1)} L | 잔여: ${remainingLiters.toFixed(1)} L</div><div class="progress-bar-container"><div class="progress-bar progress-bar-used" style="width: ${progressPercent}%;"></div></div>`;
 }
 
-// -- [수정] 누적 데이터 요약 기능 --
 function displayCumulativeData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     let totalIncome = 0, totalExpense = 0, totalTripCount = 0, totalLiters = 0;
@@ -497,7 +494,6 @@ function displayCumulativeData() {
     cumulativeAvgEconomy.textContent = `${avgEconomy} km/L`;
     cumulativeCostPerKm.textContent = `${costPerKm.toLocaleString()} 원`;
 
-    // 월별 운행기록 차트
     let mileageBreakdownHtml = '<h4>월별 운행기록</h4>';
     const last12Months = {};
     for (let i = 11; i >= 0; i--) {
@@ -508,7 +504,7 @@ function displayCumulativeData() {
     }
 
     const maxMileage = Math.max(...Object.values(last12Months));
-    if (maxMileage < 1) { // [수정] 데이터 없을 때 안내 메시지
+    if (maxMileage < 1) {
         mileageBreakdownHtml += '<p class="note" style="text-align: center; padding: 2em 0;">운행 기록이 부족하여 차트를 표시할 수 없습니다.</p>';
     } else {
         mileageBreakdownHtml += '<div class="graph-body">';
@@ -659,7 +655,6 @@ function getFormData(isNew = false) {
     return formData;
 }
 
-// [누락된 함수 복구]
 function exportToCsv() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     if (records.length === 0) {
@@ -796,6 +791,7 @@ function handleCenterEdit(e) {
 
     item.querySelector('.setting-save-btn').onclick = () => saveCenterEdit(item, originalName);
     item.querySelector('.cancel-edit-btn').onclick = () => refreshCenterUI();
+    item.querySelector('.edit-input').focus();
 }
 
 function saveCenterEdit(item, originalName) {
@@ -811,11 +807,9 @@ function saveCenterEdit(item, originalName) {
         return;
     }
 
-    // 이름 변경
     centers = centers.map(c => (c === originalName ? newName : c));
     localStorage.setItem('logistics_centers', JSON.stringify(centers));
 
-    // 기록에 있는 이름도 모두 변경
     let records = JSON.parse(localStorage.getItem('records')) || [];
     records = records.map(r => {
         if (r.from === originalName) r.from = newName;
@@ -1056,7 +1050,7 @@ backToMainBtn.addEventListener('click', () => {
 addCenterBtn.addEventListener('click', () => {
     const newName = newCenterNameInput.value;
     if (addCenter(newName)) {
-        newCenterNameInput.value = ''; // 성공 시 입력창 비우기
+        newCenterNameInput.value = '';
     } else {
         alert('지역 이름을 입력하거나, 이미 존재하지 않는 이름을 사용해주세요.');
     }

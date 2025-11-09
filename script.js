@@ -644,6 +644,99 @@ function getFormData(isNew = false) {
     return formData;
 }
 
+// =========================================================================
+// [수정된 부분] 누락되었던 함수를 여기에 복구했습니다.
+// =========================================================================
+function exportToCsv() {
+    const records = JSON.parse(localStorage.getItem('records')) || [];
+    if (records.length === 0) {
+        alert('저장할 기록이 없습니다.');
+        return;
+    }
+    const headers = ['날짜', '시간', '구분', '출발지', '도착지', '운행거리(km)', '대기시간(분)', '출발GPS', '도착GPS', '수입(원)', '지출(원)', '주유량(L)', '단가(원/L)', '주유브랜드', '요소수주입량(L)','요소수단가(원/L)','요소수주입처', '소모품내역', '교체시점(km)'];
+    const escapeCsvCell = (cell) => {
+        if (cell == null) return '';
+        const str = String(cell);
+        if (str.includes(',')) return `"${str}"`;
+        return str;
+    };
+    const csvRows = [headers.join(',')];
+    records.forEach(r => {
+        const row = [r.date, r.time, r.type, r.from, r.to, r.distance, r.waitingTime, r.start_gps, r.end_gps, r.income, r.cost, r.liters, r.unitPrice, r.brand, r.ureaLiters, r.ureaUnitPrice, r.ureaStation, r.supplyItem, r.mileage];
+        csvRows.push(row.map(escapeCsvCell).join(','));
+    });
+    const csvString = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const today = new Date().toISOString().slice(0, 10);
+    a.download = `운행기록_백업_${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    alert('모든 기록이 엑셀(CSV) 파일로 성공적으로 저장(다운로드)되었습니다!');
+}
+
+function exportToJson() {
+    const records = localStorage.getItem('records');
+    if (!records || records === '[]') {
+        alert('저장할 기록이 없습니다.');
+        return;
+    }
+    const backupData = {
+        records: JSON.parse(records),
+        centers: getCenters()
+    };
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const today = new Date().toISOString().slice(0, 10);
+    a.download = `운행기록_백업_${today}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    alert('모든 기록과 운송지역 목록이 JSON 파일로 성공적으로 저장(다운로드)되었습니다!');
+}
+
+function importFromJson(event) {
+    if (!confirm('경고!\n현재 앱의 모든 기록과 운송지역 목록이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
+        event.target.value = '';
+        return;
+    }
+    const file = event.target.files[0];
+    if (!file) {
+        event.target.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const content = e.target.result;
+            const data = JSON.parse(content);
+            
+            if (data && Array.isArray(data.records) && Array.isArray(data.centers)) {
+                localStorage.setItem('records', JSON.stringify(data.records));
+                localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
+            } else if (Array.isArray(data)) {
+                localStorage.setItem('records', JSON.stringify(data));
+            } else {
+                throw new Error('Invalid file format');
+            }
+            alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
+            location.reload();
+        } catch (error) {
+            alert('오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.');
+        } finally {
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+
 function displayCenterList() {
     const centers = getCenters();
     centerListContainer.innerHTML = '';

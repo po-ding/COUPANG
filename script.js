@@ -970,6 +970,7 @@ function refreshCenterUI() {
     populateCenterSelectors();
 }
 
+// [복구된 함수]
 function updateCentersFromRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     if (records.length === 0) return;

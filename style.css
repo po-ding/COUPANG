@@ -23,7 +23,15 @@ button:hover { opacity: 0.8; }
 .page-nav .nav-buttons { display: flex; gap: 0.5em; }
 .page-nav button { padding: 0.5em 1em; font-size: 0.9em; width: auto; background-color: #6c757d; }
 
-#start-gps-btn, #end-gps-btn { line-height: 1.4; padding-top: 0.7em; padding-bottom: 0.7em; word-break: keep-all; }
+#start-gps-btn, #end-gps-btn { line-height: 1.4; padding: 0.7em; word-break: keep-all; }
+.save-loc-btn {
+    flex-grow: 0;
+    width: auto;
+    padding: 0.7em 0.8em;
+    line-height: 1.4;
+    font-size: 0.9em;
+    background-color: #6c757d;
+}
 #start-gps-btn { background-color: #17a2b8; }
 #end-gps-btn { background-color: #ffc107; color: #333; }
 #gps-status { text-align: center; font-size: 0.9em; color: #555; background-color: #e9ecef; padding: 0.5em; border-radius: 4px; margin-top: 0.5em; line-height: 1.5;}
@@ -68,12 +76,14 @@ button:hover { opacity: 0.8; }
 h2.collapsible-header { border-bottom: 1px solid #ddd; text-align: left; }
 
 #center-list-container { display: flex; flex-direction: column; gap: 0.5em; }
-.center-item { display: flex; justify-content: space-between; align-items: center; background-color: #f8f9fa; padding: 0.5em 0.8em; border: 1px solid #eee; border-radius: 4px; }
-.center-item .center-name { flex-grow: 1; }
+.center-item { display: flex; flex-direction: column; background-color: #f8f9fa; padding: 0.8em; border: 1px solid #eee; border-radius: 4px; gap: 0.5em; }
+.center-item .info { display: flex; justify-content: space-between; align-items: center; }
+.center-item .center-name { flex-grow: 1; font-weight: 500; }
 .center-item .action-buttons { display: flex; gap: 0.5em; margin: 0; }
 .center-item button { margin: 0; width: auto; flex-shrink: 0; padding: 0.4em 0.8em; }
-#new-center-input-group button { width: 80px; flex-grow: 0; margin-top: 0; }
-.center-item .edit-input { flex-grow: 1; margin-right: 0.5em; }
+#add-center-btn { margin-top: 0; }
+.center-item .edit-form { display: flex; flex-direction: column; gap: 0.5em; margin-top: 0.5em; }
+.center-item .edit-input { width: 100%; }
 
 .view-section { margin-top: 2em; }
 .view-tabs { display: flex; border-bottom: 2px solid #ddd; }

@@ -1,4 +1,4 @@
-/** 버전: 6.4.0 | 최종 수정일: 2025-11-18 (요약 정보 토글 UI 적용) */
+/** 버전: 6.5.1 | 최종 수정일: 2025-11-18 (요약 정보 항목 누락 버그 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -274,7 +274,7 @@ function copyAddressToClipboard(centerName) {
 }
 
 // ===============================================================
-// MODIFIED FUNCTION START: 토글 방식 요약 정보 UI 생성
+// MODIFIED FUNCTION START: 요약 정보 생성 로직 수정
 // ===============================================================
 function createSummaryHTML(title, records) {
     const cancelledCount = records.filter(r => r.type === '이동취소').length;
@@ -307,30 +307,38 @@ function createSummaryHTML(title, records) {
         { label: '운행거리', value: totalDistance.toFixed(1), unit: ' km' },
         { label: '이동건수', value: totalTripCount, unit: ' 건' },
         { label: '대기시간', value: `${waitHours}h ${waitMinutes}m`, unit: '' },
+        { label: '주유금액', value: formatToManwon(totalFuelCost), unit: ' 만원', className: 'cost' },
+        { label: '주유리터', value: totalFuelLiters.toFixed(2), unit: ' L' },
     ];
 
-    if (totalFuelCost > 0) {
-        metrics.push({ label: '주유금액', value: formatToManwon(totalFuelCost), unit: ' 만원', className: 'cost' });
-        metrics.push({ label: '주유리터', value: totalFuelLiters.toFixed(2), unit: ' L' });
-    }
     if (cancelledCount > 0) {
         metrics.push({ label: '취소건수', value: cancelledCount, unit: ' 건', className: 'cancelled' });
     }
 
     let itemsHtml = metrics.map(metric => `
-        <div class="summary-item" onclick="toggleSummaryValue(this)">
+        <div class="summary-item">
             <span class="summary-label">${metric.label}</span>
             <span class="summary-value ${metric.className || ''} hidden">${metric.value}${metric.unit}</span>
         </div>
     `).join('');
 
-    return `<strong>${title}</strong><div class="summary-toggle-grid">${itemsHtml}</div>`;
+    return `<strong>${title}</strong><div class="summary-toggle-grid" onclick="toggleAllSummaryValues(this)">${itemsHtml}</div>`;
 }
 
-function toggleSummaryValue(element) {
-    element.classList.toggle('active');
-    const valueEl = element.querySelector('.summary-value');
-    valueEl.classList.toggle('hidden');
+function toggleAllSummaryValues(gridElement) {
+    const items = gridElement.querySelectorAll('.summary-item');
+    const isShowing = gridElement.classList.toggle('active');
+    
+    items.forEach(item => {
+        const valueEl = item.querySelector('.summary-value');
+        if(isShowing) {
+            item.classList.add('active');
+            valueEl.classList.remove('hidden');
+        } else {
+            item.classList.remove('active');
+            valueEl.classList.add('hidden');
+        }
+    });
 }
 // ===============================================================
 // MODIFIED FUNCTION END

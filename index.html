@@ -121,13 +121,11 @@
                 </div>
 
                 <div id="today-view" class="view-content active">
-                    <!-- MODIFIED START: 날짜 이동 버튼 추가 -->
                     <div class="selector-group">
                         <button id="prev-day-btn">←</button>
                         <input type="date" id="today-date-picker">
                         <button id="next-day-btn">→</button>
                     </div>
-                    <!-- MODIFIED END -->
                     <div id="today-summary" class="summary"></div>
                     <table id="today-records-table" class="responsive-table">
                         <thead><tr><th>시간</th><th>구분</th><th>내용</th><th>수입/지출</th><th>관리</th></tr></thead>
@@ -151,9 +149,7 @@
                      <div class="selector-group">
                         <select id="monthly-year-select"></select>
                     </div>
-                    <!-- MODIFIED START: 월별 탭에 연간 요약 div 추가 -->
                     <div id="monthly-yearly-summary" class="summary"></div>
-                    <!-- MODIFIED END -->
                     <table id="monthly-summary-table" class="yearly-summary-table">
                         <thead><tr><th>월</th><th>수입</th><th>지출</th><th>정산</th><th>운행거리(km)</th><th>이동</th><th>대기</th><th>주유량(L)</th></tr></thead>
                         <tbody></tbody>
@@ -271,6 +267,10 @@
 
         </div>
     </div>
+
+    <!-- MODIFIED START: 토스트 알림을 위한 div 추가 -->
+    <div id="toast-notification"></div>
+    <!-- MODIFIED END -->
 
     <script src="script.js"></script>
 </body>

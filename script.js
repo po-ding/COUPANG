@@ -1,4 +1,4 @@
-/** 버전: 5.9 | 최종 수정일: 2025-11-04 (데이터 복원 로직 강화 및 이벤트 핸들링 수정) */
+/** 버전: 5.9.1 | 최종 수정일: 2025-11-04 (잘림 오류 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -170,94 +170,149 @@ function addCenter(newCenter, address = '', memo = '') {
     return false;
 }
 
-// ... (이하 대부분의 함수는 이전과 동일) ...
-
-// MODIFIED START: 데이터 복원 시 구버전 구조를 신버전으로 변환하는 로직 강화
-function importFromJson(event) {
-    if (!confirm('경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
-        event.target.value = '';
-        return;
-    }
-    const file = event.target.files[0];
-    if (!file) {
-        event.target.value = '';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const content = e.target.result;
-            const data = JSON.parse(content);
-            
-            // --- 데이터 마이그레이션 로직 ---
-            if (data.saved_locations && typeof data.saved_locations === 'object') {
-                const migratedLocations = {};
-                for (const centerName in data.saved_locations) {
-                    const locationData = data.saved_locations[centerName];
-                    let finalAddress = '';
-                    let finalMemo = '';
-
-                    // 1. 초기 데이터 추출
-                    if (typeof locationData === 'object' && locationData !== null) {
-                        // 신규/중간 버전: 객체 형태
-                        finalAddress = locationData.address || '';
-                        finalMemo = locationData.memo || '';
-                    } else if (typeof locationData === 'string') {
-                        // 구버전: 문자열 형태 (주소, 메모 등이 합쳐있을 수 있음)
-                        finalAddress = locationData;
-                    }
-                    
-                    // 2. 주소 필드에 메모 키워드가 있는지 확인하고 분리
-                    const memoKeywords = ['메모:', '참고:', '비고:'];
-                    for (const keyword of memoKeywords) {
-                        if (finalAddress.includes(keyword)) {
-                            const parts = finalAddress.split(keyword);
-                            finalAddress = parts[0].trim();
-                            // 기존 메모가 없을 때만 분리된 메모를 추가
-                            if (!finalMemo) { 
-                                finalMemo = parts.slice(1).join(keyword).trim();
-                            }
-                            break; 
-                        }
-                    }
-                    
-                    migratedLocations[centerName] = { address: finalAddress, memo: finalMemo };
-                }
-                data.saved_locations = migratedLocations; // 변환된 데이터로 교체
-            }
-            // --- 마이그레이션 종료 ---
-
-            if (data && Array.isArray(data.records)) {
-                localStorage.setItem('records', JSON.stringify(data.records));
-                if(Array.isArray(data.centers)) localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
-                if(data.saved_locations) localStorage.setItem('saved_locations', JSON.stringify(data.saved_locations));
-                if(data.mileage_correction) localStorage.setItem('mileage_correction', data.mileage_correction);
-                if(data.fuel_subsidy_limit) localStorage.setItem('fuel_subsidy_limit', data.fuel_subsidy_limit);
-
-            } else if (Array.isArray(data)) { // 구버전 호환 (records만 있는 경우)
-                localStorage.setItem('records', JSON.stringify(data));
-            } else {
-                throw new Error('Invalid file format');
-            }
-            alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
-            location.reload();
-        } catch (error) {
-            console.error('Import Error:', error);
-            alert('오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.');
-        } finally {
-            event.target.value = '';
-        }
-    };
-    reader.readAsText(file);
+function populateCenterSelectors() {
+    const centers = getCenters();
+    const options = centers.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="direct">직접 입력</option>';
+    fromSelect.innerHTML = options;
+    toSelect.innerHTML = options;
+    batchFromSelect.innerHTML = options;
+    batchToSelect.innerHTML = options;
 }
-// MODIFIED END
 
-function populateCenterSelectors(){const centers=getCenters(),options=centers.map(c=>`<option value="${c}">${c}</option>`).join("")+'<option value="direct">직접 입력</option>';fromSelect.innerHTML=options;toSelect.innerHTML=options;batchFromSelect.innerHTML=options;batchToSelect.innerHTML=options}
-function toggleUI(type){const showDateField=["주유소","요소수","소모품","통행료"].includes(type);dateInfoFieldset.classList.toggle("hidden",!showDateField);transportDetails.classList.toggle("hidden",!["화물운송","공차이동","이동취소"].includes(type));fuelDetails.classList.toggle("hidden","주유소"!==type);ureaDetails.classList.toggle("hidden","요소수"!==type);supplyDetails.classList.toggle("hidden","소모품"!==type);"소모품"===type&&(supplyMileageInput.value="");costInfoFieldset.classList.remove("hidden");costWrapper.classList.remove("hidden");incomeWrapper.classList.remove("hidden");"화물운송"===type?costWrapper.classList.add("hidden"):"공차이동"===type||"이동취소"===type?costInfoFieldset.classList.add("hidden"):incomeWrapper.classList.add("hidden");costInput.readOnly=!1}
-function updateAddressDisplay(){const fromValue=fromSelect.value,toValue=toSelect.value,locations=getSavedLocations(),fromData=locations[fromValue]||{},toData=locations[toValue]||{};let addressHtml="";fromData.address&&(addressHtml+=`<div class="address-clickable" data-address="${fromData.address}">${fromData.address}</div>`);fromData.memo&&(addressHtml+=`<div class="memo-display">${fromData.memo}</div>`);toData.address&&(addressHtml+=`<div class="address-clickable" data-address="${toData.address}">${toData.address}</div>`);toData.memo&&(addressHtml+=`<div class="memo-display">${toData.memo}</div>`);addressDisplay.innerHTML=addressHtml}
-function copyTextToClipboard(text,successMessage){text?navigator.clipboard.writeText(text).then(()=>{showToast(successMessage||"클립보드에 복사되었습니다.")}).catch(err=>{console.error("복사 실패:",err);showToast("복사에 실패했습니다.")}):showToast("복사할 내용이 없습니다.")}
-function copyAddressToClipboard(centerName){if(centerName){const locations=getSavedLocations(),locationData=locations[centerName];locationData&&locationData.address?copyTextToClipboard(locationData.address,"주소가 복사되었습니다."):showToast(`'${centerName}'에 등록된 주소가 없습니다.`)}}
-function createSummaryHTML(title,records){const cancelledCount=records.filter(r=>"이동취소"===r.type).length,validRecords=records.filter(r=>"이동취소"!==r.type);let totalIncome=0,totalExpense=0,totalDistance=0,totalTripCount=0,totalWaitingTime=0,totalFuelCost=0,totalFuelLiters=0;validRecords.forEach(r=>{totalIncome+=parseInt(r.income||0);totalExpense+=parseInt(r.cost||0);"주유소"===r.type&&(totalFuelCost+=parseInt(r.cost||0),totalFuelLiters+=parseFloat(r.liters||0));["화물운송","공차이동"].includes(r.type)&&(totalDistance+=parseFloat(r.distance||0),totalTripCount++);totalWaitingTime+=parseInt(r.waitingTime||0)});const netIncome=totalIncome-totalExpense,waitHours=Math.floor(totalWaitingTime/60),waitMinutes=totalWaitingTime%60;return`
+function toggleUI(type) {
+    const showDateField = ['주유소', '요소수', '소모품', '통행료'].includes(type);
+    dateInfoFieldset.classList.toggle('hidden', !showDateField);
+
+    transportDetails.classList.toggle('hidden', !['화물운송', '공차이동', '이동취소'].includes(type));
+    fuelDetails.classList.toggle('hidden', type !== '주유소');
+    ureaDetails.classList.toggle('hidden', type !== '요소수');
+    supplyDetails.classList.toggle('hidden', type !== '소모품');
+
+    if(type === '소모품') {
+        supplyMileageInput.value = '';
+    }
+
+    costInfoFieldset.classList.remove('hidden');
+    costWrapper.classList.remove('hidden');
+    incomeWrapper.classList.remove('hidden');
+
+    if (type === '화물운송') {
+        costWrapper.classList.add('hidden');
+    } else if (type === '공차이동' || type === '이동취소') {
+        costInfoFieldset.classList.add('hidden');
+    } else {
+        incomeWrapper.classList.add('hidden');
+    }
+    costInput.readOnly = false;
+}
+
+function startWaitTimer() {
+    waitStartTime = Date.now();
+    const startTimeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    waitStatus.textContent = `대기 시작 (${startTimeStr}) - 00:00:00`;
+    startWaitBtn.disabled = true;
+    endWaitBtn.disabled = false;
+
+    waitTimerInterval = setInterval(() => {
+        const elapsedTime = Date.now() - waitStartTime;
+        const seconds = Math.floor((elapsedTime / 1000) % 60).toString().padStart(2, '0');
+        const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60).toString().padStart(2, '0');
+        const hours = Math.floor(elapsedTime / (1000 * 60 * 60)).toString().padStart(2, '0');
+        waitStatus.textContent = `대기 시작 (${startTimeStr}) - ${hours}:${minutes}:${seconds}`;
+    }, 1000);
+}
+
+function stopWaitTimer() {
+    if (waitTimerInterval) clearInterval(waitTimerInterval);
+    if (waitStartTime) {
+        const elapsedTime = Date.now() - waitStartTime;
+        const totalMinutes = Math.round(elapsedTime / (1000 * 60));
+        waitingTimeInput.value = totalMinutes;
+        const endTimeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        waitStatus.textContent = `✅ 총 대기시간: ${totalMinutes}분 기록 완료! (종료: ${endTimeStr})`;
+    }
+    startWaitBtn.disabled = false;
+    endWaitBtn.disabled = true;
+    waitStartTime = null;
+}
+
+function updateAddressDisplay() {
+    const fromValue = fromSelect.value;
+    const toValue = toSelect.value;
+    const locations = getSavedLocations();
+    
+    const fromData = locations[fromValue] || {};
+    const toData = locations[toValue] || {};
+
+    let addressHtml = '';
+    if (fromData.address) {
+        addressHtml += `<div class="address-clickable" data-address="${fromData.address}">${fromData.address}</div>`;
+    }
+    if (fromData.memo) {
+        addressHtml += `<div class="memo-display">${fromData.memo}</div>`;
+    }
+    if (toData.address) {
+        addressHtml += `<div class="address-clickable" data-address="${toData.address}">${toData.address}</div>`;
+    }
+    if (toData.memo) {
+        addressHtml += `<div class="memo-display">${toData.memo}</div>`;
+    }
+
+    addressDisplay.innerHTML = addressHtml;
+}
+
+function copyTextToClipboard(text, successMessage) {
+    if (!text) {
+        showToast('복사할 내용이 없습니다.');
+        return;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+        showToast(successMessage || '클립보드에 복사되었습니다.');
+    }).catch(err => {
+        console.error('복사 실패:', err);
+        showToast('복사에 실패했습니다.');
+    });
+}
+
+function copyAddressToClipboard(centerName) {
+    if (!centerName) return;
+    const locations = getSavedLocations();
+    const locationData = locations[centerName];
+    if (locationData && locationData.address) {
+        copyTextToClipboard(locationData.address, '주소가 복사되었습니다.');
+    } else {
+        showToast(`'${centerName}'에 등록된 주소가 없습니다.`);
+    }
+}
+
+function createSummaryHTML(title, records) {
+    const cancelledCount = records.filter(r => r.type === '이동취소').length;
+    const validRecords = records.filter(r => r.type !== '이동취소');
+
+    let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0, totalWaitingTime = 0;
+    let totalFuelCost = 0, totalFuelLiters = 0;
+
+    validRecords.forEach(r => {
+        totalIncome += parseInt(r.income || 0);
+        totalExpense += parseInt(r.cost || 0);
+
+        if (r.type === '주유소') {
+            totalFuelCost += parseInt(r.cost || 0);
+            totalFuelLiters += parseFloat(r.liters || 0);
+        }
+
+        if (['화물운송', '공차이동'].includes(r.type)) {
+            totalDistance += parseFloat(r.distance || 0);
+            totalTripCount++;
+        }
+        totalWaitingTime += parseInt(r.waitingTime || 0);
+    });
+    
+    const netIncome = totalIncome - totalExpense;
+    const waitHours = Math.floor(totalWaitingTime / 60);
+    const waitMinutes = totalWaitingTime % 60;
+    
+    return `
         <strong>${title}</strong><br>
         수입: <span class="income">${formatToManwon(totalIncome)} 만원</span><br>
         지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span><br>
@@ -267,9 +322,47 @@ function createSummaryHTML(title,records){const cancelledCount=records.filter(r=
         대기시간: <strong>${waitHours}시간 ${waitMinutes}분</strong><br>
         주유금액: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span><br>
         주유리터: <strong>${totalFuelLiters.toFixed(2)} L</strong>
-        ${0<cancelledCount?`<br>취소건수: <span class="cancelled">${cancelledCount} 건</span>`:""}
-    `}
-function displayTodayRecords(){const records=JSON.parse(localStorage.getItem("records"))||[],selectedDate=todayDatePicker.value,dateObj=new Date(selectedDate+"T00:00:00"),title=dateObj.toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"short"}),filteredRecords=records.filter(r=>r.date===selectedDate);todayTbody.innerHTML="";const recordsForTable=filteredRecords.filter(r=>"주유소"!==r.type);recordsForTable.forEach(r=>{const tr=document.createElement("tr");let detailsCell="",moneyCell="",actionCell="";if(["화물운송","공차이동","이동취소"].includes(r.type)){const fromLocation=`<strong class="location-clickable" data-center-name="${r.from}">${r.from}</strong>`,toLocation=`<strong class="location-clickable" data-center-name="${r.to}">${r.to}</strong>`;detailsCell=`${fromLocation} → ${toLocation}`;"이동취소"!==r.type&&(detailsCell+=`<br><span class="note">${r.distance} km</span>`,0<r.waitingTime&&(detailsCell+=`<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`));moneyCell=(0<r.income?`<span class="income">+${formatToManwon(r.income)}</span>`:"")+(0<r.cost?` <span class="cost">-${formatToManwon(r.cost)}</span>`:"")}else detailsCell=`<strong>${r.supplyItem||r.type}</strong>`,0<r.mileage&&(detailsCell+=`<br><span class="note">${r.mileage.toLocaleString()} km</span>`),moneyCell=`<span class="cost">-${formatToManwon(r.cost)}</span>`;actionCell=`<div class="action-cell"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></div>`;tr.innerHTML=`<td data-label="시간">${r.time}</td><td data-label="구분">${r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;todayTbody.appendChild(tr)});todaySummaryDiv.innerHTML=createSummaryHTML(title,filteredRecords)}
+        ${cancelledCount > 0 ? `<br>취소건수: <span class="cancelled">${cancelledCount} 건</span>` : ''}
+    `;
+}
+
+function displayTodayRecords() {
+    const records = JSON.parse(localStorage.getItem('records')) || [];
+    const selectedDate = todayDatePicker.value;
+    const dateObj = new Date(selectedDate + 'T00:00:00');
+    const title = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+
+    const filteredRecords = records.filter(r => r.date === selectedDate);
+    
+    todayTbody.innerHTML = '';
+    
+    const recordsForTable = filteredRecords.filter(r => r.type !== '주유소');
+    
+    recordsForTable.forEach(r => {
+        const tr = document.createElement('tr');
+        let detailsCell = '', moneyCell = '', actionCell = '';
+        if (['화물운송', '공차이동', '이동취소'].includes(r.type)) {
+            const fromLocation = `<strong class="location-clickable" data-center-name="${r.from}">${r.from}</strong>`;
+            const toLocation = `<strong class="location-clickable" data-center-name="${r.to}">${r.to}</strong>`;
+            detailsCell = `${fromLocation} → ${toLocation}`;
+            if (r.type !== '이동취소') {
+                detailsCell += `<br><span class="note">${r.distance} km</span>`;
+                if (r.waitingTime > 0) detailsCell += `<br><span class="note">⏱️ 대기: ${r.waitingTime}분</span>`;
+            }
+            moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)}</span>` : '') + (r.cost > 0 ? ` <span class="cost">-${formatToManwon(r.cost)}</span>` : '');
+        } else { 
+            detailsCell = `<strong>${r.supplyItem || r.type}</strong>`;
+            if (r.mileage > 0) detailsCell += `<br><span class="note">${r.mileage.toLocaleString()} km</span>`;
+            moneyCell = `<span class="cost">-${formatToManwon(r.cost)}</span>`;
+        }
+        actionCell = `<div class="action-cell"><button class="edit-btn" onclick="editRecord(${r.id})">수정</button><button class="delete-btn" onclick="deleteRecord(${r.id})">삭제</button></div>`;
+        tr.innerHTML = `<td data-label="시간">${r.time}</td><td data-label="구분">${r.type}</td><td data-label="내용">${detailsCell}</td><td data-label="수입/지출">${moneyCell}</td><td data-label="관리">${actionCell}</td>`;
+        todayTbody.appendChild(tr);
+    });
+    
+    todaySummaryDiv.innerHTML = createSummaryHTML(title, filteredRecords);
+}
+
 function displayDailyRecords(){const allRecords=JSON.parse(localStorage.getItem("records"))||[],selectedPeriod=`${dailyYearSelect.value}-${dailyMonthSelect.value}`,currentMonthRecords=allRecords.filter(r=>r.date.startsWith(selectedPeriod));dailyTbody.innerHTML="";dailySummaryDiv.classList.remove("hidden");dailySummaryDiv.innerHTML=createSummaryHTML(`${parseInt(dailyMonthSelect.value)}월 총계`,currentMonthRecords);const recordsByDate={},validDailyRecords=currentMonthRecords.filter(r=>"이동취소"!==r.type&&"주유소"!==r.type);validDailyRecords.forEach(r=>{recordsByDate[r.date]||(recordsByDate[r.date]={income:0,expense:0,distance:0,tripCount:0,waitingTime:0,liters:0});recordsByDate[r.date].income+=parseInt(r.income||0);recordsByDate[r.date].expense+=parseInt(r.cost||0);["화물운송","공차이동"].includes(r.type)&&(recordsByDate[r.date].distance+=parseFloat(r.distance||0),recordsByDate[r.date].tripCount++);"주유소"===r.type&&(recordsByDate[r.date].liters+=parseFloat(r.liters||0));recordsByDate[r.date].waitingTime+=parseInt(r.waitingTime||0)});Object.keys(recordsByDate).sort().reverse().forEach(date=>{const data=recordsByDate[date],day=date.substring(8,10),dailyNet=data.income-data.expense,waitHours=Math.floor(data.waitingTime/60),waitMinutes=data.waitingTime%60,tr=document.createElement("tr");date===getTodayString()&&(tr.style.fontWeight="bold",tr.style.backgroundColor="#e9f5ff");tr.innerHTML=`
             <td data-label="일">${parseInt(day)}일</td>
             <td data-label="수입"><span class="income">${formatToManwon(data.income)}</span></td>

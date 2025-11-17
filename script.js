@@ -1,4 +1,4 @@
-/** 버전: 6.1.1 | 최종 수정일: 2025-11-04 (잘림 오류 최종 수정) */
+/** 버전: 6.1.2 | 최종 수정일: 2025-11-17 (모바일 수정 오류 해결) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -1072,84 +1072,4 @@ function calculateLiters() {
         }
     }
 }
-fuelUnitPriceInput.addEventListener("input", () => calculateCost("fuel"));
-fuelLitersInput.addEventListener("input", () => calculateCost("fuel"));
-ureaUnitPriceInput.addEventListener("input", () => calculateCost("urea"));
-ureaLitersInput.addEventListener("input", () => calculateCost("urea"));
-costInput.addEventListener("input", calculateLiters);
-typeSelect.addEventListener("change", () => toggleUI(typeSelect.value));
-fromSelect.addEventListener("change", () => {
-    fromCustom.classList.toggle("hidden", fromSelect.value !== 'direct');
-    autoFillIncome();
-    updateAddressDisplay()
-});
-toSelect.addEventListener("change", () => {
-    toCustom.classList.toggle("hidden", toSelect.value !== 'direct');
-    autoFillIncome();
-    updateAddressDisplay()
-});
-batchFromSelect.addEventListener("change", () => batchFromCustom.classList.toggle("hidden", batchFromSelect.value !== 'direct'));
-batchToSelect.addEventListener("change", () => batchToCustom.classList.toggle("hidden", batchToSelect.value !== 'direct'));
-cancelEditBtn.addEventListener("click", cancelEdit);
-
-function autoFillIncome() {
-    if (typeSelect.value !== '화물운송') return;
-    const from = fromSelect.value;
-    const to = toSelect.value;
-    if (from && to && from !== 'direct' && to !== 'direct') {
-        const fareKey = `${from}-${to}`;
-        const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
-        if (fares[fareKey]) {
-            incomeInput.value = (fares[fareKey] / 10000).toFixed(2);
-        }
-    }
-}
-goToSettingsBtn.addEventListener("click", () => {
-    mainPage.classList.add("hidden");
-    settingsPage.classList.remove("hidden");
-    goToSettingsBtn.classList.add("hidden");
-    backToMainBtn.classList.remove("hidden");
-    displayCenterList();
-    mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || "0"
-});
-backToMainBtn.addEventListener("click", () => {
-    mainPage.classList.remove("hidden");
-    settingsPage.classList.add("hidden");
-    goToSettingsBtn.classList.remove("hidden");
-    backToMainBtn.classList.add("hidden")
-});
-addCenterBtn.addEventListener("click", () => {
-    const newName = newCenterNameInput.value;
-    const newAddress = newCenterAddressInput.value;
-    const newMemo = newCenterMemoInput.value;
-    if (addCenter(newName, newAddress, newMemo)) {
-        newCenterNameInput.value = "";
-        newCenterAddressInput.value = "";
-        newCenterMemoInput.value = ""
-    } else {
-        alert("지역 이름을 입력하거나, 이미 존재하지 않는 이름을 사용해주세요.")
-    }
-});
-centerListContainer.addEventListener("click", e => {
-    if (e.target.classList.contains("delete-btn")) deleteCenter(e.target.closest(".center-item").dataset.centerName);
-    if (e.target.classList.contains("edit-btn")) handleCenterEdit(e)
-});
-[toggleCenterManagementBtn, toggleBatchApplyBtn, toggleSubsidyManagementBtn, toggleMileageManagementBtn, toggleDataManagementBtn].forEach(header => {
-    if (header) {
-        header.addEventListener("click", (() => {
-            const body = header.nextElementSibling;
-            body.classList.toggle("hidden");
-            header.classList.toggle("active")
-        }))
-    }
-});
-
-function initialSetup() {
-    updateCentersFromRecords();
-    populateCenterSelectors();
-    populateSelectors();
-    cancelEdit();
-    todayDatePicker.value = getTodayString();
-    updateAllDisplays();
-}
-document.addEventListener("DOMContentLoaded", initialSetup);
+fuelUnitPriceInput.addEventListener("input", () => 

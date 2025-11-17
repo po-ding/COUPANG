@@ -1,4 +1,4 @@
-/** 버전: 6.3.1 | 최종 수정일: 2025-11-18 (요약 정보 주유 내역 누락 버그 수정) */
+/** 버전: 6.4.0 | 최종 수정일: 2025-11-18 (요약 정보 토글 UI 적용) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -272,8 +272,9 @@ function copyAddressToClipboard(centerName) {
         showToast(`'${centerName}'에 등록된 주소가 없습니다.`);
     }
 }
+
 // ===============================================================
-// MODIFIED FUNCTION START: 요약 정보 생성 로직 복원 및 개선
+// MODIFIED FUNCTION START: 토글 방식 요약 정보 UI 생성
 // ===============================================================
 function createSummaryHTML(title, records) {
     const cancelledCount = records.filter(r => r.type === '이동취소').length;
@@ -299,24 +300,37 @@ function createSummaryHTML(title, records) {
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
 
-    let summaryHtml = `
-        <strong>${title}</strong><br>
-        수입: <span class="income">${formatToManwon(totalIncome)} 만원</span> | 
-        지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span> | 
-        정산: <strong>${formatToManwon(netIncome)} 만원</strong><br>
-        운행: <strong>${totalTripCount} 건</strong> / <strong>${totalDistance.toFixed(1)} km</strong> |
-        대기: <strong>${waitHours}시간 ${waitMinutes}분</strong>
-    `;
+    const metrics = [
+        { label: '수입', value: formatToManwon(totalIncome), unit: ' 만원', className: 'income' },
+        { label: '지출', value: formatToManwon(totalExpense), unit: ' 만원', className: 'cost' },
+        { label: '정산', value: formatToManwon(netIncome), unit: ' 만원', className: 'net' },
+        { label: '운행거리', value: totalDistance.toFixed(1), unit: ' km' },
+        { label: '이동건수', value: totalTripCount, unit: ' 건' },
+        { label: '대기시간', value: `${waitHours}h ${waitMinutes}m`, unit: '' },
+    ];
 
-    if (totalFuelLiters > 0) {
-        summaryHtml += `<br>주유: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> / <strong>${totalFuelLiters.toFixed(2)} L</strong>`;
+    if (totalFuelCost > 0) {
+        metrics.push({ label: '주유금액', value: formatToManwon(totalFuelCost), unit: ' 만원', className: 'cost' });
+        metrics.push({ label: '주유리터', value: totalFuelLiters.toFixed(2), unit: ' L' });
     }
-
     if (cancelledCount > 0) {
-        summaryHtml += `<br>취소건수: <span class="cancelled">${cancelledCount} 건</span>`;
+        metrics.push({ label: '취소건수', value: cancelledCount, unit: ' 건', className: 'cancelled' });
     }
-    
-    return summaryHtml;
+
+    let itemsHtml = metrics.map(metric => `
+        <div class="summary-item" onclick="toggleSummaryValue(this)">
+            <span class="summary-label">${metric.label}</span>
+            <span class="summary-value ${metric.className || ''} hidden">${metric.value}${metric.unit}</span>
+        </div>
+    `).join('');
+
+    return `<strong>${title}</strong><div class="summary-toggle-grid">${itemsHtml}</div>`;
+}
+
+function toggleSummaryValue(element) {
+    element.classList.toggle('active');
+    const valueEl = element.querySelector('.summary-value');
+    valueEl.classList.toggle('hidden');
 }
 // ===============================================================
 // MODIFIED FUNCTION END

@@ -35,6 +35,9 @@
                     <select id="type">
                         <option value="화물운송">화물운송</option>
                         <option value="공차이동">공차이동</option>
+                        <!-- MODIFIED START: 이동취소 옵션 추가 -->
+                        <option value="이동취소">이동취소</option>
+                        <!-- MODIFIED END -->
                         <option value="주유소">주유소</option>
                         <option value="요소수">요소수</option>
                         <option value="소모품">소모품</option>
@@ -52,25 +55,10 @@
                         <input type="text" id="from-custom" class="hidden" placeholder="출발지 직접 입력">
                         <input type="text" id="to-custom" class="hidden" placeholder="도착지 직접 입력">
                     </div>
-                    <div class="input-group row">
-                        <button type="button" id="start-gps-btn">출발 GPS 등록</button>
-                        <!-- MODIFIED START: 버튼 텍스트 제거 -->
-                        <button type="button" id="save-from-gps-btn" class="save-loc-btn">📍</button>
-                        <!-- MODIFIED END -->
-                    </div>
-                    <div class="input-group row">
-                        <button type="button" id="end-gps-btn">도착 GPS 등록</button>
-                        <!-- MODIFIED START: 버튼 텍스트 제거 -->
-                        <button type="button" id="save-to-gps-btn" class="save-loc-btn">📍</button>
-                        <!-- MODIFIED END -->
-                    </div>
-                    <div id="gps-status">GPS 상태: 대기 중</div>
-                    <!-- MODIFIED START: 주소 표시를 위한 div 추가 -->
+                    
                     <div id="address-display" class="note"></div>
-                    <!-- MODIFIED END -->
-                    <input type="hidden" id="start-coords">
-                    <input type="hidden" id="end-coords">
-                    <input type="number" id="manual-distance" placeholder="또는, 운행거리(km) 직접입력">
+                    <input type="number" id="manual-distance" placeholder="운행거리(km) 직접입력">
+                    
                     <hr>
                     <div class="input-group row">
                         <button type="button" id="start-wait-btn">대기 시작</button>
@@ -224,7 +212,6 @@
                     <legend>새 지역 추가</legend>
                     <div class="input-group">
                         <input type="text" id="new-center-name" placeholder="추가할 지역 이름">
-                        <input type="text" id="new-center-gps" placeholder="GPS 좌표 (선택, 예: 37.123,127.123)">
                         <input type="text" id="new-center-address" placeholder="주소 (선택)">
                         <button type="button" id="add-center-btn">추가</button>
                     </div>

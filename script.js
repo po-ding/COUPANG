@@ -1,4 +1,4 @@
-/** 버전: 6.1 | 최종 수정일: 2025-11-04 (잘림 오류 완전 복구) */
+/** 버전: 6.1.1 | 최종 수정일: 2025-11-04 (잘림 오류 최종 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -32,33 +32,42 @@ const ureaStationInput = document.getElementById('urea-station');
 const supplyDetails = document.getElementById('supply-details');
 const supplyItemInput = document.getElementById('supply-item');
 const supplyMileageInput = document.getElementById('supply-mileage');
+
 const submitBtn = document.getElementById('submit-btn');
 const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const editIdInput = document.getElementById('edit-id');
+
 const mainPage = document.getElementById('main-page');
 const settingsPage = document.getElementById('settings-page');
 const goToSettingsBtn = document.getElementById('go-to-settings-btn');
 const backToMainBtn = document.getElementById('back-to-main-btn');
+
 const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
+
 const todayDatePicker = document.getElementById('today-date-picker');
 const todaySummaryDiv = document.getElementById('today-summary');
 const todayTbody = document.querySelector('#today-records-table tbody');
 const prevDayBtn = document.getElementById('prev-day-btn');
 const nextDayBtn = document.getElementById('next-day-btn');
+
 const dailyYearSelect = document.getElementById('daily-year-select');
 const dailyMonthSelect = document.getElementById('daily-month-select');
 const dailySummaryDiv = document.getElementById('daily-summary');
 const dailyTbody = document.querySelector('#daily-summary-table tbody');
+
 const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyYearlySummaryDiv = document.getElementById('monthly-yearly-summary');
 const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
+
 const addressDisplay = document.getElementById('address-display');
 const manualDistanceInput = document.getElementById('manual-distance');
+
 const startWaitBtn = document.getElementById('start-wait-btn');
 const endWaitBtn = document.getElementById('end-wait-btn');
 const waitStatus = document.getElementById('wait-status');
 const waitingTimeInput = document.getElementById('waiting-time');
+
 const toggleCenterManagementBtn = document.getElementById('toggle-center-management');
 const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
@@ -66,8 +75,10 @@ const newCenterNameInput = document.getElementById('new-center-name');
 const newCenterAddressInput = document.getElementById('new-center-address');
 const newCenterMemoInput = document.getElementById('new-center-memo');
 const addCenterBtn = document.getElementById('add-center-btn');
+
 const toast = document.getElementById('toast-notification');
 let toastTimeout = null;
+
 const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
 const currentMonthTripCount = document.getElementById('current-month-trip-count');
@@ -102,23 +113,16 @@ const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
 const toggleSubsidyManagementBtn = document.getElementById('toggle-subsidy-management');
 const toggleMileageManagementBtn = document.getElementById('toggle-mileage-management');
 const toggleDataManagementBtn = document.getElementById('toggle-data-management');
+
 let waitStartTime = null;
 let waitTimerInterval = null;
-const getTodayString = () => new Date().toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-}).replace(/\. /g, '-').slice(0, -1);
-const getCurrentTimeString = () => new Date().toLocaleTimeString('ko-KR', {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit'
-});
+
+const getTodayString = () => new Date().toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\. /g, '-').slice(0, -1);
+const getCurrentTimeString = () => new Date().toLocaleTimeString('ko-KR', {hour12: false, hour: '2-digit', minute: '2-digit'});
 const formatToManwon = (valueInWon) => {
     if (isNaN(valueInWon)) return '0';
     return Math.round(valueInWon / 10000).toLocaleString('ko-KR');
 };
-
 function showToast(message) {
     clearTimeout(toastTimeout);
     toast.textContent = message;
@@ -127,7 +131,6 @@ function showToast(message) {
         toast.classList.remove('show');
     }, 1500);
 }
-
 function getCenters() {
     const defaultCenters = ['안성', '안산', '용인', '이천', '인천'];
     const storedCenters = JSON.parse(localStorage.getItem('logistics_centers')) || [];
@@ -137,11 +140,9 @@ function getCenters() {
     }
     return storedCenters.sort((a, b) => a.localeCompare(b, 'ko'));
 }
-
 function getSavedLocations() {
     return JSON.parse(localStorage.getItem('saved_locations')) || {};
 }
-
 function saveLocationData(centerName, data) {
     if (!centerName || centerName === 'direct') return false;
     const locations = getSavedLocations();
@@ -149,7 +150,6 @@ function saveLocationData(centerName, data) {
     localStorage.setItem('saved_locations', JSON.stringify(locations));
     return true;
 }
-
 function addCenter(newCenter, address = '', memo = '') {
     if (!newCenter || newCenter.trim() === '') return false;
     const centers = getCenters();
@@ -166,7 +166,6 @@ function addCenter(newCenter, address = '', memo = '') {
     }
     return false;
 }
-
 function populateCenterSelectors() {
     const centers = getCenters();
     const options = centers.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="direct">직접 입력</option>';
@@ -175,7 +174,6 @@ function populateCenterSelectors() {
     batchFromSelect.innerHTML = options;
     batchToSelect.innerHTML = options;
 }
-
 function toggleUI(type) {
     const showDateField = ['주유소', '요소수', '소모품', '통행료'].includes(type);
     dateInfoFieldset.classList.toggle('hidden', !showDateField);
@@ -198,7 +196,6 @@ function toggleUI(type) {
     }
     costInput.readOnly = false;
 }
-
 function startWaitTimer() {
     waitStartTime = Date.now();
     const startTimeStr = new Date().toLocaleTimeString('ko-KR', {
@@ -216,7 +213,6 @@ function startWaitTimer() {
         waitStatus.textContent = `대기 시작 (${startTimeStr}) - ${hours}:${minutes}:${seconds}`;
     }, 1000);
 }
-
 function stopWaitTimer() {
     if (waitTimerInterval) clearInterval(waitTimerInterval);
     if (waitStartTime) {
@@ -233,7 +229,6 @@ function stopWaitTimer() {
     endWaitBtn.disabled = true;
     waitStartTime = null;
 }
-
 function updateAddressDisplay() {
     const fromValue = fromSelect.value;
     const toValue = toSelect.value;
@@ -255,7 +250,6 @@ function updateAddressDisplay() {
     }
     addressDisplay.innerHTML = addressHtml;
 }
-
 function copyTextToClipboard(text, successMessage) {
     if (!text) {
         showToast('복사할 내용이 없습니다.');
@@ -268,7 +262,6 @@ function copyTextToClipboard(text, successMessage) {
         showToast('복사에 실패했습니다.');
     });
 }
-
 function copyAddressToClipboard(centerName) {
     if (!centerName) return;
     const locations = getSavedLocations();
@@ -279,7 +272,6 @@ function copyAddressToClipboard(centerName) {
         showToast(`'${centerName}'에 등록된 주소가 없습니다.`);
     }
 }
-
 function createSummaryHTML(title, records) {
     const cancelledCount = records.filter(r => r.type === '이동취소').length;
     const validRecords = records.filter(r => r.type !== '이동취소');
@@ -319,7 +311,6 @@ function createSummaryHTML(title, records) {
         ${cancelledCount > 0 ? `<br>취소건수: <span class="cancelled">${cancelledCount} 건</span>` : ''}
     `;
 }
-
 function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedDate = todayDatePicker.value;
@@ -357,7 +348,6 @@ function displayTodayRecords() {
     });
     todaySummaryDiv.innerHTML = createSummaryHTML(title, filteredRecords);
 }
-
 function displayDailyRecords() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const selectedPeriod = `${dailyYearSelect.value}-${dailyMonthSelect.value}`;
@@ -412,7 +402,6 @@ function displayDailyRecords() {
         dailyTbody.appendChild(tr);
     });
 }
-
 function displayMonthlyRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedYear = monthlyYearSelect.value;
@@ -473,10 +462,9 @@ function displayMonthlyRecords() {
         monthlyTbody.appendChild(createRow(monthKey));
     });
 }
-
 function viewDateDetails(date) {
     todayDatePicker.value = date;
-    tabBtns.forEach(b => b.classList.remove('active'));
+    tabBtns.forEach(b => b.classList.remove("active"));
     document.querySelector('.tab-btn[data-view="today"]').classList.add("active");
     viewContents.forEach(c => c.classList.remove('active'));
     document.getElementById("today-view").classList.add("active");
@@ -486,7 +474,6 @@ function viewDateDetails(date) {
         behavior: "smooth"
     });
 }
-
 function displayCurrentMonthData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const now = new Date();
@@ -528,7 +515,6 @@ function displayCurrentMonthData() {
     const progressPercent = subsidyLimit > 0 ? Math.min(100, 100 * usedLiters / subsidyLimit).toFixed(1) : 0;
     subsidySummaryDiv.innerHTML = `<div class="progress-label">월 한도: ${subsidyLimit.toLocaleString()} L | 사용: ${usedLiters.toFixed(1)} L | 잔여: ${remainingLiters.toFixed(1)} L</div><div class="progress-bar-container"><div class="progress-bar progress-bar-used" style="width: ${progressPercent}%;"></div></div>`;
 }
-
 function displayCumulativeData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const validRecords = allRecords.filter(r => r.type !== '이동취소');
@@ -594,7 +580,6 @@ function displayCumulativeData() {
     }
     monthlyMileageBreakdown.innerHTML = mileageBreakdownHtml;
 }
-
 function populateSelectors() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const availableYears = [...new Set(records.map(r => r.date.substring(0, 4)))].sort().reverse();
@@ -612,7 +597,6 @@ function populateSelectors() {
     }
     dailyMonthSelect.value = (new Date().getMonth() + 1).toString().padStart(2, '0');
 }
-
 function updateAllDisplays() {
     const activeView = document.querySelector(".view-content.active").id;
     if (activeView === 'today-view') displayTodayRecords();
@@ -621,7 +605,6 @@ function updateAllDisplays() {
     displayCumulativeData();
     displayCurrentMonthData();
 }
-
 function deleteRecord(id) {
     if (confirm('이 기록을 정말로 삭제하시겠습니까?')) {
         let records = JSON.parse(localStorage.getItem('records')) || [];
@@ -630,7 +613,6 @@ function deleteRecord(id) {
         updateAllDisplays();
     }
 }
-
 function editRecord(id) {
     if (mainPage.classList.contains('hidden')) backToMainBtn.click();
     const records = JSON.parse(localStorage.getItem('records')) || [];
@@ -662,7 +644,6 @@ function editRecord(id) {
     window.scrollTo(0, 0);
     updateAddressDisplay();
 }
-
 function cancelEdit() {
     recordForm.reset();
     editIdInput.value = "";
@@ -681,7 +662,6 @@ function cancelEdit() {
     waitStartTime = null;
     toggleUI(typeSelect.value);
 }
-
 function getFormData(isNew = false) {
     const fromValue = fromSelect.value === 'direct' ? fromCustom.value : fromSelect.value;
     const toValue = toSelect.value === 'direct' ? toCustom.value : toSelect.value;
@@ -709,7 +689,6 @@ function getFormData(isNew = false) {
     if (isNew) formData.id = Date.now();
     return formData;
 }
-
 function exportToCsv() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     if (records.length === 0) return void showToast('저장할 기록이 없습니다.');
@@ -738,7 +717,6 @@ function exportToCsv() {
     URL.revokeObjectURL(url);
     showToast('엑셀(CSV) 파일로 저장되었습니다!');
 }
-
 function exportToJson() {
     const backupData = {
         records: JSON.parse(localStorage.getItem('records') || '[]'),
@@ -760,7 +738,73 @@ function exportToJson() {
     URL.revokeObjectURL(url);
     showToast('JSON 파일로 저장(백업)되었습니다!');
 }
-
+function importFromJson(event) {
+    if (!confirm('경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
+        event.target.value = '';
+        return;
+    }
+    const file = event.target.files[0];
+    if (!file) {
+        event.target.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const content = e.target.result;
+            const data = JSON.parse(content);
+            if (data.saved_locations && typeof data.saved_locations === 'object') {
+                const migratedLocations = {};
+                for (const centerName in data.saved_locations) {
+                    const locationData = data.saved_locations[centerName];
+                    let finalAddress = '';
+                    let finalMemo = '';
+                    if (typeof locationData === 'object' && locationData !== null) {
+                        finalAddress = locationData.address || '';
+                        finalMemo = locationData.memo || '';
+                    } else if (typeof locationData === 'string') {
+                        finalAddress = locationData;
+                    }
+                    const memoKeywords = ['메모:', '참고:', '비고:'];
+                    for (const keyword of memoKeywords) {
+                        if (finalAddress.includes(keyword)) {
+                            const parts = finalAddress.split(keyword);
+                            finalAddress = parts[0].trim();
+                            if (!finalMemo) {
+                                finalMemo = parts.slice(1).join(keyword).trim();
+                            }
+                            break;
+                        }
+                    }
+                    migratedLocations[centerName] = {
+                        address: finalAddress,
+                        memo: finalMemo
+                    };
+                }
+                data.saved_locations = migratedLocations;
+            }
+            if (data && Array.isArray(data.records)) {
+                localStorage.setItem('records', JSON.stringify(data.records));
+                if (Array.isArray(data.centers)) localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
+                if (data.saved_locations) localStorage.setItem('saved_locations', JSON.stringify(data.saved_locations));
+                if (data.mileage_correction) localStorage.setItem('mileage_correction', data.mileage_correction);
+                if (data.fuel_subsidy_limit) localStorage.setItem('fuel_subsidy_limit', data.fuel_subsidy_limit);
+            } else if (Array.isArray(data)) {
+                localStorage.setItem('records', JSON.stringify(data));
+            } else {
+                throw new Error('Invalid file format');
+            }
+            alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
+            location.reload();
+        } catch (error) {
+            console.error('Import Error:', error);
+            alert('오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.');
+        } finally {
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
 function displayCenterList() {
     centerListContainer.innerHTML = "";
     const centers = getCenters();
@@ -790,7 +834,6 @@ function displayCenterList() {
         centerListContainer.appendChild(item);
     });
 }
-
 function deleteCenter(centerNameToDelete) {
     if (confirm(`'${centerNameToDelete}' 지역을 목록에서 정말 삭제하시겠습니까?\n(기존 기록은 변경되지 않습니다.)`)) {
         let centers = getCenters();
@@ -802,7 +845,6 @@ function deleteCenter(centerNameToDelete) {
         refreshCenterUI();
     }
 }
-
 function handleCenterEdit(e) {
     const item = e.target.closest(".center-item");
     const originalName = item.dataset.centerName;
@@ -828,7 +870,6 @@ function handleCenterEdit(e) {
     item.querySelector(".cancel-edit-btn").onclick = () => refreshCenterUI();
     item.querySelector(".edit-input").focus();
 }
-
 function saveCenterEdit(item, originalName) {
     const newName = item.querySelector(".edit-input").value.trim();
     const newAddress = item.querySelector(".edit-address-input").value.trim();
@@ -855,12 +896,10 @@ function saveCenterEdit(item, originalName) {
     refreshCenterUI();
     updateAllDisplays();
 }
-
 function refreshCenterUI() {
     displayCenterList();
     populateCenterSelectors();
 }
-
 function updateCentersFromRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     if (records.length === 0) return;
@@ -979,7 +1018,7 @@ tabBtns.forEach(btn => {
         event.preventDefault();
         tabBtns.forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        viewContents.forEach(c => c.classList.remove("active"));
+        viewContents.forEach(c => c.classList.remove('active'));
         document.getElementById(btn.dataset.view + "-view").classList.add("active");
         updateAllDisplays()
     })

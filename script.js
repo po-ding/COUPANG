@@ -1,4 +1,4 @@
-/** 버전: 5.4 | 최종 수정일: 2025-11-04 (이동취소 기능 추가) */
+/** 버전: 5.5 | 최종 수정일: 2025-11-04 (지역별 메모 기능 추가) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -70,6 +70,9 @@ const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
 const newCenterNameInput = document.getElementById('new-center-name');
 const newCenterAddressInput = document.getElementById('new-center-address');
+// MODIFIED START: 메모 입력란 DOM 요소 추가
+const newCenterMemoInput = document.getElementById('new-center-memo');
+// MODIFIED END
 const addCenterBtn = document.getElementById('add-center-btn');
 
 const currentMonthTitle = document.getElementById('current-month-title');
@@ -137,19 +140,21 @@ function saveLocationData(centerName, data) {
     return true;
 }
 
-function addCenter(newCenter, address = '') {
+// MODIFIED START: addCenter 함수에 memo 파라미터 추가
+function addCenter(newCenter, address = '', memo = '') {
     if (!newCenter || newCenter.trim() === '') return false;
     const centers = getCenters();
     const trimmedCenter = newCenter.trim();
     if (!centers.includes(trimmedCenter)) { 
         centers.push(trimmedCenter);
         localStorage.setItem('logistics_centers', JSON.stringify(centers));
-        saveLocationData(trimmedCenter, { address: address.trim() });
+        saveLocationData(trimmedCenter, { address: address.trim(), memo: memo.trim() });
         refreshCenterUI();
         return true;
     }
     return false;
 }
+// MODIFIED END
 
 function populateCenterSelectors() {
     const centers = getCenters();
@@ -160,7 +165,6 @@ function populateCenterSelectors() {
     batchToSelect.innerHTML = options;
 }
 
-// MODIFIED START: 이동취소 UI 처리 추가
 function toggleUI(type) {
     const showDateField = ['주유소', '요소수', '소모품', '통행료'].includes(type);
     dateInfoFieldset.classList.toggle('hidden', !showDateField);
@@ -187,7 +191,6 @@ function toggleUI(type) {
     }
     costInput.readOnly = false;
 }
-// MODIFIED END
 
 function startWaitTimer() {
     waitStartTime = Date.now();
@@ -257,7 +260,6 @@ function copyAddressToClipboard(centerName) {
     }
 }
 
-// MODIFIED START: 취소 건수 계산 및 표시 로직 추가
 function createSummaryHTML(title, records) {
     const cancelledCount = records.filter(r => r.type === '이동취소').length;
     const validRecords = records.filter(r => r.type !== '이동취소');
@@ -288,7 +290,6 @@ function createSummaryHTML(title, records) {
         대기시간: <strong>${waitHours}시간 ${waitMinutes}분</strong>
     `;
 }
-// MODIFIED END
 
 function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
@@ -341,7 +342,7 @@ function displayDailyRecords() {
 
     const recordsByDate = {};
     currentMonthRecords.forEach(r => {
-        if (r.type === '이동취소') return; // 취소 건은 일별 합계에서 제외
+        if (r.type === '이동취소') return; 
         if (!recordsByDate[r.date]) {
             recordsByDate[r.date] = { income: 0, expense: 0, distance: 0, tripCount: 0, waitingTime: 0, liters: 0 };
         }
@@ -393,7 +394,7 @@ function displayMonthlyRecords() {
     }
 
     records.filter(r => r.date.startsWith(selectedYear)).forEach(r => {
-        if (r.type === '이동취소') return; // 취소 건은 월별 합계에서 제외
+        if (r.type === '이동취소') return;
         const monthKey = r.date.substring(0, 7);
         if (!recordsByMonth[monthKey]) return;
         recordsByMonth[monthKey].income += parseInt(r.income || 0);
@@ -440,19 +441,13 @@ function displayMonthlyRecords() {
 
 function viewDateDetails(date) {
     todayDatePicker.value = date;
-    
     tabBtns.forEach(b => b.classList.remove('active'));
     document.querySelector('.tab-btn[data-view="today"]').classList.add('active');
-    
     viewContents.forEach(c => c.classList.remove('active'));
     document.getElementById('today-view').classList.add('active');
-
     displayTodayRecords();
-    
     const viewSection = document.querySelector('.view-section');
-    if(viewSection) {
-        viewSection.scrollIntoView({ behavior: 'smooth' });
-    }
+    if(viewSection) viewSection.scrollIntoView({ behavior: 'smooth' });
 }
 
 function displayCurrentMonthData() {
@@ -463,7 +458,6 @@ function displayCurrentMonthData() {
     const records = allRecords.filter(r => r.date.startsWith(currentPeriod) && r.type !== '이동취소');
     
     currentMonthTitle.textContent = `${currentMonth}월 실시간 요약`;
-
     let totalIncome = 0, totalExpense = 0, totalTripCount = 0, totalDistance = 0, totalLiters = 0;
     records.forEach(r => {
         totalIncome += parseInt(r.income || 0);
@@ -566,8 +560,7 @@ function displayCumulativeData() {
     monthlyMileageBreakdown.innerHTML = mileageBreakdownHtml;
 }
 
-// ... (이하 나머지 함수들은 변경사항 없음)
-
+// ... (이하 나머지 함수들은 이전 버전과 동일하게 유지됩니다)
 function populateSelectors(){const records=JSON.parse(localStorage.getItem("records"))||[];const availableYears=[...new Set(records.map(r=>r.date.substring(0,4)))].sort().reverse();0===availableYears.length&&availableYears.push((new Date).getFullYear().toString());const yearOptions=availableYears.map(y=>`<option value="${y}">${y}년</option>`).join("");dailyYearSelect.innerHTML=yearOptions;monthlyYearSelect.innerHTML=yearOptions;dailyMonthSelect.innerHTML=Array.from({length:12},((_,i)=>`<option value="${(i+1).toString().padStart(2,"0")}">${i+1}월</option>`)).join("");const currentYear=(new Date).getFullYear().toString();availableYears.includes(currentYear)&&(dailyYearSelect.value=currentYear,monthlyYearSelect.value=currentYear);dailyMonthSelect.value=(new Date().getMonth()+1).toString().padStart(2,"0")}
 function updateAllDisplays(){const activeView=document.querySelector(".view-content.active").id;"today-view"===activeView&&displayTodayRecords();"daily-view"===activeView&&displayDailyRecords();"monthly-view"===activeView&&displayMonthlyRecords();displayCumulativeData();displayCurrentMonthData()}
 function deleteRecord(id){if(confirm("이 기록을 정말로 삭제하시겠습니까?")){let records=JSON.parse(localStorage.getItem("records"))||[];records=records.filter(r=>r.id!==id);localStorage.setItem("records",JSON.stringify(records));updateAllDisplays()}}
@@ -577,7 +570,7 @@ function getFormData(isNew=!1){const fromValue="direct"===fromSelect.value?fromC
 function exportToCsv(){const records=JSON.parse(localStorage.getItem("records"))||[];if(0===records.length)return void alert("저장할 기록이 없습니다.");const headers=["날짜","시간","구분","출발지","도착지","운행거리(km)","대기시간(분)","수입(원)","지출(원)","주유량(L)","단가(원/L)","주유브랜드","요소수주입량(L)","요소수단가(원/L)","요소수주입처","소모품내역","교체시점(km)"],escapeCsvCell=cell=>{if(null==cell)return"";const str=String(cell);return str.includes(",")?`"${str}"`:str},csvRows=[headers.join(",")];records.forEach(r=>{const row=[r.date,r.time,r.type,r.from,r.to,r.distance,r.waitingTime,r.income,r.cost,r.liters,r.unitPrice,r.brand,r.ureaLiters,r.ureaUnitPrice,r.ureaStation,r.supplyItem,r.mileage];csvRows.push(row.map(escapeCsvCell).join(","))});const csvString="﻿"+csvRows.join("\n"),blob=new Blob([csvString],{type:"text/csv;charset=utf-8;"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`운행기록_백업_${(new Date).toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);alert("모든 기록이 엑셀(CSV) 파일로 성공적으로 저장(다운로드)되었습니다!")}
 function exportToJson(){const backupData={records:JSON.parse(localStorage.getItem("records")||"[]"),centers:getCenters(),saved_locations:getSavedLocations(),mileage_correction:parseFloat(localStorage.getItem("mileage_correction"))||0,fuel_subsidy_limit:parseFloat(localStorage.getItem("fuel_subsidy_limit"))||0},blob=new Blob([JSON.stringify(backupData,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`운행기록_백업_${(new Date).toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);alert("모든 데이터가 JSON 파일로 성공적으로 저장(다운로드)되었습니다!")}
 function importFromJson(event){if(confirm("경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?")){const file=event.target.files[0];if(file){const reader=new FileReader;reader.onload=function(e){try{const content=e.target.result,data=JSON.parse(content);data&&Array.isArray(data.records)?(localStorage.setItem("records",JSON.stringify(data.records)),Array.isArray(data.centers)&&localStorage.setItem("logistics_centers",JSON.stringify(data.centers)),data.saved_locations&&localStorage.setItem("saved_locations",JSON.stringify(data.saved_locations)),data.mileage_correction&&localStorage.setItem("mileage_correction",data.mileage_correction),data.fuel_subsidy_limit&&localStorage.setItem("fuel_subsidy_limit",data.fuel_subsidy_limit)):Array.isArray(data)?localStorage.setItem("records",JSON.stringify(data)):(()=>{throw new Error("Invalid file format")})(),alert("데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다."),location.reload()}catch(error){alert("오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.")}finally{event.target.value=""}};reader.readAsText(file)}else event.target.value=""}else event.target.value=""}
-function displayCenterList(){centerListContainer.innerHTML="";const centers=getCenters(),locations=getSavedLocations();if(0===centers.length)return void(centerListContainer.innerHTML='<p class="note">등록된 지역이 없습니다.</p>');centers.forEach(center=>{const locationData=locations[center]||{address:""},address=locationData.address||"",item=document.createElement("div");item.className="center-item";item.dataset.centerName=center;item.innerHTML=`
+function displayCenterList(){centerListContainer.innerHTML="";const centers=getCenters(),locations=getSavedLocations();if(0===centers.length)return void(centerListContainer.innerHTML='<p class="note">등록된 지역이 없습니다.</p>');centers.forEach(center=>{const locationData=locations[center]||{address:"",memo:""},address=locationData.address||"",memo=locationData.memo||"",item=document.createElement("div");item.className="center-item";item.dataset.centerName=center;item.innerHTML=`
             <div class="info">
                 <span class="center-name">${center}</span>
                 <div class="action-buttons">
@@ -586,22 +579,24 @@ function displayCenterList(){centerListContainer.innerHTML="";const centers=getC
                 </div>
             </div>
             ${address?`<span class="note">주소: ${address}</span>`:""}
+            ${memo?`<span class="note">메모: ${memo}</span>`:""}
         `;centerListContainer.appendChild(item)})}
 function deleteCenter(centerNameToDelete){if(confirm(`'${centerNameToDelete}' 지역을 목록에서 정말 삭제하시겠습니까?\n(기존 기록은 변경되지 않습니다.)`)){let centers=getCenters(),locations=getSavedLocations();centers=centers.filter(c=>c!==centerNameToDelete);delete locations[centerNameToDelete];localStorage.setItem("logistics_centers",JSON.stringify(centers));localStorage.setItem("saved_locations",JSON.stringify(locations));refreshCenterUI()}}
-function handleCenterEdit(e){const item=e.target.closest(".center-item"),originalName=item.dataset.centerName,locations=getSavedLocations(),originalData=locations[originalName]||{address:""},originalAddress=originalData.address||"";item.innerHTML=`
+function handleCenterEdit(e){const item=e.target.closest(".center-item"),originalName=item.dataset.centerName,locations=getSavedLocations(),originalData=locations[originalName]||{address:"",memo:""},originalAddress=originalData.address||"",originalMemo=originalData.memo||"";item.innerHTML=`
         <div class="edit-form">
             <input type="text" class="edit-input" value="${originalName}" placeholder="지역 이름">
             <input type="text" class="edit-address-input" value="${originalAddress}" placeholder="주소 (선택)">
+            <input type="text" class="edit-memo-input" value="${originalMemo}" placeholder="메모 (선택)">
             <div class="action-buttons">
                 <button class="setting-save-btn">저장</button>
                 <button class="cancel-edit-btn">취소</button>
             </div>
         </div>
     `;item.querySelector(".setting-save-btn").onclick=()=>saveCenterEdit(item,originalName);item.querySelector(".cancel-edit-btn").onclick=()=>refreshCenterUI();item.querySelector(".edit-input").focus()}
-function saveCenterEdit(item,originalName){const newName=item.querySelector(".edit-input").value.trim(),newAddress=item.querySelector(".edit-address-input").value.trim();if(newName){let centers=getCenters(),locations=getSavedLocations();if(centers.includes(newName)&&newName!==originalName)return void alert("이미 존재하는 지역 이름입니다.");centers=centers.map(c=>c===originalName?newName:c);localStorage.setItem("logistics_centers",JSON.stringify(centers));delete locations[originalName];locations[newName]={address:newAddress};localStorage.setItem("saved_locations",JSON.stringify(locations));let records=JSON.parse(localStorage.getItem("records"))||[];records=records.map(r=>(r.from===originalName&&(r.from=newName),r.to===originalName&&(r.to=newName),r));localStorage.setItem("records",JSON.stringify(records));refreshCenterUI();updateAllDisplays()}else alert("지역 이름은 비워둘 수 없습니다.")}
+function saveCenterEdit(item,originalName){const newName=item.querySelector(".edit-input").value.trim(),newAddress=item.querySelector(".edit-address-input").value.trim(),newMemo=item.querySelector(".edit-memo-input").value.trim();if(newName){let centers=getCenters(),locations=getSavedLocations();if(centers.includes(newName)&&newName!==originalName)return void alert("이미 존재하는 지역 이름입니다.");centers=centers.map(c=>c===originalName?newName:c);localStorage.setItem("logistics_centers",JSON.stringify(centers));delete locations[originalName];locations[newName]={address:newAddress,memo:newMemo};localStorage.setItem("saved_locations",JSON.stringify(locations));let records=JSON.parse(localStorage.getItem("records"))||[];records=records.map(r=>(r.from===originalName&&(r.from=newName),r.to===originalName&&(r.to=newName),r));localStorage.setItem("records",JSON.stringify(records));refreshCenterUI();updateAllDisplays()}else alert("지역 이름은 비워둘 수 없습니다.")}
 function refreshCenterUI(){displayCenterList();populateCenterSelectors()}
 function updateCentersFromRecords(){const records=JSON.parse(localStorage.getItem("records"))||[];if(0!==records.length){const centers=getCenters(),centerSet=new Set(centers);let needsUpdate=!1;records.forEach(r=>{r.from&&!centerSet.has(r.from)&&(centerSet.add(r.from),centers.push(r.from),needsUpdate=!0);r.to&&!centerSet.has(r.to)&&(centerSet.add(r.to),centers.push(r.to),needsUpdate=!0)});needsUpdate&&localStorage.setItem("logistics_centers",JSON.stringify(centers))}}recordForm.addEventListener("submit",(function(event){event.preventDefault();const editingId=parseInt(editIdInput.value);let records=JSON.parse(localStorage.getItem("records"))||[];if(editingId){const recordIndex=records.findIndex(r=>r.id===editingId);-1<recordIndex&&(records[recordIndex]={...records[recordIndex],...getFormData()})}else{const newRecord=getFormData(!0);"화물운송"===newRecord.type&&0<newRecord.income&&(()=>{const fareKey=`${newRecord.from}-${newRecord.to}`,fares=JSON.parse(localStorage.getItem("saved_fares"))||{};fares[fareKey]=newRecord.income;localStorage.setItem("saved_fares",JSON.stringify(fares))})();records.push(newRecord)}records.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));localStorage.setItem("records",JSON.stringify(records));cancelEdit();updateAllDisplays()}));todayTbody.addEventListener("click",e=>{if(e.target.classList.contains("location-clickable")){const centerName=e.target.dataset.centerName;copyAddressToClipboard(centerName)}});batchApplyBtn.addEventListener("click",()=>{const from="direct"===batchFromSelect.value?batchFromCustom.value:batchFromSelect.value,to="direct"===batchToSelect.value?batchToCustom.value:batchToSelect.value,income=parseFloat(batchIncomeInput.value)||0;if(from&&to&&0<income){let records=JSON.parse(localStorage.getItem("records"))||[];let updatedCount=0;const recordsToUpdate=records.filter(r=>"화물운송"===r.type&&r.from===from&&r.to===to&&0===r.income);0===recordsToUpdate.length?alert("해당 구간의 미정산(수입 0원) 기록이 없습니다."):confirm(`정말로 '${from} -> ${to}' 구간의 미정산 기록 ${recordsToUpdate.length}건에 운임 ${income}만원을 일괄 적용하시겠습니까?`)&&(records=records.map(r=>"화물운송"===r.type&&r.from===from&&r.to===to&&0===r.income?(updatedCount++,{...r,income:1e4*income}):r),localStorage.setItem("records",JSON.stringify(records)),batchStatus.textContent=`✅ ${updatedCount}건의 운임이 성공적으로 적용되었습니다!`,batchFromSelect.value=getCenters()[0],batchToSelect.value=getCenters()[0],batchIncomeInput.value="",updateAllDisplays(),setTimeout((()=>batchStatus.textContent=""),3e3))}else alert("출발지, 도착지를 선택하고 유효한 운송 수입을 입력하세요.")});subsidySaveBtn.addEventListener("click",()=>{const limit=subsidyLimitInput.value;localStorage.setItem("fuel_subsidy_limit",limit);alert(`보조금 한도가 ${limit}L로 저장되었습니다.`);updateAllDisplays()});mileageCorrectionSaveBtn.addEventListener("click",()=>{const correction=mileageCorrectionInput.value;localStorage.setItem("mileage_correction",correction);alert(`주행거리 보정값이 ${correction} km로 저장되었습니다.`);displayCumulativeData()});exportCsvBtn.addEventListener("click",exportToCsv);exportJsonBtn.addEventListener("click",exportToJson);importJsonBtn.addEventListener("click",(()=>importFileInput.click()));importFileInput.addEventListener("change",importFromJson);clearBtn.addEventListener("click",(()=>{confirm("정말로 모든 기록과 설정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")&&(localStorage.clear(),alert("모든 데이터가 삭제되었습니다."),location.reload())}));tabBtns.forEach(btn=>{btn.addEventListener("click",event=>{event.preventDefault();tabBtns.forEach(b=>b.classList.remove("active"));btn.classList.add("active");viewContents.forEach(c=>c.classList.remove("active"));document.getElementById(btn.dataset.view+"-view").classList.add("active");updateAllDisplays()})});todayDatePicker.addEventListener("change",displayTodayRecords);dailyYearSelect.addEventListener("change",displayDailyRecords);dailyMonthSelect.addEventListener("change",displayDailyRecords);monthlyYearSelect.addEventListener("change",displayMonthlyRecords);startWaitBtn.addEventListener("click",startWaitTimer);endWaitBtn.addEventListener("click",stopWaitTimer);
 function calculateCost(type){const unitPriceInput="fuel"===type?fuelUnitPriceInput:ureaUnitPriceInput,litersInput="fuel"===type?fuelLitersInput:ureaLitersInput,unitPrice=parseFloat(unitPriceInput.value)||0,liters=parseFloat(litersInput.value)||0;document.activeElement!==litersInput&&document.activeElement!==unitPriceInput||0<unitPrice&&0<liters&&(costInput.value=(Math.round(unitPrice*liters)/1e4).toFixed(2))}
 function calculateLiters(){const costInManwon=parseFloat(costInput.value)||0,type=typeSelect.value;if(document.activeElement===costInput){if("주유소"===type){const unitPrice=parseFloat(fuelUnitPriceInput.value)||0;0<costInManwon&&0<unitPrice&&(fuelLitersInput.value=(1e4*costInManwon/unitPrice).toFixed(2))}else if("요소수"===type){const unitPrice=parseFloat(ureaUnitPriceInput.value)||0;0<costInManwon&&0<unitPrice&&(ureaLitersInput.value=(1e4*costInManwon/unitPrice).toFixed(2))}}}fuelUnitPriceInput.addEventListener("input",(()=>calculateCost("fuel")));fuelLitersInput.addEventListener("input",(()=>calculateCost("fuel")));ureaUnitPriceInput.addEventListener("input",(()=>calculateCost("urea")));ureaLitersInput.addEventListener("input",(()=>calculateCost("urea")));costInput.addEventListener("input",calculateLiters);typeSelect.addEventListener("change",(()=>toggleUI(typeSelect.value)));fromSelect.addEventListener("change",()=>{fromCustom.classList.toggle("hidden","direct"!==fromSelect.value);autoFillIncome();updateAddressDisplay()});toSelect.addEventListener("change",()=>{toCustom.classList.toggle("hidden","direct"!==toSelect.value);autoFillIncome();updateAddressDisplay()});batchFromSelect.addEventListener("change",(()=>batchFromCustom.classList.toggle("hidden","direct"!==batchFromSelect.value)));batchToSelect.addEventListener("change",(()=>batchToCustom.classList.toggle("hidden","direct"!==batchToSelect.value)));cancelEditBtn.addEventListener("click",cancelEdit);
-function autoFillIncome(){if("화물운송"===typeSelect.value){const from=fromSelect.value,to=toSelect.value;if(from&&to&&"direct"!==from&&"direct"!==to){const fareKey=`${from}-${to}`,fares=JSON.parse(localStorage.getItem("saved_fares"))||{};fares[fareKey]&&(incomeInput.value=(fares[fareKey]/1e4).toFixed(2))}}}goToSettingsBtn.addEventListener("click",()=>{mainPage.classList.add("hidden");settingsPage.classList.remove("hidden");goToSettingsBtn.classList.add("hidden");backToMainBtn.classList.remove("hidden");displayCenterList();mileageCorrectionInput.value=localStorage.getItem("mileage_correction")||"0"});backToMainBtn.addEventListener("click",()=>{mainPage.classList.remove("hidden");settingsPage.classList.add("hidden");goToSettingsBtn.classList.remove("hidden");backToMainBtn.classList.add("hidden")});addCenterBtn.addEventListener("click",()=>{const newName=newCenterNameInput.value,newAddress=newCenterAddressInput.value;addCenter(newName,newAddress)?(newCenterNameInput.value="",newCenterAddressInput.value=""):alert("지역 이름을 입력하거나, 이미 존재하지 않는 이름을 사용해주세요.")});centerListContainer.addEventListener("click",e=>{e.target.classList.contains("delete-btn")&&deleteCenter(e.target.closest(".center-item").dataset.centerName);e.target.classList.contains("edit-btn")&&handleCenterEdit(e)});[toggleCenterManagementBtn,toggleBatchApplyBtn,toggleSubsidyManagementBtn,toggleMileageManagementBtn,toggleDataManagementBtn].forEach(header=>{header&&header.addEventListener("click",(()=>{const body=header.nextElementSibling;body.classList.toggle("hidden");header.classList.toggle("active")}))});
+function autoFillIncome(){if("화물운송"===typeSelect.value){const from=fromSelect.value,to=toSelect.value;if(from&&to&&"direct"!==from&&"direct"!==to){const fareKey=`${from}-${to}`,fares=JSON.parse(localStorage.getItem("saved_fares"))||{};fares[fareKey]&&(incomeInput.value=(fares[fareKey]/1e4).toFixed(2))}}}goToSettingsBtn.addEventListener("click",()=>{mainPage.classList.add("hidden");settingsPage.classList.remove("hidden");goToSettingsBtn.classList.add("hidden");backToMainBtn.classList.remove("hidden");displayCenterList();mileageCorrectionInput.value=localStorage.getItem("mileage_correction")||"0"});backToMainBtn.addEventListener("click",()=>{mainPage.classList.remove("hidden");settingsPage.classList.add("hidden");goToSettingsBtn.classList.remove("hidden");backToMainBtn.classList.add("hidden")});addCenterBtn.addEventListener("click",()=>{const newName=newCenterNameInput.value,newAddress=newCenterAddressInput.value,newMemo=newCenterMemoInput.value;addCenter(newName,newAddress,newMemo)?(newCenterNameInput.value="",newCenterAddressInput.value="",newCenterMemoInput.value=""):alert("지역 이름을 입력하거나, 이미 존재하지 않는 이름을 사용해주세요.")});centerListContainer.addEventListener("click",e=>{e.target.classList.contains("delete-btn")&&deleteCenter(e.target.closest(".center-item").dataset.centerName);e.target.classList.contains("edit-btn")&&handleCenterEdit(e)});[toggleCenterManagementBtn,toggleBatchApplyBtn,toggleSubsidyManagementBtn,toggleMileageManagementBtn,toggleDataManagementBtn].forEach(header=>{header&&header.addEventListener("click",(()=>{const body=header.nextElementSibling;body.classList.toggle("hidden");header.classList.toggle("active")}))});
 function initialSetup(){updateCentersFromRecords();populateCenterSelectors();populateSelectors();cancelEdit();todayDatePicker.value=getTodayString();updateAllDisplays()}document.addEventListener("DOMContentLoaded",initialSetup);

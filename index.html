@@ -35,9 +35,7 @@
                     <select id="type">
                         <option value="화물운송">화물운송</option>
                         <option value="공차이동">공차이동</option>
-                        <!-- MODIFIED START: 이동취소 옵션 추가 -->
                         <option value="이동취소">이동취소</option>
-                        <!-- MODIFIED END -->
                         <option value="주유소">주유소</option>
                         <option value="요소수">요소수</option>
                         <option value="소모품">소모품</option>
@@ -213,6 +211,9 @@
                     <div class="input-group">
                         <input type="text" id="new-center-name" placeholder="추가할 지역 이름">
                         <input type="text" id="new-center-address" placeholder="주소 (선택)">
+                        <!-- MODIFIED START: 메모 입력란 추가 -->
+                        <input type="text" id="new-center-memo" placeholder="메모 (선택)">
+                        <!-- MODIFIED END -->
                         <button type="button" id="add-center-btn">추가</button>
                     </div>
                 </fieldset>

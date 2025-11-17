@@ -1,4 +1,4 @@
-/** 버전: 6.1.4 | 최종 수정일: 2025-11-17 (유가보조금 관리 기능 추가) */
+/** 버전: 6.1.5 | 최종 수정일: 2025-11-17 (유가보조금 목록 미표시 오류 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -625,12 +625,6 @@ function updateAllDisplays() {
     if (activeView === 'monthly-view') displayMonthlyRecords();
     displayCumulativeData();
     displayCurrentMonthData();
-
-    // MODIFIED START: 설정 페이지가 활성화된 경우 보조금 내역도 갱신
-    if (!settingsPage.classList.contains('hidden')) {
-        displaySubsidyRecords();
-    }
-    // MODIFIED END
 }
 function deleteRecord(id) {
     if (confirm('이 기록을 정말로 삭제하시겠습니까?')) {
@@ -1138,9 +1132,6 @@ goToSettingsBtn.addEventListener("click", () => {
     backToMainBtn.classList.remove("hidden");
     displayCenterList();
     mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || "0";
-    // MODIFIED START: 설정 페이지 진입 시 주유 기록 표시
-    displaySubsidyRecords();
-    // MODIFIED END
 });
 backToMainBtn.addEventListener("click", () => {
     mainPage.classList.remove("hidden");
@@ -1164,19 +1155,20 @@ centerListContainer.addEventListener("click", e => {
     if (e.target.classList.contains("delete-btn")) deleteCenter(e.target.closest(".center-item").dataset.centerName);
     if (e.target.classList.contains("edit-btn")) handleCenterEdit(e)
 });
+
 [toggleCenterManagementBtn, toggleBatchApplyBtn, toggleSubsidyManagementBtn, toggleMileageManagementBtn, toggleDataManagementBtn].forEach(header => {
     if (header) {
-        header.addEventListener("click", (() => {
+        header.addEventListener("click", () => {
             const body = header.nextElementSibling;
-            const isHidden = body.classList.toggle("hidden");
+            const isNowHidden = body.classList.toggle("hidden");
             header.classList.toggle("active");
 
-            // MODIFIED START: 유가보조금 탭을 열 때마다 목록을 새로고침
-            if (header.id === 'toggle-subsidy-management' && !isHidden) {
+            // MODIFIED START: 유가보조금 탭이 '열릴 때'만 목록을 새로고침하도록 수정
+            if (header.id === 'toggle-subsidy-management' && !isNowHidden) {
                 displaySubsidyRecords();
             }
             // MODIFIED END
-        }))
+        });
     }
 });
 
@@ -1189,9 +1181,6 @@ function initialSetup() {
     updateAllDisplays();
 }
 
-// ===============================================================
-// NEW FUNCTION START: 유가보조금 주유 내역 표시
-// ===============================================================
 function displaySubsidyRecords() {
     const listContainer = document.getElementById('subsidy-records-list');
     if (!listContainer) return;
@@ -1235,8 +1224,5 @@ function displaySubsidyRecords() {
     tableHtml += '</tbody></table>';
     listContainer.innerHTML = tableHtml;
 }
-// ===============================================================
-// NEW FUNCTION END
-// ===============================================================
 
 document.addEventListener("DOMContentLoaded", initialSetup);

@@ -1,4 +1,4 @@
-/** 버전: 6.1.2 | 최종 수정일: 2025-11-17 (모바일 수정 오류 해결) */
+/** 버전: 6.1.3 | 최종 수정일: 2025-11-17 (UI 클릭 불가 오류 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -174,28 +174,55 @@ function populateCenterSelectors() {
     batchFromSelect.innerHTML = options;
     batchToSelect.innerHTML = options;
 }
+
+// ===============================================================
+// MODIFIED START: UI 표시/숨김 로직을 안정적으로 개선
+// ===============================================================
 function toggleUI(type) {
-    const showDateField = ['주유소', '요소수', '소모품', '통행료'].includes(type);
-    dateInfoFieldset.classList.toggle('hidden', !showDateField);
-    transportDetails.classList.toggle('hidden', !['화물운송', '공차이동', '이동취소'].includes(type));
-    fuelDetails.classList.toggle('hidden', type !== '주유소');
-    ureaDetails.classList.toggle('hidden', type !== '요소수');
-    supplyDetails.classList.toggle('hidden', type !== '소모품');
-    if (type === '소모품') {
-        supplyMileageInput.value = '';
-    }
-    costInfoFieldset.classList.remove('hidden');
+    // 1. 모든 선택적 섹션을 먼저 숨겨서 초기화합니다.
+    dateInfoFieldset.classList.add('hidden');
+    transportDetails.classList.add('hidden');
+    fuelDetails.classList.add('hidden');
+    ureaDetails.classList.add('hidden');
+    supplyDetails.classList.add('hidden');
+    costInfoFieldset.classList.add('hidden');
+    incomeWrapper.classList.remove('hidden'); // 내부 요소들도 초기화
     costWrapper.classList.remove('hidden');
-    incomeWrapper.classList.remove('hidden');
-    if (type === '화물운송') {
-        costWrapper.classList.add('hidden');
-    } else if (type === '공차이동' || type === '이동취소') {
-        costInfoFieldset.classList.add('hidden');
-    } else {
-        incomeWrapper.classList.add('hidden');
+
+    // 2. 선택된 '기록 종류'에 따라 필요한 섹션만 다시 표시합니다.
+    if (['화물운송', '공차이동', '이동취소'].includes(type)) {
+        transportDetails.classList.remove('hidden');
+    } else if (type === '주유소') {
+        dateInfoFieldset.classList.remove('hidden');
+        fuelDetails.classList.remove('hidden');
+    } else if (type === '요소수') {
+        dateInfoFieldset.classList.remove('hidden');
+        ureaDetails.classList.remove('hidden');
+    } else if (type === '소모품') {
+        dateInfoFieldset.classList.remove('hidden');
+        supplyDetails.classList.remove('hidden');
+        supplyMileageInput.value = '';
+    } else if (type === '통행료') {
+        dateInfoFieldset.classList.remove('hidden');
     }
+
+    // 3. 수입/지출 정보 필드를 종류에 맞게 표시합니다.
+    if (type === '화물운송') {
+        costInfoFieldset.classList.remove('hidden');
+        costWrapper.classList.add('hidden'); // 수입만 표시
+    } else if (['공차이동', '이동취소'].includes(type)) {
+        // 공차이동/이동취소는 수입/지출 정보 없음
+    } else { // 주유소, 요소수, 소모품, 통행료
+        costInfoFieldset.classList.remove('hidden');
+        incomeWrapper.classList.add('hidden'); // 지출만 표시
+    }
+
     costInput.readOnly = false;
 }
+// ===============================================================
+// MODIFIED END
+// ===============================================================
+
 function startWaitTimer() {
     waitStartTime = Date.now();
     const startTimeStr = new Date().toLocaleTimeString('ko-KR', {
@@ -1072,4 +1099,84 @@ function calculateLiters() {
         }
     }
 }
-fuelUnitPriceInput.addEventListener("input", () => 
+fuelUnitPriceInput.addEventListener("input", () => calculateCost("fuel"));
+fuelLitersInput.addEventListener("input", () => calculateCost("fuel"));
+ureaUnitPriceInput.addEventListener("input", () => calculateCost("urea"));
+ureaLitersInput.addEventListener("input", () => calculateCost("urea"));
+costInput.addEventListener("input", calculateLiters);
+typeSelect.addEventListener("change", () => toggleUI(typeSelect.value));
+fromSelect.addEventListener("change", () => {
+    fromCustom.classList.toggle("hidden", fromSelect.value !== 'direct');
+    autoFillIncome();
+    updateAddressDisplay()
+});
+toSelect.addEventListener("change", () => {
+    toCustom.classList.toggle("hidden", toSelect.value !== 'direct');
+    autoFillIncome();
+    updateAddressDisplay()
+});
+batchFromSelect.addEventListener("change", () => batchFromCustom.classList.toggle("hidden", batchFromSelect.value !== 'direct'));
+batchToSelect.addEventListener("change", () => batchToCustom.classList.toggle("hidden", batchToSelect.value !== 'direct'));
+cancelEditBtn.addEventListener("click", cancelEdit);
+
+function autoFillIncome() {
+    if (typeSelect.value !== '화물운송') return;
+    const from = fromSelect.value;
+    const to = toSelect.value;
+    if (from && to && from !== 'direct' && to !== 'direct') {
+        const fareKey = `${from}-${to}`;
+        const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+        if (fares[fareKey]) {
+            incomeInput.value = (fares[fareKey] / 10000).toFixed(2);
+        }
+    }
+}
+goToSettingsBtn.addEventListener("click", () => {
+    mainPage.classList.add("hidden");
+    settingsPage.classList.remove("hidden");
+    goToSettingsBtn.classList.add("hidden");
+    backToMainBtn.classList.remove("hidden");
+    displayCenterList();
+    mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || "0"
+});
+backToMainBtn.addEventListener("click", () => {
+    mainPage.classList.remove("hidden");
+    settingsPage.classList.add("hidden");
+    goToSettingsBtn.classList.remove("hidden");
+    backToMainBtn.classList.add("hidden")
+});
+addCenterBtn.addEventListener("click", () => {
+    const newName = newCenterNameInput.value;
+    const newAddress = newCenterAddressInput.value;
+    const newMemo = newCenterMemoInput.value;
+    if (addCenter(newName, newAddress, newMemo)) {
+        newCenterNameInput.value = "";
+        newCenterAddressInput.value = "";
+        newCenterMemoInput.value = ""
+    } else {
+        alert("지역 이름을 입력하거나, 이미 존재하지 않는 이름을 사용해주세요.")
+    }
+});
+centerListContainer.addEventListener("click", e => {
+    if (e.target.classList.contains("delete-btn")) deleteCenter(e.target.closest(".center-item").dataset.centerName);
+    if (e.target.classList.contains("edit-btn")) handleCenterEdit(e)
+});
+[toggleCenterManagementBtn, toggleBatchApplyBtn, toggleSubsidyManagementBtn, toggleMileageManagementBtn, toggleDataManagementBtn].forEach(header => {
+    if (header) {
+        header.addEventListener("click", (() => {
+            const body = header.nextElementSibling;
+            body.classList.toggle("hidden");
+            header.classList.toggle("active")
+        }))
+    }
+});
+
+function initialSetup() {
+    updateCentersFromRecords();
+    populateCenterSelectors();
+    populateSelectors();
+    cancelEdit();
+    todayDatePicker.value = getTodayString();
+    updateAllDisplays();
+}
+document.addEventListener("DOMContentLoaded", initialSetup);

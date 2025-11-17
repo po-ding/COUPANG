@@ -1,4 +1,4 @@
-/** 버전: 6.1.6 | 최종 수정일: 2025-11-17 ('더 보기' 기능 구현) */
+/** 버전: 6.2.0 | 최종 수정일: 2025-11-18 (시간 입력 필드 추가 및 양식 임시 저장 기능 구현) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -7,7 +7,7 @@ const exportCsvBtn = document.getElementById('export-csv-btn');
 const exportJsonBtn = document.getElementById('export-json-btn');
 const importJsonBtn = document.getElementById('import-json-btn');
 const importFileInput = document.getElementById('import-file-input');
-const dateInfoFieldset = document.getElementById('date-info-fieldset');
+const datetimeInfoFieldset = document.getElementById('datetime-info-fieldset'); // MODIFIED: date-info-fieldset -> datetime-info-fieldset
 const dateInput = document.getElementById('date');
 const timeInput = document.getElementById('time');
 const typeSelect = document.getElementById('type');
@@ -182,7 +182,6 @@ function populateCenterSelectors() {
 
 function toggleUI(type) {
     // 1. 모든 선택적 섹션을 먼저 숨겨서 초기화합니다.
-    dateInfoFieldset.classList.add('hidden');
     transportDetails.classList.add('hidden');
     fuelDetails.classList.add('hidden');
     ureaDetails.classList.add('hidden');
@@ -195,17 +194,14 @@ function toggleUI(type) {
     if (['화물운송', '공차이동', '이동취소'].includes(type)) {
         transportDetails.classList.remove('hidden');
     } else if (type === '주유소') {
-        dateInfoFieldset.classList.remove('hidden');
         fuelDetails.classList.remove('hidden');
     } else if (type === '요소수') {
-        dateInfoFieldset.classList.remove('hidden');
         ureaDetails.classList.remove('hidden');
     } else if (type === '소모품') {
-        dateInfoFieldset.classList.remove('hidden');
         supplyDetails.classList.remove('hidden');
         supplyMileageInput.value = '';
     } else if (type === '통행료') {
-        dateInfoFieldset.classList.remove('hidden');
+        // 통행료는 기본 비용 정보 필드만 사용
     }
 
     // 3. 수입/지출 정보 필드를 종류에 맞게 표시합니다.
@@ -221,6 +217,7 @@ function toggleUI(type) {
 
     costInput.readOnly = false;
 }
+
 
 function startWaitTimer() {
     waitStartTime = Date.now();
@@ -946,6 +943,72 @@ function updateCentersFromRecords() {
     });
     if (needsUpdate) localStorage.setItem('logistics_centers', JSON.stringify(centers));
 }
+
+// ===============================================================
+// MODIFIED START: 양식 임시 저장을 위한 기능 추가
+// ===============================================================
+function saveFormState() {
+    const state = {
+        date: dateInput.value,
+        time: timeInput.value,
+        type: typeSelect.value,
+        from: fromSelect.value,
+        to: toSelect.value,
+        fromCustom: fromCustom.value,
+        toCustom: toCustom.value,
+        manualDistance: manualDistanceInput.value,
+        waitingTime: waitingTimeInput.value,
+        fuelUnitPrice: fuelUnitPriceInput.value,
+        fuelLiters: fuelLitersInput.value,
+        fuelBrand: fuelBrandSelect.value,
+        ureaUnitPrice: ureaUnitPriceInput.value,
+        ureaLiters: ureaLitersInput.value,
+        ureaStation: ureaStationInput.value,
+        supplyItem: supplyItemInput.value,
+        supplyMileage: supplyMileageInput.value,
+        cost: costInput.value,
+        income: incomeInput.value
+    };
+    sessionStorage.setItem('unsavedRecordForm', JSON.stringify(state));
+}
+
+function loadFormState() {
+    const savedStateJSON = sessionStorage.getItem('unsavedRecordForm');
+    if (!savedStateJSON) return;
+
+    const state = JSON.parse(savedStateJSON);
+    if (!state) return;
+
+    dateInput.value = state.date;
+    timeInput.value = state.time;
+    typeSelect.value = state.type;
+    fromSelect.value = state.from;
+    toSelect.value = state.to;
+    fromCustom.value = state.fromCustom;
+    toCustom.value = state.toCustom;
+    manualDistanceInput.value = state.manualDistance;
+    waitingTimeInput.value = state.waitingTime;
+    fuelUnitPriceInput.value = state.fuelUnitPrice;
+    fuelLitersInput.value = state.fuelLiters;
+    fuelBrandSelect.value = state.fuelBrand;
+    ureaUnitPriceInput.value = state.ureaUnitPrice;
+    ureaLitersInput.value = state.ureaLiters;
+    ureaStationInput.value = state.ureaStation;
+    supplyItemInput.value = state.supplyItem;
+    supplyMileageInput.value = state.supplyMileage;
+    costInput.value = state.cost;
+    incomeInput.value = state.income;
+
+    toggleUI(typeSelect.value);
+    fromCustom.classList.toggle("hidden", fromSelect.value !== 'direct');
+    toCustom.classList.toggle("hidden", toSelect.value !== 'direct');
+    updateAddressDisplay();
+}
+// ===============================================================
+// MODIFIED END
+// ===============================================================
+
+
 recordForm.addEventListener("submit", function(event) {
     event.preventDefault();
     const editingId = parseInt(editIdInput.value);
@@ -970,6 +1033,7 @@ recordForm.addEventListener("submit", function(event) {
     records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     localStorage.setItem('records', JSON.stringify(records));
     cancelEdit();
+    sessionStorage.removeItem('unsavedRecordForm'); // MODIFIED: 임시 저장된 양식 데이터 삭제
     updateAllDisplays()
 });
 todayTbody.addEventListener("click", e => {
@@ -1116,7 +1180,13 @@ toSelect.addEventListener("change", () => {
 });
 batchFromSelect.addEventListener("change", () => batchFromCustom.classList.toggle("hidden", batchFromSelect.value !== 'direct'));
 batchToSelect.addEventListener("change", () => batchToCustom.classList.toggle("hidden", batchToSelect.value !== 'direct'));
-cancelEditBtn.addEventListener("click", cancelEdit);
+
+// MODIFIED: '취소' 버튼 클릭 시 임시 저장 데이터도 삭제
+cancelEditBtn.addEventListener("click", () => {
+    cancelEdit();
+    sessionStorage.removeItem('unsavedRecordForm');
+});
+
 
 function autoFillIncome() {
     if (typeSelect.value !== '화물운송') return;
@@ -1184,6 +1254,8 @@ function initialSetup() {
     cancelEdit();
     todayDatePicker.value = getTodayString();
     updateAllDisplays();
+    loadFormState(); // MODIFIED: 페이지 로드 시 임시 저장된 양식 데이터 불러오기
+    recordForm.addEventListener('input', saveFormState); // MODIFIED: 양식 입력 시 데이터 자동 저장
 }
 
 // ===============================================================

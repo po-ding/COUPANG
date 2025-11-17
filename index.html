@@ -23,12 +23,16 @@
         <div id="main-page">
             
             <form id="record-form">
-                <input type="hidden" id="time" required>
-
-                <fieldset id="date-info-fieldset" class="hidden">
-                    <legend>기록 일자</legend>
-                    <input type="date" id="date" required>
+                
+                <!-- MODIFIED START: 날짜와 시간 입력을 항상 표시하도록 수정 -->
+                <fieldset id="datetime-info-fieldset">
+                    <legend>기록 일시</legend>
+                    <div class="input-group row">
+                        <input type="date" id="date" required>
+                        <input type="time" id="time" required>
+                    </div>
                 </fieldset>
+                <!-- MODIFIED END -->
 
                 <fieldset>
                     <legend>기록 종류</legend>

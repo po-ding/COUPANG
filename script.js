@@ -1,4 +1,4 @@
-/** 버전: 6.1.1 | 최종 수정일: 2025-11-04 (잘림 오류 최종 수정) */
+/** 버전: 6.2 | 최종 수정일: 2025-11-04 (모바일 수정 폼 오류 해결) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -123,6 +123,7 @@ const formatToManwon = (valueInWon) => {
     if (isNaN(valueInWon)) return '0';
     return Math.round(valueInWon / 10000).toLocaleString('ko-KR');
 };
+
 function showToast(message) {
     clearTimeout(toastTimeout);
     toast.textContent = message;
@@ -131,6 +132,7 @@ function showToast(message) {
         toast.classList.remove('show');
     }, 1500);
 }
+
 function getCenters() {
     const defaultCenters = ['안성', '안산', '용인', '이천', '인천'];
     const storedCenters = JSON.parse(localStorage.getItem('logistics_centers')) || [];
@@ -140,9 +142,11 @@ function getCenters() {
     }
     return storedCenters.sort((a, b) => a.localeCompare(b, 'ko'));
 }
+
 function getSavedLocations() {
     return JSON.parse(localStorage.getItem('saved_locations')) || {};
 }
+
 function saveLocationData(centerName, data) {
     if (!centerName || centerName === 'direct') return false;
     const locations = getSavedLocations();
@@ -150,22 +154,21 @@ function saveLocationData(centerName, data) {
     localStorage.setItem('saved_locations', JSON.stringify(locations));
     return true;
 }
+
 function addCenter(newCenter, address = '', memo = '') {
     if (!newCenter || newCenter.trim() === '') return false;
     const centers = getCenters();
     const trimmedCenter = newCenter.trim();
-    if (!centers.includes(trimmedCenter)) {
+    if (!centers.includes(trimmedCenter)) { 
         centers.push(trimmedCenter);
         localStorage.setItem('logistics_centers', JSON.stringify(centers));
-        saveLocationData(trimmedCenter, {
-            address: address.trim(),
-            memo: memo.trim()
-        });
+        saveLocationData(trimmedCenter, { address: address.trim(), memo: memo.trim() });
         refreshCenterUI();
         return true;
     }
     return false;
 }
+
 function populateCenterSelectors() {
     const centers = getCenters();
     const options = centers.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="direct">직접 입력</option>';
@@ -174,6 +177,7 @@ function populateCenterSelectors() {
     batchFromSelect.innerHTML = options;
     batchToSelect.innerHTML = options;
 }
+
 function toggleUI(type) {
     const showDateField = ['주유소', '요소수', '소모품', '통행료'].includes(type);
     dateInfoFieldset.classList.toggle('hidden', !showDateField);
@@ -196,6 +200,7 @@ function toggleUI(type) {
     }
     costInput.readOnly = false;
 }
+
 function startWaitTimer() {
     waitStartTime = Date.now();
     const startTimeStr = new Date().toLocaleTimeString('ko-KR', {
@@ -213,6 +218,7 @@ function startWaitTimer() {
         waitStatus.textContent = `대기 시작 (${startTimeStr}) - ${hours}:${minutes}:${seconds}`;
     }, 1000);
 }
+
 function stopWaitTimer() {
     if (waitTimerInterval) clearInterval(waitTimerInterval);
     if (waitStartTime) {
@@ -229,6 +235,7 @@ function stopWaitTimer() {
     endWaitBtn.disabled = true;
     waitStartTime = null;
 }
+
 function updateAddressDisplay() {
     const fromValue = fromSelect.value;
     const toValue = toSelect.value;
@@ -250,6 +257,7 @@ function updateAddressDisplay() {
     }
     addressDisplay.innerHTML = addressHtml;
 }
+
 function copyTextToClipboard(text, successMessage) {
     if (!text) {
         showToast('복사할 내용이 없습니다.');
@@ -262,6 +270,7 @@ function copyTextToClipboard(text, successMessage) {
         showToast('복사에 실패했습니다.');
     });
 }
+
 function copyAddressToClipboard(centerName) {
     if (!centerName) return;
     const locations = getSavedLocations();
@@ -272,6 +281,7 @@ function copyAddressToClipboard(centerName) {
         showToast(`'${centerName}'에 등록된 주소가 없습니다.`);
     }
 }
+
 function createSummaryHTML(title, records) {
     const cancelledCount = records.filter(r => r.type === '이동취소').length;
     const validRecords = records.filter(r => r.type !== '이동취소');
@@ -311,6 +321,7 @@ function createSummaryHTML(title, records) {
         ${cancelledCount > 0 ? `<br>취소건수: <span class="cancelled">${cancelledCount} 건</span>` : ''}
     `;
 }
+
 function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedDate = todayDatePicker.value;
@@ -348,6 +359,7 @@ function displayTodayRecords() {
     });
     todaySummaryDiv.innerHTML = createSummaryHTML(title, filteredRecords);
 }
+
 function displayDailyRecords() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const selectedPeriod = `${dailyYearSelect.value}-${dailyMonthSelect.value}`;
@@ -402,6 +414,7 @@ function displayDailyRecords() {
         dailyTbody.appendChild(tr);
     });
 }
+
 function displayMonthlyRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedYear = monthlyYearSelect.value;
@@ -462,6 +475,7 @@ function displayMonthlyRecords() {
         monthlyTbody.appendChild(createRow(monthKey));
     });
 }
+
 function viewDateDetails(date) {
     todayDatePicker.value = date;
     tabBtns.forEach(b => b.classList.remove("active"));
@@ -474,6 +488,7 @@ function viewDateDetails(date) {
         behavior: "smooth"
     });
 }
+
 function displayCurrentMonthData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const now = new Date();
@@ -515,6 +530,7 @@ function displayCurrentMonthData() {
     const progressPercent = subsidyLimit > 0 ? Math.min(100, 100 * usedLiters / subsidyLimit).toFixed(1) : 0;
     subsidySummaryDiv.innerHTML = `<div class="progress-label">월 한도: ${subsidyLimit.toLocaleString()} L | 사용: ${usedLiters.toFixed(1)} L | 잔여: ${remainingLiters.toFixed(1)} L</div><div class="progress-bar-container"><div class="progress-bar progress-bar-used" style="width: ${progressPercent}%;"></div></div>`;
 }
+
 function displayCumulativeData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const validRecords = allRecords.filter(r => r.type !== '이동취소');
@@ -580,6 +596,7 @@ function displayCumulativeData() {
     }
     monthlyMileageBreakdown.innerHTML = mileageBreakdownHtml;
 }
+
 function populateSelectors() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const availableYears = [...new Set(records.map(r => r.date.substring(0, 4)))].sort().reverse();
@@ -597,6 +614,7 @@ function populateSelectors() {
     }
     dailyMonthSelect.value = (new Date().getMonth() + 1).toString().padStart(2, '0');
 }
+
 function updateAllDisplays() {
     const activeView = document.querySelector(".view-content.active").id;
     if (activeView === 'today-view') displayTodayRecords();
@@ -605,6 +623,7 @@ function updateAllDisplays() {
     displayCumulativeData();
     displayCurrentMonthData();
 }
+
 function deleteRecord(id) {
     if (confirm('이 기록을 정말로 삭제하시겠습니까?')) {
         let records = JSON.parse(localStorage.getItem('records')) || [];
@@ -613,6 +632,7 @@ function deleteRecord(id) {
         updateAllDisplays();
     }
 }
+
 function editRecord(id) {
     if (mainPage.classList.contains('hidden')) backToMainBtn.click();
     const records = JSON.parse(localStorage.getItem('records')) || [];
@@ -644,6 +664,7 @@ function editRecord(id) {
     window.scrollTo(0, 0);
     updateAddressDisplay();
 }
+
 function cancelEdit() {
     recordForm.reset();
     editIdInput.value = "";
@@ -662,6 +683,7 @@ function cancelEdit() {
     waitStartTime = null;
     toggleUI(typeSelect.value);
 }
+
 function getFormData(isNew = false) {
     const fromValue = fromSelect.value === 'direct' ? fromCustom.value : fromSelect.value;
     const toValue = toSelect.value === 'direct' ? toCustom.value : toSelect.value;
@@ -689,6 +711,7 @@ function getFormData(isNew = false) {
     if (isNew) formData.id = Date.now();
     return formData;
 }
+
 function exportToCsv() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     if (records.length === 0) return void showToast('저장할 기록이 없습니다.');
@@ -717,6 +740,7 @@ function exportToCsv() {
     URL.revokeObjectURL(url);
     showToast('엑셀(CSV) 파일로 저장되었습니다!');
 }
+
 function exportToJson() {
     const backupData = {
         records: JSON.parse(localStorage.getItem('records') || '[]'),
@@ -738,73 +762,7 @@ function exportToJson() {
     URL.revokeObjectURL(url);
     showToast('JSON 파일로 저장(백업)되었습니다!');
 }
-function importFromJson(event) {
-    if (!confirm('경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
-        event.target.value = '';
-        return;
-    }
-    const file = event.target.files[0];
-    if (!file) {
-        event.target.value = '';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const content = e.target.result;
-            const data = JSON.parse(content);
-            if (data.saved_locations && typeof data.saved_locations === 'object') {
-                const migratedLocations = {};
-                for (const centerName in data.saved_locations) {
-                    const locationData = data.saved_locations[centerName];
-                    let finalAddress = '';
-                    let finalMemo = '';
-                    if (typeof locationData === 'object' && locationData !== null) {
-                        finalAddress = locationData.address || '';
-                        finalMemo = locationData.memo || '';
-                    } else if (typeof locationData === 'string') {
-                        finalAddress = locationData;
-                    }
-                    const memoKeywords = ['메모:', '참고:', '비고:'];
-                    for (const keyword of memoKeywords) {
-                        if (finalAddress.includes(keyword)) {
-                            const parts = finalAddress.split(keyword);
-                            finalAddress = parts[0].trim();
-                            if (!finalMemo) {
-                                finalMemo = parts.slice(1).join(keyword).trim();
-                            }
-                            break;
-                        }
-                    }
-                    migratedLocations[centerName] = {
-                        address: finalAddress,
-                        memo: finalMemo
-                    };
-                }
-                data.saved_locations = migratedLocations;
-            }
-            if (data && Array.isArray(data.records)) {
-                localStorage.setItem('records', JSON.stringify(data.records));
-                if (Array.isArray(data.centers)) localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
-                if (data.saved_locations) localStorage.setItem('saved_locations', JSON.stringify(data.saved_locations));
-                if (data.mileage_correction) localStorage.setItem('mileage_correction', data.mileage_correction);
-                if (data.fuel_subsidy_limit) localStorage.setItem('fuel_subsidy_limit', data.fuel_subsidy_limit);
-            } else if (Array.isArray(data)) {
-                localStorage.setItem('records', JSON.stringify(data));
-            } else {
-                throw new Error('Invalid file format');
-            }
-            alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
-            location.reload();
-        } catch (error) {
-            console.error('Import Error:', error);
-            alert('오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.');
-        } finally {
-            event.target.value = '';
-        }
-    };
-    reader.readAsText(file);
-}
+
 function displayCenterList() {
     centerListContainer.innerHTML = "";
     const centers = getCenters();
@@ -834,6 +792,7 @@ function displayCenterList() {
         centerListContainer.appendChild(item);
     });
 }
+
 function deleteCenter(centerNameToDelete) {
     if (confirm(`'${centerNameToDelete}' 지역을 목록에서 정말 삭제하시겠습니까?\n(기존 기록은 변경되지 않습니다.)`)) {
         let centers = getCenters();
@@ -845,19 +804,18 @@ function deleteCenter(centerNameToDelete) {
         refreshCenterUI();
     }
 }
+
 function handleCenterEdit(e) {
     const item = e.target.closest(".center-item");
     const originalName = item.dataset.centerName;
     const locations = getSavedLocations();
-    const originalData = locations[originalName] || {
-        address: "",
-        memo: ""
-    };
+    const originalData = locations[originalName] || { address: "", memo: "" };
     const originalAddress = originalData.address || "";
     const originalMemo = originalData.memo || "";
+    
     item.innerHTML = `
         <div class="edit-form">
-            <input type="text" class="edit-input" value="${originalName}" placeholder="지역 이름">
+            <input type="text" class="edit-name-input" value="${originalName}" placeholder="지역 이름">
             <input type="text" class="edit-address-input" value="${originalAddress}" placeholder="주소 (선택)">
             <input type="text" class="edit-memo-input" value="${originalMemo}" placeholder="메모 (선택)">
             <div class="action-buttons">
@@ -866,18 +824,27 @@ function handleCenterEdit(e) {
             </div>
         </div>
     `;
+
     item.querySelector(".setting-save-btn").onclick = () => saveCenterEdit(item, originalName);
     item.querySelector(".cancel-edit-btn").onclick = () => refreshCenterUI();
-    item.querySelector(".edit-input").focus();
+    item.querySelector(".edit-name-input").focus();
 }
+
 function saveCenterEdit(item, originalName) {
-    const newName = item.querySelector(".edit-input").value.trim();
+    const newName = item.querySelector(".edit-name-input").value.trim();
     const newAddress = item.querySelector(".edit-address-input").value.trim();
     const newMemo = item.querySelector(".edit-memo-input").value.trim();
-    if (!newName) return void alert("지역 이름은 비워둘 수 없습니다.");
+
+    if (!newName) {
+        alert("지역 이름은 비워둘 수 없습니다.");
+        return;
+    }
     let centers = getCenters();
     let locations = getSavedLocations();
-    if (centers.includes(newName) && newName !== originalName) return void alert("이미 존재하는 지역 이름입니다.");
+    if (centers.includes(newName) && newName !== originalName) {
+        alert("이미 존재하는 지역 이름입니다.");
+        return;
+    }
     centers = centers.map(c => c === originalName ? newName : c);
     localStorage.setItem('logistics_centers', JSON.stringify(centers));
     delete locations[originalName];
@@ -896,10 +863,12 @@ function saveCenterEdit(item, originalName) {
     refreshCenterUI();
     updateAllDisplays();
 }
+
 function refreshCenterUI() {
     displayCenterList();
     populateCenterSelectors();
 }
+
 function updateCentersFromRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     if (records.length === 0) return;
@@ -927,9 +896,7 @@ recordForm.addEventListener("submit", function(event) {
     if (editingId) {
         const recordIndex = records.findIndex(r => r.id === editingId);
         if (recordIndex > -1) {
-            records[recordIndex] = { ...records[recordIndex],
-                ...getFormData()
-            }
+            records[recordIndex] = { ...records[recordIndex], ...getFormData() }
         }
     } else {
         const newRecord = getFormData(true);

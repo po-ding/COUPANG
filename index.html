@@ -24,7 +24,6 @@
             
             <form id="record-form">
                 
-                <!-- MODIFIED START: 날짜와 시간 입력을 항상 표시하도록 수정 -->
                 <fieldset id="datetime-info-fieldset">
                     <legend>기록 일시</legend>
                     <div class="input-group row">
@@ -32,7 +31,6 @@
                         <input type="time" id="time" required>
                     </div>
                 </fieldset>
-                <!-- MODIFIED END -->
 
                 <fieldset>
                     <legend>기록 종류</legend>
@@ -109,10 +107,13 @@
                     </div>
                 </fieldset>
 
+                <!-- MODIFIED START: 삭제 버튼 추가 -->
                 <div id="form-actions" class="input-group row">
                     <button type="submit" id="submit-btn">기록 저장하기</button>
+                    <button type="button" id="delete-edit-btn" class="hidden delete-btn">기록 삭제</button>
                     <button type="button" id="cancel-edit-btn" class="hidden">취소</button>
                 </div>
+                <!-- MODIFIED END -->
                 <input type="hidden" id="edit-id">
             </form>
 
@@ -132,7 +133,9 @@
                     </div>
                     <div id="today-summary" class="summary"></div>
                     <table id="today-records-table" class="responsive-table">
-                        <thead><tr><th>시간</th><th>구분</th><th>내용</th><th>수입/지출</th><th>관리</th></tr></thead>
+                        <!-- MODIFIED START: '관리' 항목 헤더에서 제거 -->
+                        <thead><tr><th>시간</th><th>구분</th><th>내용</th><th>수입/지출</th></tr></thead>
+                        <!-- MODIFIED END -->
                         <tbody></tbody>
                     </table>
                 </div>
@@ -260,9 +263,7 @@
                 <div id="subsidy-records-container">
                     <h4>전체 주유 내역</h4>
                     <div id="subsidy-records-list"></div>
-                    <!-- MODIFIED START: '더 보기' 버튼이 위치할 컨테이너 추가 -->
                     <div id="subsidy-load-more-container"></div>
-                    <!-- MODIFIED END -->
                 </div>
 
             </div>

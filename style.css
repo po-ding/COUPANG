@@ -1,4 +1,4 @@
-/** 버전: 5.0 | 최종 수정일: 2025-11-17 ('더 보기' 버튼 스타일 추가) */
+/** 버전: 5.1 | 최종 수정일: 2025-11-18 (기록 조회 테이블 스타일 수정) */
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; margin: 0; padding: 0.5em; background-color: #f5f5f5; }
 .container { max-width: 600px; margin: auto; background-color: white; padding: 0.8em; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -43,81 +43,31 @@ button:hover { opacity: 0.8; }
     text-decoration: underline;
     text-decoration-style: dotted;
 }
-.location-clickable:hover {
-    color: #007bff;
-}
-
-.address-clickable {
-    cursor: pointer;
-    color: #0056b3;
-    font-weight: 500;
-}
-.address-clickable:hover {
-    text-decoration: underline;
-}
-
-.memo-display {
-    color: #6c757d;
-    font-size: 0.9em;
-    padding-bottom: 0.5em;
-}
-.memo-display::before {
-    content: '📝 ';
-}
-
-.cancelled {
-    color: #6c757d;
-}
+.location-clickable:hover { color: #007bff; }
+.address-clickable { cursor: pointer; color: #0056b3; font-weight: 500; }
+.address-clickable:hover { text-decoration: underline; }
+.memo-display { color: #6c757d; font-size: 0.9em; padding-bottom: 0.5em; }
+.memo-display::before { content: '📝 '; }
+.cancelled { color: #6c757d; }
 
 #toast-notification {
-    visibility: hidden;
-    min-width: 250px;
-    background-color: #333;
-    color: #fff;
-    text-align: center;
-    border-radius: 4px;
-    padding: 16px;
-    position: fixed;
-    z-index: 1;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: 30px;
-    font-size: 1em;
-    opacity: 0;
+    visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center;
+    border-radius: 4px; padding: 16px; position: fixed; z-index: 1; left: 50%;
+    transform: translateX(-50%); bottom: 30px; font-size: 1em; opacity: 0;
     transition: opacity 0.5s, visibility 0.5s;
 }
-
-#toast-notification.show {
-    visibility: visible;
-    opacity: 1;
-}
+#toast-notification.show { visibility: visible; opacity: 1; }
 
 .collapsible-header {
-    cursor: pointer; user-select: none;
-    background-color: #f8f9fa; border: 1px solid #ddd;
-    border-radius: 6px; padding: 0.8em 1em;
-    margin-bottom: 0;
-    transition: background-color: 0.2s;
+    cursor: pointer; user-select: none; background-color: #f8f9fa; border: 1px solid #ddd;
+    border-radius: 6px; padding: 0.8em 1em; margin-bottom: 0; transition: background-color: 0.2s;
     font-size: 1.1em;
 }
 .collapsible-header:hover { background-color: #e9ecef; }
-.collapsible-header::after {
-    content: '+'; float: right; font-weight: bold;
-    font-size: 1.2em; line-height: 1;
-    transition: transform 0.3s;
-}
+.collapsible-header::after { content: '+'; float: right; font-weight: bold; font-size: 1.2em; line-height: 1; transition: transform 0.3s; }
 .collapsible-header.active { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-.collapsible-header.active::after {
-    content: '−';
-}
-.collapsible-body {
-    padding: 1em;
-    border: 1px solid #ddd;
-    border-top: none;
-    border-radius: 0 0 6px 6px;
-    margin-top: -1px; 
-    margin-bottom: 2em; 
-}
+.collapsible-header.active::after { content: '−'; }
+.collapsible-body { padding: 1em; border: 1px solid #ddd; border-top: none; border-radius: 0 0 6px 6px; margin-top: -1px; margin-bottom: 2em; }
 .collapsible-body.hidden { display: none; }
 h2.collapsible-header { border-bottom: 1px solid #ddd; text-align: left; }
 
@@ -143,13 +93,7 @@ h2.collapsible-header { border-bottom: 1px solid #ddd; text-align: left; }
 .view-content.active { display: block; }
 
 .selector-group { display: flex; gap: 1em; justify-content: center; margin-bottom: 1em; align-items: center; }
-.selector-group button {
-    flex-grow: 0;
-    width: auto;
-    padding: 0.5em 1em;
-    margin: 0;
-    background-color: #6c757d;
-}
+.selector-group button { flex-grow: 0; width: auto; padding: 0.5em 1em; margin: 0; background-color: #6c757d; }
 
 .summary { background-color: #e9f5ff; border-radius: 4px; padding: 1em; margin-bottom: 1em; line-height: 2; }
 .subsidy-summary { background-color: #f8f9fa; border: 1px solid #eee; text-align: center; border-radius: 4px; padding: 1em; margin-bottom: 1em; line-height: 1.8; }
@@ -160,12 +104,8 @@ h2.collapsible-header { border-bottom: 1px solid #ddd; text-align: left; }
 .bar-group { display: flex; flex-direction: column; align-items: center; }
 .bar-container { display: flex; align-items: flex-end; gap: 4px; height: 100%;}
 .bar { width: 30px; background-color: #ccc; transition: height 0.5s ease-in-out; text-align: center; color: white; font-size: 0.8em; overflow: hidden; }
-.bar.previous { background-color: #6c757d; }
 .bar.current { background-color: #007bff; }
 .bar-label { font-size: 0.9em; margin-top: 0.5em; }
-.graph-legend { display: flex; justify-content: center; gap: 1em; font-size: 0.8em; margin-top: 0.5em; }
-.legend-item { display: flex; align-items: center; }
-.legend-color { width: 12px; height: 12px; margin-right: 5px; }
 
 .data-summary-section { margin-top: 2.5em; }
 #current-month-summary-container, #cumulative-summary-container { margin-bottom: 2em; }
@@ -182,15 +122,20 @@ th { background-color: #f2f2f2; }
 .responsive-table th, .responsive-table td { border: 1px solid #ddd; }
 .yearly-summary-table th, .yearly-summary-table td { border: 1px solid #ddd; text-align: center;}
 
+/* MODIFIED START: 클릭 가능한 행에 커서 및 호버 효과 추가 */
+#today-records-table tbody tr {
+    cursor: pointer;
+}
+#today-records-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+/* MODIFIED END */
+
 .progress-bar-container { background-color: #e9ecef; border-radius: .25rem; height: 1.5rem; overflow: hidden; display: flex; }
 .progress-bar { height: 100%; text-align: center; color: white; font-size: 0.8em; line-height: 1.5rem; white-space: nowrap; transition: width 0.6s ease; }
 .progress-bar-used { background-color: #17a2b8; }
-.progress-bar-remaining { background-color: #e9ecef; color: #555;}
-.summary-note { font-size: 0.9em; text-align: center; color: #555; margin-top: 0.5em; }
 
 .note { color: #555; font-size: 0.9em; }
-.note a { color: #0056b3; text-decoration: none; margin-right: 5px; }
-.note a:hover { text-decoration: underline; }
 .income { color: green; }
 .cost { color: red; }
 .hidden { display: none; }
@@ -201,20 +146,9 @@ th { background-color: #f2f2f2; }
 #import-json-btn { background-color: #e0a800; }
 #clear-btn { background-color: #c82333; }
 
-#subsidy-records-container {
-    margin-top: 1.5em;
-}
-
-/* MODIFIED START: '더 보기' 버튼 스타일 추가 */
-#subsidy-load-more-container {
-    text-align: center;
-    margin-top: 1em;
-}
-.load-more-btn {
-    background-color: #6c757d;
-    width: 100%;
-}
-/* MODIFIED END */
+#subsidy-records-container { margin-top: 1.5em; }
+#subsidy-load-more-container { text-align: center; margin-top: 1em; }
+.load-more-btn { background-color: #6c757d; width: 100%; }
 
 @media screen and (max-width: 768px) {
     .responsive-table thead, .yearly-summary-table thead { display: none; }
@@ -232,19 +166,4 @@ th { background-color: #f2f2f2; }
         content: attr(data-label); position: absolute; left: 0; width: 45%; padding-left: 1em; font-weight: bold; text-align: left; 
     }
     .responsive-table tr td:last-child, .yearly-summary-table tr td:last-child { border-bottom: none; }
-
-    td[data-label="관리"] {
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        padding-left: 1em !important;
-    }
-     td[data-label="관리"]::before {
-        flex-grow: 1;
-        text-align: left;
-    }
-    td[data-label="관리"] .action-cell,
-    td[data-label="관리"] > button {
-        flex-shrink: 0;
-    }
 }

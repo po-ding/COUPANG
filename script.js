@@ -1,4 +1,4 @@
-/** 버전: 5.8 | 최종 수정일: 2025-11-04 (토스트 알림 기능으로 개선) */
+/** 버전: 5.9 | 최종 수정일: 2025-11-04 (데이터 복원 로직 강화 및 이벤트 핸들링 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -76,10 +76,8 @@ const newCenterAddressInput = document.getElementById('new-center-address');
 const newCenterMemoInput = document.getElementById('new-center-memo');
 const addCenterBtn = document.getElementById('add-center-btn');
 
-// MODIFIED START: 토스트 알림 DOM 요소 추가
 const toast = document.getElementById('toast-notification');
 let toastTimeout = null;
-// MODIFIED END
 
 const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
@@ -127,16 +125,14 @@ const formatToManwon = (valueInWon) => {
     return Math.round(valueInWon / 10000).toLocaleString('ko-KR');
 };
 
-// MODIFIED START: 토스트 알림 함수 추가
 function showToast(message) {
     clearTimeout(toastTimeout);
     toast.textContent = message;
     toast.classList.add('show');
     toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
-    }, 1500); // 1.5초 후 사라짐
+    }, 1500);
 }
-// MODIFIED END
 
 function getCenters() {
     const defaultCenters = ['안성', '안산', '용인', '이천', '인천'];
@@ -174,122 +170,93 @@ function addCenter(newCenter, address = '', memo = '') {
     return false;
 }
 
-function populateCenterSelectors() {
-    const centers = getCenters();
-    const options = centers.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="direct">직접 입력</option>';
-    fromSelect.innerHTML = options;
-    toSelect.innerHTML = options;
-    batchFromSelect.innerHTML = options;
-    batchToSelect.innerHTML = options;
-}
+// ... (이하 대부분의 함수는 이전과 동일) ...
 
-function toggleUI(type) {
-    const showDateField = ['주유소', '요소수', '소모품', '통행료'].includes(type);
-    dateInfoFieldset.classList.toggle('hidden', !showDateField);
-
-    transportDetails.classList.toggle('hidden', !['화물운송', '공차이동', '이동취소'].includes(type));
-    fuelDetails.classList.toggle('hidden', type !== '주유소');
-    ureaDetails.classList.toggle('hidden', type !== '요소수');
-    supplyDetails.classList.toggle('hidden', type !== '소모품');
-
-    if(type === '소모품') {
-        supplyMileageInput.value = '';
-    }
-
-    costInfoFieldset.classList.remove('hidden');
-    costWrapper.classList.remove('hidden');
-    incomeWrapper.classList.remove('hidden');
-
-    if (type === '화물운송') {
-        costWrapper.classList.add('hidden');
-    } else if (type === '공차이동' || type === '이동취소') {
-        costInfoFieldset.classList.add('hidden');
-    } else {
-        incomeWrapper.classList.add('hidden');
-    }
-    costInput.readOnly = false;
-}
-
-function startWaitTimer() {
-    waitStartTime = Date.now();
-    const startTimeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    waitStatus.textContent = `대기 시작 (${startTimeStr}) - 00:00:00`;
-    startWaitBtn.disabled = true;
-    endWaitBtn.disabled = false;
-
-    waitTimerInterval = setInterval(() => {
-        const elapsedTime = Date.now() - waitStartTime;
-        const seconds = Math.floor((elapsedTime / 1000) % 60).toString().padStart(2, '0');
-        const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60).toString().padStart(2, '0');
-        const hours = Math.floor(elapsedTime / (1000 * 60 * 60)).toString().padStart(2, '0');
-        waitStatus.textContent = `대기 시작 (${startTimeStr}) - ${hours}:${minutes}:${seconds}`;
-    }, 1000);
-}
-
-function stopWaitTimer() {
-    if (waitTimerInterval) clearInterval(waitTimerInterval);
-    if (waitStartTime) {
-        const elapsedTime = Date.now() - waitStartTime;
-        const totalMinutes = Math.round(elapsedTime / (1000 * 60));
-        waitingTimeInput.value = totalMinutes;
-        const endTimeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-        waitStatus.textContent = `✅ 총 대기시간: ${totalMinutes}분 기록 완료! (종료: ${endTimeStr})`;
-    }
-    startWaitBtn.disabled = false;
-    endWaitBtn.disabled = true;
-    waitStartTime = null;
-}
-
-function updateAddressDisplay() {
-    const fromValue = fromSelect.value;
-    const toValue = toSelect.value;
-    const locations = getSavedLocations();
-    
-    const fromData = locations[fromValue] || {};
-    const toData = locations[toValue] || {};
-
-    let addressHtml = '';
-    if (fromData.address) {
-        addressHtml += `<div class="address-clickable" data-address="${fromData.address}">${fromData.address}</div>`;
-    }
-    if (fromData.memo) {
-        addressHtml += `<div class="memo-display">${fromData.memo}</div>`;
-    }
-    if (toData.address) {
-        addressHtml += `<div class="address-clickable" data-address="${toData.address}">${toData.address}</div>`;
-    }
-    if (toData.memo) {
-        addressHtml += `<div class="memo-display">${toData.memo}</div>`;
-    }
-
-    addressDisplay.innerHTML = addressHtml;
-}
-
-function copyTextToClipboard(text, successMessage) {
-    if (!text) {
-        showToast('복사할 내용이 없습니다.');
+// MODIFIED START: 데이터 복원 시 구버전 구조를 신버전으로 변환하는 로직 강화
+function importFromJson(event) {
+    if (!confirm('경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
+        event.target.value = '';
         return;
     }
-    navigator.clipboard.writeText(text).then(() => {
-        showToast(successMessage || '클립보드에 복사되었습니다.');
-    }).catch(err => {
-        console.error('복사 실패:', err);
-        showToast('복사에 실패했습니다.');
-    });
-}
-
-function copyAddressToClipboard(centerName) {
-    if (!centerName) return;
-    const locations = getSavedLocations();
-    const locationData = locations[centerName];
-    if (locationData && locationData.address) {
-        copyTextToClipboard(locationData.address, '주소가 복사되었습니다.');
-    } else {
-        showToast(`'${centerName}'에 등록된 주소가 없습니다.`);
+    const file = event.target.files[0];
+    if (!file) {
+        event.target.value = '';
+        return;
     }
-}
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const content = e.target.result;
+            const data = JSON.parse(content);
+            
+            // --- 데이터 마이그레이션 로직 ---
+            if (data.saved_locations && typeof data.saved_locations === 'object') {
+                const migratedLocations = {};
+                for (const centerName in data.saved_locations) {
+                    const locationData = data.saved_locations[centerName];
+                    let finalAddress = '';
+                    let finalMemo = '';
 
-// ... (이하 createSummaryHTML부터 displayCumulativeData까지의 모든 요약/표시 함수는 이전 버전과 동일)
+                    // 1. 초기 데이터 추출
+                    if (typeof locationData === 'object' && locationData !== null) {
+                        // 신규/중간 버전: 객체 형태
+                        finalAddress = locationData.address || '';
+                        finalMemo = locationData.memo || '';
+                    } else if (typeof locationData === 'string') {
+                        // 구버전: 문자열 형태 (주소, 메모 등이 합쳐있을 수 있음)
+                        finalAddress = locationData;
+                    }
+                    
+                    // 2. 주소 필드에 메모 키워드가 있는지 확인하고 분리
+                    const memoKeywords = ['메모:', '참고:', '비고:'];
+                    for (const keyword of memoKeywords) {
+                        if (finalAddress.includes(keyword)) {
+                            const parts = finalAddress.split(keyword);
+                            finalAddress = parts[0].trim();
+                            // 기존 메모가 없을 때만 분리된 메모를 추가
+                            if (!finalMemo) { 
+                                finalMemo = parts.slice(1).join(keyword).trim();
+                            }
+                            break; 
+                        }
+                    }
+                    
+                    migratedLocations[centerName] = { address: finalAddress, memo: finalMemo };
+                }
+                data.saved_locations = migratedLocations; // 변환된 데이터로 교체
+            }
+            // --- 마이그레이션 종료 ---
+
+            if (data && Array.isArray(data.records)) {
+                localStorage.setItem('records', JSON.stringify(data.records));
+                if(Array.isArray(data.centers)) localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
+                if(data.saved_locations) localStorage.setItem('saved_locations', JSON.stringify(data.saved_locations));
+                if(data.mileage_correction) localStorage.setItem('mileage_correction', data.mileage_correction);
+                if(data.fuel_subsidy_limit) localStorage.setItem('fuel_subsidy_limit', data.fuel_subsidy_limit);
+
+            } else if (Array.isArray(data)) { // 구버전 호환 (records만 있는 경우)
+                localStorage.setItem('records', JSON.stringify(data));
+            } else {
+                throw new Error('Invalid file format');
+            }
+            alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
+            location.reload();
+        } catch (error) {
+            console.error('Import Error:', error);
+            alert('오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.');
+        } finally {
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+// MODIFIED END
+
+function populateCenterSelectors(){const centers=getCenters(),options=centers.map(c=>`<option value="${c}">${c}</option>`).join("")+'<option value="direct">직접 입력</option>';fromSelect.innerHTML=options;toSelect.innerHTML=options;batchFromSelect.innerHTML=options;batchToSelect.innerHTML=options}
+function toggleUI(type){const showDateField=["주유소","요소수","소모품","통행료"].includes(type);dateInfoFieldset.classList.toggle("hidden",!showDateField);transportDetails.classList.toggle("hidden",!["화물운송","공차이동","이동취소"].includes(type));fuelDetails.classList.toggle("hidden","주유소"!==type);ureaDetails.classList.toggle("hidden","요소수"!==type);supplyDetails.classList.toggle("hidden","소모품"!==type);"소모품"===type&&(supplyMileageInput.value="");costInfoFieldset.classList.remove("hidden");costWrapper.classList.remove("hidden");incomeWrapper.classList.remove("hidden");"화물운송"===type?costWrapper.classList.add("hidden"):"공차이동"===type||"이동취소"===type?costInfoFieldset.classList.add("hidden"):incomeWrapper.classList.add("hidden");costInput.readOnly=!1}
+function updateAddressDisplay(){const fromValue=fromSelect.value,toValue=toSelect.value,locations=getSavedLocations(),fromData=locations[fromValue]||{},toData=locations[toValue]||{};let addressHtml="";fromData.address&&(addressHtml+=`<div class="address-clickable" data-address="${fromData.address}">${fromData.address}</div>`);fromData.memo&&(addressHtml+=`<div class="memo-display">${fromData.memo}</div>`);toData.address&&(addressHtml+=`<div class="address-clickable" data-address="${toData.address}">${toData.address}</div>`);toData.memo&&(addressHtml+=`<div class="memo-display">${toData.memo}</div>`);addressDisplay.innerHTML=addressHtml}
+function copyTextToClipboard(text,successMessage){text?navigator.clipboard.writeText(text).then(()=>{showToast(successMessage||"클립보드에 복사되었습니다.")}).catch(err=>{console.error("복사 실패:",err);showToast("복사에 실패했습니다.")}):showToast("복사할 내용이 없습니다.")}
+function copyAddressToClipboard(centerName){if(centerName){const locations=getSavedLocations(),locationData=locations[centerName];locationData&&locationData.address?copyTextToClipboard(locationData.address,"주소가 복사되었습니다."):showToast(`'${centerName}'에 등록된 주소가 없습니다.`)}}
 function createSummaryHTML(title,records){const cancelledCount=records.filter(r=>"이동취소"===r.type).length,validRecords=records.filter(r=>"이동취소"!==r.type);let totalIncome=0,totalExpense=0,totalDistance=0,totalTripCount=0,totalWaitingTime=0,totalFuelCost=0,totalFuelLiters=0;validRecords.forEach(r=>{totalIncome+=parseInt(r.income||0);totalExpense+=parseInt(r.cost||0);"주유소"===r.type&&(totalFuelCost+=parseInt(r.cost||0),totalFuelLiters+=parseFloat(r.liters||0));["화물운송","공차이동"].includes(r.type)&&(totalDistance+=parseFloat(r.distance||0),totalTripCount++);totalWaitingTime+=parseInt(r.waitingTime||0)});const netIncome=totalIncome-totalExpense,waitHours=Math.floor(totalWaitingTime/60),waitMinutes=totalWaitingTime%60;return`
         <strong>${title}</strong><br>
         수입: <span class="income">${formatToManwon(totalIncome)} 만원</span><br>
@@ -333,7 +300,6 @@ function cancelEdit(){recordForm.reset();editIdInput.value="";submitBtn.textCont
 function getFormData(isNew=!1){const fromValue="direct"===fromSelect.value?fromCustom.value:fromSelect.value,toValue="direct"===toSelect.value?toCustom.value:toSelect.value;addCenter(fromValue);addCenter(toValue);const formData={date:dateInput.value,time:timeInput.value,type:typeSelect.value,from:fromValue,to:toValue,distance:parseFloat(manualDistanceInput.value)||0,cost:Math.round(1e4*(parseFloat(costInput.value)||0)),income:Math.round(1e4*(parseFloat(incomeInput.value)||0)),liters:parseFloat(fuelLitersInput.value)||0,unitPrice:parseInt(fuelUnitPriceInput.value)||0,brand:fuelBrandSelect.value||"",ureaLiters:parseFloat(ureaLitersInput.value)||0,ureaUnitPrice:parseInt(ureaUnitPriceInput.value)||0,ureaStation:ureaStationInput.value||"",supplyItem:supplyItemInput.value||"",mileage:parseInt(supplyMileageInput.value)||0,waitingTime:parseInt(waitingTimeInput.value)||0};isNew&&(formData.id=Date.now());return formData}
 function exportToCsv(){const records=JSON.parse(localStorage.getItem("records"))||[];if(0===records.length)return void alert("저장할 기록이 없습니다.");const headers=["날짜","시간","구분","출발지","도착지","운행거리(km)","대기시간(분)","수입(원)","지출(원)","주유량(L)","단가(원/L)","주유브랜드","요소수주입량(L)","요소수단가(원/L)","요소수주입처","소모품내역","교체시점(km)"],escapeCsvCell=cell=>{if(null==cell)return"";const str=String(cell);return str.includes(",")?`"${str}"`:str},csvRows=[headers.join(",")];records.forEach(r=>{const row=[r.date,r.time,r.type,r.from,r.to,r.distance,r.waitingTime,r.income,r.cost,r.liters,r.unitPrice,r.brand,r.ureaLiters,r.ureaUnitPrice,r.ureaStation,r.supplyItem,r.mileage];csvRows.push(row.map(escapeCsvCell).join(","))});const csvString="﻿"+csvRows.join("\n"),blob=new Blob([csvString],{type:"text/csv;charset=utf-8;"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`운행기록_백업_${(new Date).toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);alert("모든 기록이 엑셀(CSV) 파일로 성공적으로 저장(다운로드)되었습니다!")}
 function exportToJson(){const backupData={records:JSON.parse(localStorage.getItem("records")||"[]"),centers:getCenters(),saved_locations:getSavedLocations(),mileage_correction:parseFloat(localStorage.getItem("mileage_correction"))||0,fuel_subsidy_limit:parseFloat(localStorage.getItem("fuel_subsidy_limit"))||0},blob=new Blob([JSON.stringify(backupData,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`운행기록_백업_${(new Date).toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);alert("모든 데이터가 JSON 파일로 성공적으로 저장(다운로드)되었습니다!")}
-function importFromJson(event){if(confirm("경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?")){const file=event.target.files[0];if(file){const reader=new FileReader;reader.onload=function(e){try{const content=e.target.result,data=JSON.parse(content);data&&Array.isArray(data.records)?(localStorage.setItem("records",JSON.stringify(data.records)),Array.isArray(data.centers)&&localStorage.setItem("logistics_centers",JSON.stringify(data.centers)),data.saved_locations&&localStorage.setItem("saved_locations",JSON.stringify(data.saved_locations)),data.mileage_correction&&localStorage.setItem("mileage_correction",data.mileage_correction),data.fuel_subsidy_limit&&localStorage.setItem("fuel_subsidy_limit",data.fuel_subsidy_limit)):Array.isArray(data)?localStorage.setItem("records",JSON.stringify(data)):(()=>{throw new Error("Invalid file format")})(),alert("데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다."),location.reload()}catch(error){alert("오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.")}finally{event.target.value=""}};reader.readAsText(file)}else event.target.value=""}else event.target.value=""}
 function displayCenterList(){centerListContainer.innerHTML="";const centers=getCenters(),locations=getSavedLocations();if(0===centers.length)return void(centerListContainer.innerHTML='<p class="note">등록된 지역이 없습니다.</p>');centers.forEach(center=>{const locationData=locations[center]||{address:"",memo:""},address=locationData.address||"",memo=locationData.memo||"",item=document.createElement("div");item.className="center-item";item.dataset.centerName=center;item.innerHTML=`
             <div class="info">
                 <span class="center-name">${center}</span>

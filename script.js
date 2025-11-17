@@ -1,4 +1,4 @@
-/** 버전: 6.3.0 | 최종 수정일: 2025-11-18 (조회 테이블 UI/UX 개선) */
+/** 버전: 6.3.1 | 최종 수정일: 2025-11-18 (요약 정보 주유 내역 누락 버그 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -35,7 +35,7 @@ const supplyMileageInput = document.getElementById('supply-mileage');
 
 const submitBtn = document.getElementById('submit-btn');
 const cancelEditBtn = document.getElementById('cancel-edit-btn');
-const deleteEditBtn = document.getElementById('delete-edit-btn'); // MODIFIED: 삭제 버튼 추가
+const deleteEditBtn = document.getElementById('delete-edit-btn');
 const editIdInput = document.getElementById('edit-id');
 
 const mainPage = document.getElementById('main-page');
@@ -272,11 +272,15 @@ function copyAddressToClipboard(centerName) {
         showToast(`'${centerName}'에 등록된 주소가 없습니다.`);
     }
 }
+// ===============================================================
+// MODIFIED FUNCTION START: 요약 정보 생성 로직 복원 및 개선
+// ===============================================================
 function createSummaryHTML(title, records) {
     const cancelledCount = records.filter(r => r.type === '이동취소').length;
     const validRecords = records.filter(r => r.type !== '이동취소');
     let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0, totalWaitingTime = 0;
     let totalFuelCost = 0, totalFuelLiters = 0;
+
     validRecords.forEach(r => {
         totalIncome += parseInt(r.income || 0);
         totalExpense += parseInt(r.cost || 0);
@@ -290,23 +294,34 @@ function createSummaryHTML(title, records) {
         }
         totalWaitingTime += parseInt(r.waitingTime || 0);
     });
+
     const netIncome = totalIncome - totalExpense;
     const waitHours = Math.floor(totalWaitingTime / 60);
     const waitMinutes = totalWaitingTime % 60;
-    return `
+
+    let summaryHtml = `
         <strong>${title}</strong><br>
         수입: <span class="income">${formatToManwon(totalIncome)} 만원</span> | 
         지출: <span class="cost">${formatToManwon(totalExpense)} 만원</span> | 
         정산: <strong>${formatToManwon(netIncome)} 만원</strong><br>
         운행: <strong>${totalTripCount} 건</strong> / <strong>${totalDistance.toFixed(1)} km</strong> |
         대기: <strong>${waitHours}시간 ${waitMinutes}분</strong>
-        ${cancelledCount > 0 ? `<br>취소건수: <span class="cancelled">${cancelledCount} 건</span>` : ''}
     `;
-}
 
+    if (totalFuelLiters > 0) {
+        summaryHtml += `<br>주유: <span class="cost">${formatToManwon(totalFuelCost)} 만원</span> / <strong>${totalFuelLiters.toFixed(2)} L</strong>`;
+    }
+
+    if (cancelledCount > 0) {
+        summaryHtml += `<br>취소건수: <span class="cancelled">${cancelledCount} 건</span>`;
+    }
+    
+    return summaryHtml;
+}
 // ===============================================================
-// MODIFIED FUNCTION START: '오늘' 기록 표시 방식 변경
+// MODIFIED FUNCTION END
 // ===============================================================
+
 function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedDate = todayDatePicker.value;
@@ -316,11 +331,11 @@ function displayTodayRecords() {
     
     todayTbody.innerHTML = '';
     
-    const recordsForTable = filteredRecords.filter(r => r.type !== '주유소'); // 주유 기록은 요약에만 표시
+    const recordsForTable = filteredRecords.filter(r => r.type !== '주유소');
     
     recordsForTable.forEach(r => {
         const tr = document.createElement('tr');
-        tr.onclick = () => editRecord(r.id); // 행 전체에 수정 이벤트 할당
+        tr.onclick = () => editRecord(r.id);
 
         let detailsCell = '', moneyCell = '';
 
@@ -328,7 +343,6 @@ function displayTodayRecords() {
             const fromLocation = `<strong class="location-clickable" data-center-name="${r.from}">${r.from}</strong>`;
             const toLocation = `<strong class="location-clickable" data-center-name="${r.to}">${r.to}</strong>`;
             
-            // '->' 다음에 줄바꿈 적용
             detailsCell = `${fromLocation} →<br>${toLocation}`; 
             
             if (r.type !== '이동취소') {
@@ -343,7 +357,6 @@ function displayTodayRecords() {
         moneyCell = (r.income > 0 ? `<span class="income">+${formatToManwon(r.income)}</span>` : '') + 
                     (r.cost > 0 ? ` <span class="cost">-${formatToManwon(r.cost)}</span>` : '');
 
-        // '관리' 열 제거
         tr.innerHTML = `
             <td data-label="시간">${r.time}</td>
             <td data-label="구분">${r.type}</td>
@@ -355,9 +368,6 @@ function displayTodayRecords() {
 
     todaySummaryDiv.innerHTML = createSummaryHTML(title, filteredRecords);
 }
-// ===============================================================
-// MODIFIED FUNCTION END
-// ===============================================================
 
 function displayDailyRecords() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
@@ -574,21 +584,15 @@ function updateAllDisplays() {
     displayCurrentMonthData();
 }
 
-// ===============================================================
-// MODIFIED FUNCTION START: 삭제 기능 로직 변경
-// ===============================================================
 function deleteRecord(id) {
     if (confirm('이 기록을 정말로 삭제하시겠습니까?')) {
         let records = JSON.parse(localStorage.getItem('records')) || [];
         records = records.filter(r => r.id !== id);
         localStorage.setItem('records', JSON.stringify(records));
-        cancelEdit(); // 폼 초기화
+        cancelEdit();
         updateAllDisplays();
     }
 }
-// ===============================================================
-// MODIFIED FUNCTION END
-// ===============================================================
 
 function editRecord(id) {
     if (mainPage.classList.contains('hidden')) backToMainBtn.click();
@@ -621,8 +625,8 @@ function editRecord(id) {
     submitBtn.textContent = '기록 수정하기';
     submitBtn.classList.add('edit-mode');
     cancelEditBtn.classList.remove('hidden');
-    deleteEditBtn.classList.remove('hidden'); // MODIFIED: 삭제 버튼 표시
-    deleteEditBtn.onclick = () => deleteRecord(id); // MODIFIED: 삭제 버튼에 이벤트 할당
+    deleteEditBtn.classList.remove('hidden');
+    deleteEditBtn.onclick = () => deleteRecord(id);
     
     window.scrollTo(0, 0);
     updateAddressDisplay();
@@ -633,8 +637,8 @@ function cancelEdit() {
     submitBtn.textContent = '기록 저장하기';
     submitBtn.classList.remove('edit-mode');
     cancelEditBtn.classList.add('hidden');
-    deleteEditBtn.classList.add('hidden'); // MODIFIED: 삭제 버튼 숨김
-    deleteEditBtn.onclick = null; // MODIFIED: 이벤트 제거
+    deleteEditBtn.classList.add('hidden');
+    deleteEditBtn.onclick = null;
     
     dateInput.value = getTodayString();
     timeInput.value = getCurrentTimeString();
@@ -886,7 +890,7 @@ recordForm.addEventListener("submit", function(event) {
 });
 todayTbody.addEventListener("click", e => {
     if (e.target.classList.contains("location-clickable")) {
-        e.stopPropagation(); // 행 전체 클릭 방지
+        e.stopPropagation();
         const centerName = e.target.dataset.centerName;
         copyAddressToClipboard(centerName)
     }

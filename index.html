@@ -252,6 +252,14 @@
                     </div>
                 </fieldset>
                 <div id="subsidy-summary" class="subsidy-summary"></div>
+                
+                <!-- MODIFIED START: 유가보조금 내역 표시를 위한 컨테이너 추가 -->
+                <div id="subsidy-records-container">
+                    <h4>전체 주유 내역</h4>
+                    <div id="subsidy-records-list"></div>
+                </div>
+                <!-- MODIFIED END -->
+
             </div>
 
             <h2 id="toggle-data-management" class="collapsible-header">데이터 관리</h2>
@@ -268,9 +276,7 @@
         </div>
     </div>
 
-    <!-- MODIFIED START: 토스트 알림을 위한 div 추가 -->
     <div id="toast-notification"></div>
-    <!-- MODIFIED END -->
 
     <script src="script.js"></script>
 </body>

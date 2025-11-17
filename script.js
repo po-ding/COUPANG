@@ -1,4 +1,4 @@
-/** 버전: 6.1.3 | 최종 수정일: 2025-11-17 (UI 클릭 불가 오류 수정) */
+/** 버전: 6.1.4 | 최종 수정일: 2025-11-17 (유가보조금 관리 기능 추가) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -175,9 +175,6 @@ function populateCenterSelectors() {
     batchToSelect.innerHTML = options;
 }
 
-// ===============================================================
-// MODIFIED START: UI 표시/숨김 로직을 안정적으로 개선
-// ===============================================================
 function toggleUI(type) {
     // 1. 모든 선택적 섹션을 먼저 숨겨서 초기화합니다.
     dateInfoFieldset.classList.add('hidden');
@@ -219,9 +216,6 @@ function toggleUI(type) {
 
     costInput.readOnly = false;
 }
-// ===============================================================
-// MODIFIED END
-// ===============================================================
 
 function startWaitTimer() {
     waitStartTime = Date.now();
@@ -631,6 +625,12 @@ function updateAllDisplays() {
     if (activeView === 'monthly-view') displayMonthlyRecords();
     displayCumulativeData();
     displayCurrentMonthData();
+
+    // MODIFIED START: 설정 페이지가 활성화된 경우 보조금 내역도 갱신
+    if (!settingsPage.classList.contains('hidden')) {
+        displaySubsidyRecords();
+    }
+    // MODIFIED END
 }
 function deleteRecord(id) {
     if (confirm('이 기록을 정말로 삭제하시겠습니까?')) {
@@ -1137,7 +1137,10 @@ goToSettingsBtn.addEventListener("click", () => {
     goToSettingsBtn.classList.add("hidden");
     backToMainBtn.classList.remove("hidden");
     displayCenterList();
-    mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || "0"
+    mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || "0";
+    // MODIFIED START: 설정 페이지 진입 시 주유 기록 표시
+    displaySubsidyRecords();
+    // MODIFIED END
 });
 backToMainBtn.addEventListener("click", () => {
     mainPage.classList.remove("hidden");
@@ -1165,8 +1168,14 @@ centerListContainer.addEventListener("click", e => {
     if (header) {
         header.addEventListener("click", (() => {
             const body = header.nextElementSibling;
-            body.classList.toggle("hidden");
-            header.classList.toggle("active")
+            const isHidden = body.classList.toggle("hidden");
+            header.classList.toggle("active");
+
+            // MODIFIED START: 유가보조금 탭을 열 때마다 목록을 새로고침
+            if (header.id === 'toggle-subsidy-management' && !isHidden) {
+                displaySubsidyRecords();
+            }
+            // MODIFIED END
         }))
     }
 });
@@ -1179,4 +1188,55 @@ function initialSetup() {
     todayDatePicker.value = getTodayString();
     updateAllDisplays();
 }
+
+// ===============================================================
+// NEW FUNCTION START: 유가보조금 주유 내역 표시
+// ===============================================================
+function displaySubsidyRecords() {
+    const listContainer = document.getElementById('subsidy-records-list');
+    if (!listContainer) return;
+
+    const allRecords = JSON.parse(localStorage.getItem('records')) || [];
+    const subsidyRecords = allRecords.filter(r => r.type === '주유소');
+
+    if (subsidyRecords.length === 0) {
+        listContainer.innerHTML = '<p class="note" style="text-align:center; padding: 1em 0;">주유 기록이 없습니다.</p>';
+        return;
+    }
+
+    let tableHtml = `
+        <table class="responsive-table">
+            <thead>
+                <tr>
+                    <th>날짜</th>
+                    <th>주유량(L)</th>
+                    <th>금액(만원)</th>
+                    <th>관리</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    subsidyRecords.forEach(r => {
+        tableHtml += `
+            <tr>
+                <td data-label="날짜">${r.date}</td>
+                <td data-label="주유량(L)">${(r.liters || 0).toFixed(2)}</td>
+                <td data-label="금액(만원)"><span class="cost">${formatToManwon(r.cost)}</span></td>
+                <td data-label="관리">
+                    <div class="action-cell">
+                        <button class="edit-btn" onclick="editRecord(${r.id})">수정</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tableHtml += '</tbody></table>';
+    listContainer.innerHTML = tableHtml;
+}
+// ===============================================================
+// NEW FUNCTION END
+// ===============================================================
+
 document.addEventListener("DOMContentLoaded", initialSetup);

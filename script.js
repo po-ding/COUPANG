@@ -1,4 +1,4 @@
-/** 버전: 6.1.5 | 최종 수정일: 2025-11-17 (유가보조금 목록 미표시 오류 수정) */
+/** 버전: 6.1.6 | 최종 수정일: 2025-11-17 ('더 보기' 기능 구현) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -116,6 +116,11 @@ const toggleDataManagementBtn = document.getElementById('toggle-data-management'
 
 let waitStartTime = null;
 let waitTimerInterval = null;
+
+// MODIFIED START: '더 보기' 기능을 위한 상태 변수 및 상수 추가
+const SUBSIDY_PAGE_SIZE = 10;
+let displayedSubsidyCount = 0;
+// MODIFIED END
 
 const getTodayString = () => new Date().toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\. /g, '-').slice(0, -1);
 const getCurrentTimeString = () => new Date().toLocaleTimeString('ko-KR', {hour12: false, hour: '2-digit', minute: '2-digit'});
@@ -1163,11 +1168,11 @@ centerListContainer.addEventListener("click", e => {
             const isNowHidden = body.classList.toggle("hidden");
             header.classList.toggle("active");
 
-            // MODIFIED START: 유가보조금 탭이 '열릴 때'만 목록을 새로고침하도록 수정
             if (header.id === 'toggle-subsidy-management' && !isNowHidden) {
-                displaySubsidyRecords();
+                // MODIFIED START: 탭을 열 때 '더 보기'를 초기 상태(false)로 호출
+                displaySubsidyRecords(false);
+                // MODIFIED END
             }
-            // MODIFIED END
         });
     }
 });
@@ -1181,15 +1186,28 @@ function initialSetup() {
     updateAllDisplays();
 }
 
-function displaySubsidyRecords() {
+// ===============================================================
+// MODIFIED FUNCTION START: 유가보조금 '더 보기' 기능 구현
+// ===============================================================
+function displaySubsidyRecords(loadMore = false) {
     const listContainer = document.getElementById('subsidy-records-list');
-    if (!listContainer) return;
+    const loadMoreContainer = document.getElementById('subsidy-load-more-container');
+    if (!listContainer || !loadMoreContainer) return;
 
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const subsidyRecords = allRecords.filter(r => r.type === '주유소');
 
-    if (subsidyRecords.length === 0) {
+    if (loadMore) {
+        displayedSubsidyCount += SUBSIDY_PAGE_SIZE;
+    } else {
+        displayedSubsidyCount = SUBSIDY_PAGE_SIZE;
+    }
+
+    const recordsToShow = subsidyRecords.slice(0, displayedSubsidyCount);
+
+    if (recordsToShow.length === 0) {
         listContainer.innerHTML = '<p class="note" style="text-align:center; padding: 1em 0;">주유 기록이 없습니다.</p>';
+        loadMoreContainer.innerHTML = '';
         return;
     }
 
@@ -1206,7 +1224,7 @@ function displaySubsidyRecords() {
             <tbody>
     `;
 
-    subsidyRecords.forEach(r => {
+    recordsToShow.forEach(r => {
         tableHtml += `
             <tr>
                 <td data-label="날짜">${r.date}</td>
@@ -1223,6 +1241,16 @@ function displaySubsidyRecords() {
 
     tableHtml += '</tbody></table>';
     listContainer.innerHTML = tableHtml;
+
+    // '더 보기' 버튼 표시 로직
+    if (displayedSubsidyCount < subsidyRecords.length) {
+        loadMoreContainer.innerHTML = `<button class="load-more-btn" onclick="displaySubsidyRecords(true)">더 보기 (${recordsToShow.length}/${subsidyRecords.length})</button>`;
+    } else {
+        loadMoreContainer.innerHTML = ''; // 모든 항목을 다 보여줬으면 버튼 숨김
+    }
 }
+// ===============================================================
+// MODIFIED FUNCTION END
+// ===============================================================
 
 document.addEventListener("DOMContentLoaded", initialSetup);

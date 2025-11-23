@@ -210,7 +210,7 @@
                 </div>
             </div>
 
-            <h2 id="toggle-mileage-management" class="collapsible-header">주행거리 보정 및 차트</h2>
+            <h2 id="toggle-mileage-management" class="collapsible-header">주행거리 보정 및 요약</h2>
             <div id="mileage-management-body" class="collapsible-body hidden">
                 <fieldset>
                     <legend>주행거리 보정 (+/- km)</legend>
@@ -221,13 +221,14 @@
                     <p class="note">이 값은 기록된 누적 운행거리에 더해져 '총 운행거리'를 계산하는 데 사용됩니다.</p>
                 </fieldset>
                 <fieldset>
-                    <legend>기간별 운행 기록</legend>
-                    <div class="selector-group" id="mileage-chart-controls">
-                        <button class="tab-btn active" data-period="monthly">월별 건수</button>
-                        <button class="tab-btn" data-period="weekly">주별 건수</button>
-                        <button class="tab-btn" data-period="daily">일별 건수</button>
+                    <legend>기간별 운행 건수 요약</legend>
+                    <div class="selector-group" id="mileage-summary-controls">
+                        <button class="tab-btn active" data-period="monthly">월별</button>
+                        <button class="tab-btn" data-period="weekly">주별</button>
                     </div>
-                    <div id="mileage-breakdown-chart" class="comparison-graph"></div>
+                    <div id="mileage-summary-cards" class="summary-grid">
+                        <!-- 운행 건수 카드가 여기에 동적으로 생성됩니다 -->
+                    </div>
                 </fieldset>
             </div>
 

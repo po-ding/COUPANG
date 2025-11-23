@@ -1,4 +1,4 @@
-/** 버전: 6.6 | 최종 수정일: 2025-11-18 (주별 조회 및 차트 기능 추가) */
+/** 버전: 6.7 | 최종 수정일: 2025-11-18 (주행기록 차트를 카드형 요약으로 변경) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -114,8 +114,8 @@ const subsidyLimitInput = document.getElementById('subsidy-limit');
 const subsidySummaryDiv = document.getElementById('subsidy-summary');
 const mileageCorrectionSaveBtn = document.getElementById('mileage-correction-save-btn');
 const mileageCorrectionInput = document.getElementById('mileage-correction');
-const mileageChartControls = document.getElementById('mileage-chart-controls');
-const mileageBreakdownChart = document.getElementById('mileage-breakdown-chart');
+const mileageSummaryControls = document.getElementById('mileage-summary-controls');
+const mileageSummaryCards = document.getElementById('mileage-summary-cards');
 const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
 const toggleSubsidyManagementBtn = document.getElementById('toggle-subsidy-management');
 const toggleMileageManagementBtn = document.getElementById('toggle-mileage-management');
@@ -632,26 +632,23 @@ function displayCumulativeData() {
     cumulativeNetIncome.textContent = `${formatToManwon(netIncome)} 만원`;
     cumulativeAvgEconomy.textContent = `${avgEconomy} km/L`;
     cumulativeCostPerKm.textContent = `${costPerKm.toLocaleString()} 원`;
-    renderMileageChart();
+    renderMileageSummary();
 }
-function renderMileageChart(period = 'monthly') {
+function renderMileageSummary(period = 'monthly') {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const validRecords = allRecords.filter(r => ['화물운송', '공차이동'].includes(r.type));
-    let chartHtml = `<h4>기간별 운행 건수</h4>`;
-    let chartData = {};
+    let summaryData = {};
     const now = new Date();
     
     if (period === 'monthly') {
-        const monthKeys = [];
         for (let i = 11; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const monthKey = d.toISOString().slice(0, 7);
-            chartData[monthKey] = 0;
-            monthKeys.push(monthKey);
+            summaryData[monthKey] = 0;
         }
         validRecords.forEach(r => {
             const monthKey = r.date.substring(0, 7);
-            if (chartData.hasOwnProperty(monthKey)) chartData[monthKey]++;
+            if (summaryData.hasOwnProperty(monthKey)) summaryData[monthKey]++;
         });
     } else if (period === 'weekly') {
         const weekKeys = [];
@@ -660,60 +657,47 @@ function renderMileageChart(period = 'monthly') {
             d.setDate(d.getDate() - (i * 7));
             const dayOfWeek = d.getDay();
             const weekStart = new Date(d);
-            weekStart.setDate(d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)); // Start on Monday
+            weekStart.setDate(d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)); // Monday start
             const weekKey = weekStart.toISOString().slice(0, 10);
-            if (!chartData.hasOwnProperty(weekKey)) {
-                chartData[weekKey] = 0;
-                weekKeys.push(weekKey);
-            }
+            if (!weekKeys.includes(weekKey)) weekKeys.push(weekKey);
         }
+        weekKeys.forEach(key => summaryData[key] = 0);
         validRecords.forEach(r => {
             const d = new Date(r.date + 'T00:00:00');
             const dayOfWeek = d.getDay();
             const weekStart = new Date(d);
             weekStart.setDate(d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
             const weekKey = weekStart.toISOString().slice(0, 10);
-            if (chartData.hasOwnProperty(weekKey)) chartData[weekKey]++;
-        });
-        const orderedChartData = {};
-        weekKeys.forEach(key => { orderedChartData[key] = chartData[key]; });
-        chartData = orderedChartData;
-    } else if (period === 'daily') {
-        for (let i = 29; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dayKey = d.toISOString().slice(0, 10);
-            chartData[dayKey] = 0;
-        }
-        validRecords.forEach(r => {
-            if (chartData.hasOwnProperty(r.date)) chartData[r.date]++;
+            if (summaryData.hasOwnProperty(weekKey)) summaryData[weekKey]++;
         });
     }
 
-    const maxCount = Math.max(...Object.values(chartData), 0);
-    if (maxCount < 1) {
-        chartHtml += '<p class="note" style="text-align: center; padding: 2em 0;">운행 기록이 부족하여 차트를 표시할 수 없습니다.</p>';
+    let cardsHtml = '';
+    if (Object.keys(summaryData).length === 0 || !Object.values(summaryData).some(v => v > 0)) {
+        cardsHtml = '<p class="note" style="text-align: center; grid-column: 1 / -1; padding: 1em 0;">표시할 운행 기록이 없습니다.</p>';
     } else {
-        chartHtml += '<div class="graph-body">';
-        for (const key in chartData) {
-            const count = chartData[key];
-            const percent = maxCount > 0 ? (100 * count / maxCount) : 0;
+        for (const key in summaryData) {
+            const count = summaryData[key];
             let label = '';
-            if(period === 'monthly') label = `${parseInt(key.substring(5,7))}월`;
-            else if (period === 'weekly') label = `${parseInt(key.substring(5,7))}/${parseInt(key.substring(8,10))}~`;
-            else if (period === 'daily') label = `${parseInt(key.substring(8,10))}일`;
-            
-            chartHtml += `<div class="bar-group">
-                            <div class="bar-container">
-                                <div class="bar current" style="height: ${percent}%;" title="${key}: ${count}건">${count > 0 ? count : ''}</div>
-                            </div>
-                            <div class="bar-label">${label}</div>
+            if (period === 'monthly') {
+                const year = key.substring(0, 4);
+                const month = parseInt(key.substring(5, 7));
+                label = `${year}년 ${month}월`;
+            } else if (period === 'weekly') {
+                const startDate = new Date(key + "T00:00:00");
+                const endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + 6);
+                label = `${startDate.getMonth()+1}/${startDate.getDate()}~${endDate.getMonth()+1}/${endDate.getDate()}`;
+            }
+            cardsHtml += `<div class="metric-card">
+                            <span class="metric-label">${label}</span>
+                            <span class="metric-value">${count} 건</span>
                           </div>`;
         }
-        chartHtml += '</div>';
     }
-    mileageBreakdownChart.innerHTML = chartHtml;
+    mileageSummaryCards.innerHTML = cardsHtml;
 }
+
 function populateSelectors() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const years = [...new Set(records.map(r => r.date.substring(0, 4)))].sort((a,b) => b - a);
@@ -1248,12 +1232,12 @@ centerListContainer.addEventListener("click", e => {
         });
     }
 });
-mileageChartControls.addEventListener('click', (e) => {
+mileageSummaryControls.addEventListener('click', (e) => {
     if (e.target.classList.contains('tab-btn')) {
-        mileageChartControls.querySelector('.active').classList.remove('active');
+        mileageSummaryControls.querySelector('.active').classList.remove('active');
         e.target.classList.add('active');
         const period = e.target.dataset.period;
-        renderMileageChart(period);
+        renderMileageSummary(period);
     }
 });
 function initialSetup() {

@@ -12,6 +12,7 @@
         <div class="page-nav">
             <h1 class="logo">cargo<span class="logo-point">note</span></h1>
             <div class="nav-buttons">
+                <button id="refresh-btn">🔄</button>
                 <button id="back-to-main-btn" class="hidden">←</button>
                 <button id="go-to-settings-btn">⚙️</button>
             </div>
@@ -107,11 +108,17 @@
                     </div>
                 </fieldset>
 
-                <div id="form-actions" class="input-group row">
-                    <button type="submit" id="submit-btn">기록 저장하기</button>
-                    <button type="button" id="delete-edit-btn" class="hidden delete-btn">기록 삭제</button>
-                    <button type="button" id="cancel-edit-btn" class="hidden">취소</button>
+                <!-- MODIFIED START: 버튼 영역을 '기록'과 '수정'으로 분리 -->
+                <div id="trip-actions" class="input-group row">
+                    <button type="button" id="start-trip-btn">운행 시작</button>
+                    <button type="button" id="end-trip-btn">운행 종료</button>
                 </div>
+                <div id="edit-actions" class="input-group row hidden">
+                    <button type="button" id="submit-edit-btn">수정</button>
+                    <button type="button" id="delete-edit-btn" class="delete-btn">삭제</button>
+                    <button type="button" id="cancel-edit-btn">취소</button>
+                </div>
+                <!-- MODIFIED END -->
                 <input type="hidden" id="edit-id">
             </form>
 

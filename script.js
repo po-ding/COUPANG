@@ -307,6 +307,30 @@ function toggleAllSummaryValues(gridElement) {
     });
 }
 
+function calculateTotalDuration(records) {
+    const recordsByDate = {};
+    records.forEach(r => {
+        if (!recordsByDate[r.date]) recordsByDate[r.date] = [];
+        recordsByDate[r.date].push(r);
+    });
+
+    let totalMinutes = 0;
+    for (const date in recordsByDate) {
+        const dayRecords = recordsByDate[date];
+        if (dayRecords.length < 2) continue;
+        
+        const sortedDayRecords = dayRecords.sort((a, b) => a.time.localeCompare(b.time));
+        for (let i = 1; i < sortedDayRecords.length; i++) {
+            const currentTime = new Date(`${date}T${sortedDayRecords[i].time}`);
+            const prevTime = new Date(`${date}T${sortedDayRecords[i-1].time}`);
+            totalMinutes += (currentTime - prevTime) / 60000;
+        }
+    }
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = Math.round(totalMinutes % 60);
+    return `${hours}h ${minutes}m`;
+}
+
 function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedDate = todayDatePicker.value;
@@ -318,13 +342,12 @@ function displayTodayRecords() {
     
     let recordsForTable = filteredRecords.filter(r => r.type !== '주유소');
 
-    // 시간순으로 정렬하여 소요시간 계산
     recordsForTable.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     for (let i = 0; i < recordsForTable.length; i++) {
         if (i > 0) {
             const currentTime = new Date(`${recordsForTable[i].date}T${recordsForTable[i].time}`);
             const prevTime = new Date(`${recordsForTable[i - 1].date}T${recordsForTable[i - 1].time}`);
-            const diff = currentTime - prevTime; // milliseconds
+            const diff = currentTime - prevTime;
             const hours = Math.floor(diff / 3600000);
             const minutes = Math.floor((diff % 3600000) / 60000);
             recordsForTable[i].duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
@@ -333,7 +356,6 @@ function displayTodayRecords() {
         }
     }
 
-    // 최신순으로 다시 정렬하여 표시
     recordsForTable.reverse();
     
     recordsForTable.forEach(r => {
@@ -376,24 +398,32 @@ function displayDailyRecords() {
     dailyTbody.innerHTML = '';
     dailySummaryDiv.classList.remove('hidden');
     dailySummaryDiv.innerHTML = createSummaryHTML(`${parseInt(dailyMonthSelect.value)}월 총계`, currentMonthRecords);
+    
     const recordsByDate = {};
-    const validDailyRecords = currentMonthRecords.filter(r => r.type !== '이동취소' && r.type !== '주유소');
-    validDailyRecords.forEach(r => {
+    currentMonthRecords.forEach(r => {
         if (!recordsByDate[r.date]) {
-            recordsByDate[r.date] = { income: 0, expense: 0, distance: 0, tripCount: 0, liters: 0 };
+            recordsByDate[r.date] = { records: [], income: 0, expense: 0, distance: 0, tripCount: 0 };
         }
-        recordsByDate[r.date].income += parseInt(r.income || 0);
-        recordsByDate[r.date].expense += parseInt(r.cost || 0);
-        if (['화물운송', '공차이동'].includes(r.type)) {
-            recordsByDate[r.date].distance += parseFloat(r.distance || 0);
-            recordsByDate[r.date].tripCount++;
-        }
-        if (r.type === '주유소') recordsByDate[r.date].liters += parseFloat(r.liters || 0);
+        recordsByDate[r.date].records.push(r);
     });
+    
     Object.keys(recordsByDate).sort().reverse().forEach(date => {
-        const data = recordsByDate[date];
+        const dayData = recordsByDate[date];
+        const validRecords = dayData.records.filter(r => r.type !== '이동취소');
+        
+        validRecords.forEach(r => {
+            dayData.income += parseInt(r.income || 0);
+            dayData.expense += parseInt(r.cost || 0);
+            if (['화물운송', '공차이동'].includes(r.type)) {
+                dayData.distance += parseFloat(r.distance || 0);
+                dayData.tripCount++;
+            }
+        });
+        
         const day = date.substring(8, 10);
-        const dailyNet = data.income - data.expense;
+        const dailyNet = dayData.income - dayData.expense;
+        const duration = calculateTotalDuration(validRecords);
+        
         const tr = document.createElement('tr');
         if (date === getTodayString()) {
             tr.style.fontWeight = 'bold';
@@ -401,12 +431,12 @@ function displayDailyRecords() {
         }
         tr.innerHTML = `
             <td data-label="일">${parseInt(day)}일</td>
-            <td data-label="수입"><span class="income">${formatToManwon(data.income)}</span></td>
-            <td data-label="지출"><span class="cost">${formatToManwon(data.expense)}</span></td>
+            <td data-label="수입"><span class="income">${formatToManwon(dayData.income)}</span></td>
+            <td data-label="지출"><span class="cost">${formatToManwon(dayData.expense)}</span></td>
             <td data-label="정산"><strong>${formatToManwon(dailyNet)}</strong></td>
-            <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
-            <td data-label="이동">${data.tripCount}</td>
-            <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
+            <td data-label="운행거리(km)">${dayData.distance.toFixed(1)}</td>
+            <td data-label="이동">${dayData.tripCount}</td>
+            <td data-label="소요시간">${duration}</td>
             <td data-label="관리"><button class="edit-btn" onclick="viewDateDetails('${date}')">상세</button></td>
         `;
         dailyTbody.appendChild(tr);
@@ -441,8 +471,8 @@ function displayWeeklyRecords() {
         const weekRecords = recordsByWeek[week];
         if (weekRecords.length === 0) return;
 
-        let data = { income: 0, expense: 0, distance: 0, tripCount: 0, liters: 0 };
         const validWeekRecords = weekRecords.filter(r => r.type !== '이동취소');
+        let data = { income: 0, expense: 0, distance: 0, tripCount: 0 };
 
         validWeekRecords.forEach(r => {
             data.income += parseInt(r.income || 0);
@@ -451,10 +481,10 @@ function displayWeeklyRecords() {
                 data.distance += parseFloat(r.distance || 0);
                 data.tripCount++;
             }
-            if (r.type === '주유소') data.liters += parseFloat(r.liters || 0);
         });
 
         const weekNet = data.income - data.expense;
+        const duration = calculateTotalDuration(validWeekRecords);
         const weekStartDay = Math.min(...weekRecords.map(r => new Date(r.date).getDate()));
         const weekEndDay = Math.max(...weekRecords.map(r => new Date(r.date).getDate()));
 
@@ -467,7 +497,7 @@ function displayWeeklyRecords() {
             <td data-label="정산"><strong>${formatToManwon(weekNet)}</strong></td>
             <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
             <td data-label="이동">${data.tripCount}</td>
-            <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
+            <td data-label="소요시간">${duration}</td>
         `;
         weeklyTbody.appendChild(tr);
     });
@@ -478,32 +508,38 @@ function displayMonthlyRecords() {
     const selectedYear = monthlyYearSelect.value;
     const yearlyRecords = records.filter(r => r.date.startsWith(selectedYear));
     monthlyYearlySummaryDiv.innerHTML = createSummaryHTML(`${selectedYear}년 총계`, yearlyRecords);
+
     const recordsByMonth = {};
-    for (let i = 1; i <= 12; i++) {
-        const monthKey = `${selectedYear}-${i.toString().padStart(2, '0')}`;
-        recordsByMonth[monthKey] = { income: 0, expense: 0, distance: 0, liters: 0, tripCount: 0 };
-    }
     yearlyRecords.forEach(r => {
-        if (r.type === '이동취소') return;
         const monthKey = r.date.substring(0, 7);
-        if (!recordsByMonth[monthKey]) return;
-        recordsByMonth[monthKey].income += parseInt(r.income || 0);
-        recordsByMonth[monthKey].expense += parseInt(r.cost || 0);
-        if (['화물운송', '공차이동'].includes(r.type)) {
-            recordsByMonth[monthKey].distance += parseFloat(r.distance || 0);
-            recordsByMonth[monthKey].tripCount++;
+        if (!recordsByMonth[monthKey]) {
+            recordsByMonth[monthKey] = { records: [], income: 0, expense: 0, distance: 0, tripCount: 0 };
         }
-        if (r.type === '주유소') recordsByMonth[monthKey].liters += parseFloat(r.liters || 0);
+        recordsByMonth[monthKey].records.push(r);
     });
+    
     monthlyTbody.innerHTML = '';
+    
     Object.keys(recordsByMonth).sort().reverse().forEach(monthKey => {
-        const data = recordsByMonth[monthKey];
-        if(data.income === 0 && data.expense === 0 && data.tripCount === 0) return;
+        const monthData = recordsByMonth[monthKey];
+        const validRecords = monthData.records.filter(r => r.type !== '이동취소');
+
+        if(validRecords.length === 0) return;
+
+        validRecords.forEach(r => {
+            monthData.income += parseInt(r.income || 0);
+            monthData.expense += parseInt(r.cost || 0);
+            if (['화물운송', '공차이동'].includes(r.type)) {
+                monthData.distance += parseFloat(r.distance || 0);
+                monthData.tripCount++;
+            }
+        });
 
         const month = monthKey.substring(5, 7);
-        const netIncome = data.income - data.expense;
+        const netIncome = monthData.income - monthData.expense;
+        const duration = calculateTotalDuration(validRecords);
+        
         const tr = document.createElement('tr');
-
         const now = new Date();
         const currentYear = now.getFullYear().toString();
         const currentMonthKey = now.toISOString().slice(0, 7);
@@ -514,12 +550,12 @@ function displayMonthlyRecords() {
 
         tr.innerHTML = `
             <td data-label="월">${parseInt(month)}월</td>
-            <td data-label="수입"><span class="income">${formatToManwon(data.income)}</span></td>
-            <td data-label="지출"><span class="cost">${formatToManwon(data.expense)}</span></td>
+            <td data-label="수입"><span class="income">${formatToManwon(monthData.income)}</span></td>
+            <td data-label="지출"><span class="cost">${formatToManwon(monthData.expense)}</span></td>
             <td data-label="정산"><strong>${formatToManwon(netIncome)}</strong></td>
-            <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
-            <td data-label="이동">${data.tripCount}</td>
-            <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
+            <td data-label="운행거리(km)">${monthData.distance.toFixed(1)}</td>
+            <td data-label="이동">${monthData.tripCount}</td>
+            <td data-label="소요시간">${duration}</td>
         `;
         monthlyTbody.appendChild(tr);
     });

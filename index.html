@@ -107,13 +107,11 @@
                     </div>
                 </fieldset>
 
-                <!-- MODIFIED START: 삭제 버튼 추가 -->
                 <div id="form-actions" class="input-group row">
                     <button type="submit" id="submit-btn">기록 저장하기</button>
                     <button type="button" id="delete-edit-btn" class="hidden delete-btn">기록 삭제</button>
                     <button type="button" id="cancel-edit-btn" class="hidden">취소</button>
                 </div>
-                <!-- MODIFIED END -->
                 <input type="hidden" id="edit-id">
             </form>
 
@@ -122,6 +120,7 @@
                 <div class="view-tabs">
                     <button class="tab-btn active" data-view="today">오늘</button>
                     <button class="tab-btn" data-view="daily">일별</button>
+                    <button class="tab-btn" data-view="weekly">주별</button>
                     <button class="tab-btn" data-view="monthly">월별</button>
                 </div>
 
@@ -133,9 +132,7 @@
                     </div>
                     <div id="today-summary" class="summary"></div>
                     <table id="today-records-table" class="responsive-table">
-                        <!-- MODIFIED START: '관리' 항목 헤더에서 제거 -->
                         <thead><tr><th>시간</th><th>구분</th><th>내용</th><th>수입/지출</th></tr></thead>
-                        <!-- MODIFIED END -->
                         <tbody></tbody>
                     </table>
                 </div>
@@ -148,6 +145,18 @@
                     <div id="daily-summary" class="summary"></div>
                     <table id="daily-summary-table" class="yearly-summary-table">
                         <thead><tr><th>일</th><th>수입</th><th>지출</th><th>정산</th><th>운행거리(km)</th><th>이동</th><th>대기</th><th>주유량(L)</th><th>관리</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div id="weekly-view" class="view-content">
+                    <div class="selector-group">
+                        <select id="weekly-year-select"></select>
+                        <select id="weekly-month-select"></select>
+                    </div>
+                    <div id="weekly-summary" class="summary"></div>
+                    <table id="weekly-summary-table" class="yearly-summary-table">
+                        <thead><tr><th>주차</th><th>기간</th><th>수입</th><th>지출</th><th>정산</th><th>운행거리(km)</th><th>이동</th><th>대기</th><th>주유량(L)</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -211,7 +220,15 @@
                     </div>
                     <p class="note">이 값은 기록된 누적 운행거리에 더해져 '총 운행거리'를 계산하는 데 사용됩니다.</p>
                 </fieldset>
-                <div id="monthly-mileage-breakdown" class="comparison-graph"></div>
+                <fieldset>
+                    <legend>기간별 운행 기록</legend>
+                    <div class="selector-group" id="mileage-chart-controls">
+                        <button class="tab-btn active" data-period="monthly">월별 건수</button>
+                        <button class="tab-btn" data-period="weekly">주별 건수</button>
+                        <button class="tab-btn" data-period="daily">일별 건수</button>
+                    </div>
+                    <div id="mileage-breakdown-chart" class="comparison-graph"></div>
+                </fieldset>
             </div>
 
             <h2 id="toggle-center-management" class="collapsible-header">운송 지역 관리</h2>

@@ -1,4 +1,4 @@
-/** 버전: 6.5.1 | 최종 수정일: 2025-11-18 (요약 정보 항목 누락 버그 수정) */
+/** 버전: 6.6 | 최종 수정일: 2025-11-18 (주별 조회 및 차트 기능 추가) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -57,6 +57,11 @@ const dailyMonthSelect = document.getElementById('daily-month-select');
 const dailySummaryDiv = document.getElementById('daily-summary');
 const dailyTbody = document.querySelector('#daily-summary-table tbody');
 
+const weeklyYearSelect = document.getElementById('weekly-year-select');
+const weeklyMonthSelect = document.getElementById('weekly-month-select');
+const weeklySummaryDiv = document.getElementById('weekly-summary');
+const weeklyTbody = document.querySelector('#weekly-summary-table tbody');
+
 const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyYearlySummaryDiv = document.getElementById('monthly-yearly-summary');
 const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
@@ -109,7 +114,8 @@ const subsidyLimitInput = document.getElementById('subsidy-limit');
 const subsidySummaryDiv = document.getElementById('subsidy-summary');
 const mileageCorrectionSaveBtn = document.getElementById('mileage-correction-save-btn');
 const mileageCorrectionInput = document.getElementById('mileage-correction');
-const monthlyMileageBreakdown = document.getElementById('monthly-mileage-breakdown');
+const mileageChartControls = document.getElementById('mileage-chart-controls');
+const mileageBreakdownChart = document.getElementById('mileage-breakdown-chart');
 const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
 const toggleSubsidyManagementBtn = document.getElementById('toggle-subsidy-management');
 const toggleMileageManagementBtn = document.getElementById('toggle-mileage-management');
@@ -273,9 +279,6 @@ function copyAddressToClipboard(centerName) {
     }
 }
 
-// ===============================================================
-// MODIFIED FUNCTION START: 요약 정보 생성 로직 수정
-// ===============================================================
 function createSummaryHTML(title, records) {
     const cancelledCount = records.filter(r => r.type === '이동취소').length;
     const validRecords = records.filter(r => r.type !== '이동취소');
@@ -340,9 +343,6 @@ function toggleAllSummaryValues(gridElement) {
         }
     });
 }
-// ===============================================================
-// MODIFIED FUNCTION END
-// ===============================================================
 
 function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
@@ -438,6 +438,72 @@ function displayDailyRecords() {
         dailyTbody.appendChild(tr);
     });
 }
+
+function getWeekOfMonth(date) {
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    const dayOfMonth = date.getDate();
+    return Math.ceil((dayOfMonth + firstDay) / 7);
+}
+
+function displayWeeklyRecords() {
+    const allRecords = JSON.parse(localStorage.getItem('records')) || [];
+    const selectedPeriod = `${weeklyYearSelect.value}-${weeklyMonthSelect.value}`;
+    const monthRecords = allRecords.filter(r => r.date.startsWith(selectedPeriod));
+    
+    weeklyTbody.innerHTML = '';
+    weeklySummaryDiv.innerHTML = createSummaryHTML(`${parseInt(weeklyMonthSelect.value)}월 주별 합계`, monthRecords);
+
+    const recordsByWeek = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    
+    monthRecords.forEach(r => {
+        const recordDate = new Date(r.date + 'T00:00:00');
+        const weekOfMonth = getWeekOfMonth(recordDate);
+        if (recordsByWeek[weekOfMonth]) {
+            recordsByWeek[weekOfMonth].push(r);
+        }
+    });
+    
+    Object.keys(recordsByWeek).forEach(week => {
+        const weekRecords = recordsByWeek[week];
+        if (weekRecords.length === 0) return;
+
+        let data = { income: 0, expense: 0, distance: 0, tripCount: 0, waitingTime: 0, liters: 0 };
+        const validWeekRecords = weekRecords.filter(r => r.type !== '이동취소');
+
+        validWeekRecords.forEach(r => {
+            data.income += parseInt(r.income || 0);
+            data.expense += parseInt(r.cost || 0);
+            if (['화물운송', '공차이동'].includes(r.type)) {
+                data.distance += parseFloat(r.distance || 0);
+                data.tripCount++;
+            }
+            if (r.type === '주유소') data.liters += parseFloat(r.liters || 0);
+            data.waitingTime += parseInt(r.waitingTime || 0);
+        });
+
+        const weekNet = data.income - data.expense;
+        const waitHours = Math.floor(data.waitingTime / 60);
+        const waitMinutes = data.waitingTime % 60;
+        
+        const weekStartDay = Math.min(...weekRecords.map(r => new Date(r.date).getDate()));
+        const weekEndDay = Math.max(...weekRecords.map(r => new Date(r.date).getDate()));
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td data-label="주차">${week}주차</td>
+            <td data-label="기간">${weekStartDay}일 ~ ${weekEndDay}일</td>
+            <td data-label="수입"><span class="income">${formatToManwon(data.income)}</span></td>
+            <td data-label="지출"><span class="cost">${formatToManwon(data.expense)}</span></td>
+            <td data-label="정산"><strong>${formatToManwon(weekNet)}</strong></td>
+            <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
+            <td data-label="이동">${data.tripCount}</td>
+            <td data-label="대기">${waitHours}h ${waitMinutes}m</td>
+            <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
+        `;
+        weeklyTbody.appendChild(tr);
+    });
+}
+
 function displayMonthlyRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedYear = monthlyYearSelect.value;
@@ -462,27 +528,35 @@ function displayMonthlyRecords() {
         recordsByMonth[monthKey].waitingTime += parseInt(r.waitingTime || 0);
     });
     monthlyTbody.innerHTML = '';
-    const now = new Date();
-    const currentYear = now.getFullYear().toString();
-    const currentMonthKey = now.toISOString().slice(0, 7);
-    const createRow = (monthKey, isCurrent = false) => {
+    Object.keys(recordsByMonth).sort().reverse().forEach(monthKey => {
         const data = recordsByMonth[monthKey];
+        if(data.income === 0 && data.expense === 0 && data.tripCount === 0) return;
+
         const month = monthKey.substring(5, 7);
         const netIncome = data.income - data.expense;
         const waitHours = Math.floor(data.waitingTime / 60);
         const waitMinutes = data.waitingTime % 60;
         const tr = document.createElement('tr');
-        if (isCurrent) {
+
+        const now = new Date();
+        const currentYear = now.getFullYear().toString();
+        const currentMonthKey = now.toISOString().slice(0, 7);
+        if (selectedYear === currentYear && monthKey === currentMonthKey) {
             tr.style.fontWeight = 'bold';
             tr.style.backgroundColor = '#e9f5ff';
         }
-        tr.innerHTML = `<td>${parseInt(month)}월</td><td><span class="income">${formatToManwon(data.income)}</span></td><td><span class="cost">${formatToManwon(data.expense)}</span></td><td><strong>${formatToManwon(netIncome)}</strong></td><td>${data.distance.toFixed(1)}</td><td>${data.tripCount}</td><td>${waitHours}h ${waitMinutes}m</td><td>${data.liters.toFixed(2)}</td>`;
-        return tr;
-    };
-    if (selectedYear === currentYear && recordsByMonth[currentMonthKey]) monthlyTbody.appendChild(createRow(currentMonthKey, true));
-    Object.keys(recordsByMonth).sort().forEach(monthKey => {
-        if (selectedYear === currentYear && monthKey === currentMonthKey) return;
-        monthlyTbody.appendChild(createRow(monthKey));
+
+        tr.innerHTML = `
+            <td data-label="월">${parseInt(month)}월</td>
+            <td data-label="수입"><span class="income">${formatToManwon(data.income)}</span></td>
+            <td data-label="지출"><span class="cost">${formatToManwon(data.expense)}</span></td>
+            <td data-label="정산"><strong>${formatToManwon(netIncome)}</strong></td>
+            <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
+            <td data-label="이동">${data.tripCount}</td>
+            <td data-label="대기">${waitHours}h ${waitMinutes}m</td>
+            <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
+        `;
+        monthlyTbody.appendChild(tr);
     });
 }
 function viewDateDetails(date) {
@@ -534,17 +608,14 @@ function displayCumulativeData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const validRecords = allRecords.filter(r => r.type !== '이동취소');
     let totalIncome = 0, totalExpense = 0, totalTripCount = 0, totalLiters = 0, recordedDistance = 0;
-    let monthlyMileage = {};
+    
     validRecords.forEach(r => {
         totalIncome += parseInt(r.income || 0);
         totalExpense += parseInt(r.cost || 0);
         if (r.type === '주유소') totalLiters += parseFloat(r.liters || 0);
         if (['화물운송', '공차이동'].includes(r.type)) {
             totalTripCount++;
-            const distance = parseFloat(r.distance || 0);
-            recordedDistance += distance;
-            const monthKey = r.date.substring(0, 7);
-            monthlyMileage[monthKey] = (monthlyMileage[monthKey] || 0) + distance;
+            recordedDistance += parseFloat(r.distance || 0);
         }
     });
     const correction = parseFloat(localStorage.getItem("mileage_correction")) || 0;
@@ -561,49 +632,122 @@ function displayCumulativeData() {
     cumulativeNetIncome.textContent = `${formatToManwon(netIncome)} 만원`;
     cumulativeAvgEconomy.textContent = `${avgEconomy} km/L`;
     cumulativeCostPerKm.textContent = `${costPerKm.toLocaleString()} 원`;
-    let mileageBreakdownHtml = '<h4>월별 운행기록</h4>';
-    const last12Months = {};
-    for (let i = 11; i >= 0; i--) {
-        const d = new Date;
-        d.setMonth(d.getMonth() - i);
-        const monthKey = d.toISOString().slice(0, 7);
-        last12Months[monthKey] = monthlyMileage[monthKey] || 0
-    }
-    const maxMileage = Math.max(...Object.values(last12Months));
-    if (maxMileage < 1) {
-        mileageBreakdownHtml += '<p class="note" style="text-align: center; padding: 2em 0;">운행 기록이 부족하여 차트를 표시할 수 없습니다.</p>'
-    } else {
-        mileageBreakdownHtml += '<div class="graph-body">';
-        Object.keys(last12Months).forEach(month => {
-            const percent = 100 * last12Months[month] / maxMileage;
-            mileageBreakdownHtml += `<div class="bar-group"><div class="bar-container"><div class="bar current" style="height: ${percent}%;" title="${month}: ${last12Months[month].toFixed(1)}km"></div></div><div class="bar-label">${parseInt(month.substring(5,7))}월</div></div>`
+    renderMileageChart();
+}
+function renderMileageChart(period = 'monthly') {
+    const allRecords = JSON.parse(localStorage.getItem('records')) || [];
+    const validRecords = allRecords.filter(r => ['화물운송', '공차이동'].includes(r.type));
+    let chartHtml = `<h4>기간별 운행 건수</h4>`;
+    let chartData = {};
+    const now = new Date();
+    
+    if (period === 'monthly') {
+        const monthKeys = [];
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthKey = d.toISOString().slice(0, 7);
+            chartData[monthKey] = 0;
+            monthKeys.push(monthKey);
+        }
+        validRecords.forEach(r => {
+            const monthKey = r.date.substring(0, 7);
+            if (chartData.hasOwnProperty(monthKey)) chartData[monthKey]++;
         });
-        mileageBreakdownHtml += '</div>'
+    } else if (period === 'weekly') {
+        const weekKeys = [];
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - (i * 7));
+            const dayOfWeek = d.getDay();
+            const weekStart = new Date(d);
+            weekStart.setDate(d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)); // Start on Monday
+            const weekKey = weekStart.toISOString().slice(0, 10);
+            if (!chartData.hasOwnProperty(weekKey)) {
+                chartData[weekKey] = 0;
+                weekKeys.push(weekKey);
+            }
+        }
+        validRecords.forEach(r => {
+            const d = new Date(r.date + 'T00:00:00');
+            const dayOfWeek = d.getDay();
+            const weekStart = new Date(d);
+            weekStart.setDate(d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+            const weekKey = weekStart.toISOString().slice(0, 10);
+            if (chartData.hasOwnProperty(weekKey)) chartData[weekKey]++;
+        });
+        const orderedChartData = {};
+        weekKeys.forEach(key => { orderedChartData[key] = chartData[key]; });
+        chartData = orderedChartData;
+    } else if (period === 'daily') {
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dayKey = d.toISOString().slice(0, 10);
+            chartData[dayKey] = 0;
+        }
+        validRecords.forEach(r => {
+            if (chartData.hasOwnProperty(r.date)) chartData[r.date]++;
+        });
     }
-    monthlyMileageBreakdown.innerHTML = mileageBreakdownHtml;
+
+    const maxCount = Math.max(...Object.values(chartData), 0);
+    if (maxCount < 1) {
+        chartHtml += '<p class="note" style="text-align: center; padding: 2em 0;">운행 기록이 부족하여 차트를 표시할 수 없습니다.</p>';
+    } else {
+        chartHtml += '<div class="graph-body">';
+        for (const key in chartData) {
+            const count = chartData[key];
+            const percent = maxCount > 0 ? (100 * count / maxCount) : 0;
+            let label = '';
+            if(period === 'monthly') label = `${parseInt(key.substring(5,7))}월`;
+            else if (period === 'weekly') label = `${parseInt(key.substring(5,7))}/${parseInt(key.substring(8,10))}~`;
+            else if (period === 'daily') label = `${parseInt(key.substring(8,10))}일`;
+            
+            chartHtml += `<div class="bar-group">
+                            <div class="bar-container">
+                                <div class="bar current" style="height: ${percent}%;" title="${key}: ${count}건">${count > 0 ? count : ''}</div>
+                            </div>
+                            <div class="bar-label">${label}</div>
+                          </div>`;
+        }
+        chartHtml += '</div>';
+    }
+    mileageBreakdownChart.innerHTML = chartHtml;
 }
 function populateSelectors() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
-    const availableYears = [...new Set(records.map(r => r.date.substring(0, 4)))].sort().reverse();
-    if (availableYears.length === 0) availableYears.push((new Date).getFullYear().toString());
-    const yearOptions = availableYears.map(y => `<option value="${y}">${y}년</option>`).join('');
+    const years = [...new Set(records.map(r => r.date.substring(0, 4)))].sort((a,b) => b - a);
+    const currentYear = new Date().getFullYear().toString();
+    if (!years.includes(currentYear)) years.unshift(currentYear);
+    
+    const yearOptions = years.map(y => `<option value="${y}">${y}년</option>`).join('');
     dailyYearSelect.innerHTML = yearOptions;
+    weeklyYearSelect.innerHTML = yearOptions;
     monthlyYearSelect.innerHTML = yearOptions;
-    dailyMonthSelect.innerHTML = Array.from({ length: 12 }, ((_, i) => `<option value="${(i+1).toString().padStart(2,"0")}">${i+1}월</option>`)).join('');
-    const currentYear = (new Date).getFullYear().toString();
-    if (availableYears.includes(currentYear)) {
-        dailyYearSelect.value = currentYear;
-        monthlyYearSelect.value = currentYear;
-    }
-    dailyMonthSelect.value = (new Date().getMonth() + 1).toString().padStart(2, '0');
+
+    const monthOptions = Array.from({ length: 12 }, ((_, i) => `<option value="${(i+1).toString().padStart(2,"0")}">${i+1}월</option>`)).join('');
+    dailyMonthSelect.innerHTML = monthOptions;
+    weeklyMonthSelect.innerHTML = monthOptions;
+    
+    dailyYearSelect.value = currentYear;
+    weeklyYearSelect.value = currentYear;
+    monthlyYearSelect.value = currentYear;
+    
+    const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+    dailyMonthSelect.value = currentMonth;
+    weeklyMonthSelect.value = currentMonth;
 }
 function updateAllDisplays() {
-    const activeView = document.querySelector(".view-content.active").id;
+    const activeView = document.querySelector(".view-content.active")?.id;
     if (activeView === 'today-view') displayTodayRecords();
-    if (activeView === 'daily-view') displayDailyRecords();
-    if (activeView === 'monthly-view') displayMonthlyRecords();
-    displayCumulativeData();
-    displayCurrentMonthData();
+    else if (activeView === 'daily-view') displayDailyRecords();
+    else if (activeView === 'weekly-view') displayWeeklyRecords();
+    else if (activeView === 'monthly-view') displayMonthlyRecords();
+    
+    if (!settingsPage.classList.contains('hidden')) {
+        displayCumulativeData();
+        displayCurrentMonthData();
+    }
 }
 
 function deleteRecord(id) {
@@ -629,8 +773,8 @@ function editRecord(id) {
     fromSelect.value = recordToEdit.from;
     toSelect.value = recordToEdit.to;
     manualDistanceInput.value = recordToEdit.distance;
-    incomeInput.value = (recordToEdit.income / 10000).toFixed(2);
-    costInput.value = (recordToEdit.cost / 10000).toFixed(2);
+    incomeInput.value = recordToEdit.income > 0 ? (recordToEdit.income / 10000).toFixed(2) : '';
+    costInput.value = recordToEdit.cost > 0 ? (recordToEdit.cost / 10000).toFixed(2) : '';
     fuelLitersInput.value = recordToEdit.liters;
     fuelUnitPriceInput.value = recordToEdit.unitPrice;
     fuelBrandSelect.value = recordToEdit.brand;
@@ -966,24 +1110,32 @@ importFileInput.addEventListener("change", importFromJson);
 clearBtn.addEventListener("click", () => {
     if (confirm("정말로 모든 기록과 설정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
         localStorage.clear();
+        sessionStorage.clear();
         alert("모든 데이터가 삭제되었습니다.");
         location.reload()
     }
 });
 tabBtns.forEach(btn => {
     btn.addEventListener("click", event => {
-        event.preventDefault();
-        tabBtns.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        viewContents.forEach(c => c.classList.remove('active'));
-        document.getElementById(btn.dataset.view + "-view").classList.add("active");
-        updateAllDisplays()
+        if(btn.parentElement.classList.contains('view-tabs')) {
+            event.preventDefault();
+            tabBtns.forEach(b => {
+                if(b.parentElement.classList.contains('view-tabs')) b.classList.remove("active");
+            });
+            btn.classList.add("active");
+            viewContents.forEach(c => c.classList.remove('active'));
+            document.getElementById(btn.dataset.view + "-view").classList.add("active");
+            updateAllDisplays();
+        }
     })
 });
 todayDatePicker.addEventListener("change", displayTodayRecords);
 dailyYearSelect.addEventListener("change", displayDailyRecords);
 dailyMonthSelect.addEventListener("change", displayDailyRecords);
+weeklyYearSelect.addEventListener("change", displayWeeklyRecords);
+weeklyMonthSelect.addEventListener("change", displayWeeklyRecords);
 monthlyYearSelect.addEventListener("change", displayMonthlyRecords);
+
 startWaitBtn.addEventListener("click", startWaitTimer);
 endWaitBtn.addEventListener("click", stopWaitTimer);
 const formatDate = date => date.toISOString().slice(0, 10);
@@ -1061,12 +1213,16 @@ goToSettingsBtn.addEventListener("click", () => {
     backToMainBtn.classList.remove("hidden");
     displayCenterList();
     mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || "0";
+    subsidyLimitInput.value = localStorage.getItem('fuel_subsidy_limit') || "";
+    displayCurrentMonthData();
+    displayCumulativeData();
 });
 backToMainBtn.addEventListener("click", () => {
     mainPage.classList.remove("hidden");
     settingsPage.classList.add("hidden");
     goToSettingsBtn.classList.remove("hidden");
-    backToMainBtn.classList.add("hidden")
+    backToMainBtn.classList.add("hidden");
+    updateAllDisplays();
 });
 addCenterBtn.addEventListener("click", () => {
     const newName = newCenterNameInput.value, newAddress = newCenterAddressInput.value, newMemo = newCenterMemoInput.value;
@@ -1084,10 +1240,20 @@ centerListContainer.addEventListener("click", e => {
     if (header) {
         header.addEventListener("click", () => {
             const body = header.nextElementSibling;
-            const isNowHidden = body.classList.toggle("hidden");
             header.classList.toggle("active");
-            if (header.id === 'toggle-subsidy-management' && !isNowHidden) displaySubsidyRecords(false);
+            body.classList.toggle("hidden");
+            if (header.id === 'toggle-subsidy-management' && !body.classList.contains('hidden')) {
+                 displaySubsidyRecords(false);
+            }
         });
+    }
+});
+mileageChartControls.addEventListener('click', (e) => {
+    if (e.target.classList.contains('tab-btn')) {
+        mileageChartControls.querySelector('.active').classList.remove('active');
+        e.target.classList.add('active');
+        const period = e.target.dataset.period;
+        renderMileageChart(period);
     }
 });
 function initialSetup() {
@@ -1110,9 +1276,10 @@ function displaySubsidyRecords(loadMore = false) {
         displayedSubsidyCount += SUBSIDY_PAGE_SIZE;
     } else {
         displayedSubsidyCount = SUBSIDY_PAGE_SIZE;
+        listContainer.innerHTML = '';
     }
     const recordsToShow = subsidyRecords.slice(0, displayedSubsidyCount);
-    if (recordsToShow.length === 0) {
+    if (recordsToShow.length === 0 && !loadMore) {
         listContainer.innerHTML = '<p class="note" style="text-align:center; padding: 1em 0;">주유 기록이 없습니다.</p>';
         loadMoreContainer.innerHTML = '';
         return;

@@ -1,4 +1,4 @@
-/** 버전: 7.1 | 최종 수정일: 2025-11-18 (버튼 UI 개선 및 대기 기능 제거) */
+/** 버전: 7.2 | 최종 수정일: 2025-11-18 (소요시간 표시 및 대기 기능 완전 제거) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -316,7 +316,25 @@ function displayTodayRecords() {
     
     todayTbody.innerHTML = '';
     
-    const recordsForTable = filteredRecords.filter(r => r.type !== '주유소');
+    let recordsForTable = filteredRecords.filter(r => r.type !== '주유소');
+
+    // 시간순으로 정렬하여 소요시간 계산
+    recordsForTable.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    for (let i = 0; i < recordsForTable.length; i++) {
+        if (i > 0) {
+            const currentTime = new Date(`${recordsForTable[i].date}T${recordsForTable[i].time}`);
+            const prevTime = new Date(`${recordsForTable[i - 1].date}T${recordsForTable[i - 1].time}`);
+            const diff = currentTime - prevTime; // milliseconds
+            const hours = Math.floor(diff / 3600000);
+            const minutes = Math.floor((diff % 3600000) / 60000);
+            recordsForTable[i].duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+        } else {
+            recordsForTable[i].duration = '-';
+        }
+    }
+
+    // 최신순으로 다시 정렬하여 표시
+    recordsForTable.reverse();
     
     recordsForTable.forEach(r => {
         const tr = document.createElement('tr');
@@ -341,7 +359,7 @@ function displayTodayRecords() {
 
         tr.innerHTML = `
             <td data-label="시간">${r.time}</td>
-            <td data-label="구분">${r.type}</td>
+            <td data-label="소요시간">${r.duration}</td>
             <td data-label="내용">${detailsCell}</td>
             <td data-label="수입/지출">${moneyCell}</td>
         `;

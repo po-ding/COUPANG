@@ -1,4 +1,4 @@
-/** 버전: 7.0 | 최종 수정일: 2025-11-18 (버튼 로직 수정 및 안정화) */
+/** 버전: 7.1 | 최종 수정일: 2025-11-18 (버튼 UI 개선 및 대기 기능 제거) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -71,11 +71,6 @@ const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
 const addressDisplay = document.getElementById('address-display');
 const manualDistanceInput = document.getElementById('manual-distance');
 
-const startWaitBtn = document.getElementById('start-wait-btn');
-const endWaitBtn = document.getElementById('end-wait-btn');
-const waitStatus = document.getElementById('wait-status');
-const waitingTimeInput = document.getElementById('waiting-time');
-
 const toggleCenterManagementBtn = document.getElementById('toggle-center-management');
 const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
@@ -122,9 +117,6 @@ const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
 const toggleSubsidyManagementBtn = document.getElementById('toggle-subsidy-management');
 const toggleMileageManagementBtn = document.getElementById('toggle-mileage-management');
 const toggleDataManagementBtn = document.getElementById('toggle-data-management');
-
-let waitStartTime = null;
-let waitTimerInterval = null;
 
 const SUBSIDY_PAGE_SIZE = 10;
 let displayedSubsidyCount = 0;
@@ -218,33 +210,6 @@ function toggleUI(type) {
     costInput.readOnly = false;
 }
 
-function startWaitTimer() {
-    waitStartTime = Date.now();
-    const startTimeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    waitStatus.textContent = `대기 시작 (${startTimeStr}) - 00:00:00`;
-    startWaitBtn.disabled = true;
-    endWaitBtn.disabled = false;
-    waitTimerInterval = setInterval(() => {
-        const elapsedTime = Date.now() - waitStartTime;
-        const seconds = Math.floor((elapsedTime / 1000) % 60).toString().padStart(2, '0');
-        const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60).toString().padStart(2, '0');
-        const hours = Math.floor(elapsedTime / (1000 * 60 * 60)).toString().padStart(2, '0');
-        waitStatus.textContent = `대기 시작 (${startTimeStr}) - ${hours}:${minutes}:${seconds}`;
-    }, 1000);
-}
-function stopWaitTimer() {
-    if (waitTimerInterval) clearInterval(waitTimerInterval);
-    if (waitStartTime) {
-        const elapsedTime = Date.now() - waitStartTime;
-        const totalMinutes = Math.round(elapsedTime / (1000 * 60));
-        waitingTimeInput.value = totalMinutes;
-        const endTimeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-        waitStatus.textContent = `✅ 총 대기시간: ${totalMinutes}분 기록 완료! (종료: ${endTimeStr})`;
-    }
-    startWaitBtn.disabled = false;
-    endWaitBtn.disabled = true;
-    waitStartTime = null;
-}
 function updateAddressDisplay() {
     const fromValue = fromSelect.value;
     const toValue = toSelect.value;
@@ -284,7 +249,7 @@ function copyAddressToClipboard(centerName) {
 function createSummaryHTML(title, records) {
     const cancelledCount = records.filter(r => r.type === '이동취소').length;
     const validRecords = records.filter(r => r.type !== '이동취소');
-    let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0, totalWaitingTime = 0;
+    let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0;
     let totalFuelCost = 0, totalFuelLiters = 0;
 
     validRecords.forEach(r => {
@@ -298,12 +263,9 @@ function createSummaryHTML(title, records) {
             totalDistance += parseFloat(r.distance || 0);
             totalTripCount++;
         }
-        totalWaitingTime += parseInt(r.waitingTime || 0);
     });
 
     const netIncome = totalIncome - totalExpense;
-    const waitHours = Math.floor(totalWaitingTime / 60);
-    const waitMinutes = totalWaitingTime % 60;
 
     const metrics = [
         { label: '수입', value: formatToManwon(totalIncome), unit: ' 만원', className: 'income' },
@@ -311,7 +273,6 @@ function createSummaryHTML(title, records) {
         { label: '정산', value: formatToManwon(netIncome), unit: ' 만원', className: 'net' },
         { label: '운행거리', value: totalDistance.toFixed(1), unit: ' km' },
         { label: '이동건수', value: totalTripCount, unit: ' 건' },
-        { label: '대기시간', value: `${waitHours}h ${waitMinutes}m`, unit: '' },
         { label: '주유금액', value: formatToManwon(totalFuelCost), unit: ' 만원', className: 'cost' },
         { label: '주유리터', value: totalFuelLiters.toFixed(2), unit: ' L' },
     ];
@@ -366,12 +327,9 @@ function displayTodayRecords() {
         if (['화물운송', '공차이동', '이동취소'].includes(r.type)) {
             const fromLocation = `<strong class="location-clickable" data-center-name="${r.from}">${r.from}</strong>`;
             const toLocation = `<strong class="location-clickable" data-center-name="${r.to}">${r.to}</strong>`;
-            
             detailsCell = `${fromLocation} →<br>${toLocation}`; 
-            
             if (r.type !== '이동취소') {
                 detailsCell += `<br><span class="note">${r.distance} km</span>`;
-                if (r.waitingTime > 0) detailsCell += ` | <span class="note">⏱️ ${r.waitingTime}분</span>`;
             }
         } else {
             detailsCell = `<strong>${r.supplyItem || r.type}</strong>`;
@@ -404,7 +362,7 @@ function displayDailyRecords() {
     const validDailyRecords = currentMonthRecords.filter(r => r.type !== '이동취소' && r.type !== '주유소');
     validDailyRecords.forEach(r => {
         if (!recordsByDate[r.date]) {
-            recordsByDate[r.date] = { income: 0, expense: 0, distance: 0, tripCount: 0, waitingTime: 0, liters: 0 };
+            recordsByDate[r.date] = { income: 0, expense: 0, distance: 0, tripCount: 0, liters: 0 };
         }
         recordsByDate[r.date].income += parseInt(r.income || 0);
         recordsByDate[r.date].expense += parseInt(r.cost || 0);
@@ -413,14 +371,11 @@ function displayDailyRecords() {
             recordsByDate[r.date].tripCount++;
         }
         if (r.type === '주유소') recordsByDate[r.date].liters += parseFloat(r.liters || 0);
-        recordsByDate[r.date].waitingTime += parseInt(r.waitingTime || 0);
     });
     Object.keys(recordsByDate).sort().reverse().forEach(date => {
         const data = recordsByDate[date];
         const day = date.substring(8, 10);
         const dailyNet = data.income - data.expense;
-        const waitHours = Math.floor(data.waitingTime / 60);
-        const waitMinutes = data.waitingTime % 60;
         const tr = document.createElement('tr');
         if (date === getTodayString()) {
             tr.style.fontWeight = 'bold';
@@ -433,7 +388,6 @@ function displayDailyRecords() {
             <td data-label="정산"><strong>${formatToManwon(dailyNet)}</strong></td>
             <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
             <td data-label="이동">${data.tripCount}</td>
-            <td data-label="대기">${waitHours}h ${waitMinutes}m</td>
             <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
             <td data-label="관리"><button class="edit-btn" onclick="viewDateDetails('${date}')">상세</button></td>
         `;
@@ -469,7 +423,7 @@ function displayWeeklyRecords() {
         const weekRecords = recordsByWeek[week];
         if (weekRecords.length === 0) return;
 
-        let data = { income: 0, expense: 0, distance: 0, tripCount: 0, waitingTime: 0, liters: 0 };
+        let data = { income: 0, expense: 0, distance: 0, tripCount: 0, liters: 0 };
         const validWeekRecords = weekRecords.filter(r => r.type !== '이동취소');
 
         validWeekRecords.forEach(r => {
@@ -480,13 +434,9 @@ function displayWeeklyRecords() {
                 data.tripCount++;
             }
             if (r.type === '주유소') data.liters += parseFloat(r.liters || 0);
-            data.waitingTime += parseInt(r.waitingTime || 0);
         });
 
         const weekNet = data.income - data.expense;
-        const waitHours = Math.floor(data.waitingTime / 60);
-        const waitMinutes = data.waitingTime % 60;
-        
         const weekStartDay = Math.min(...weekRecords.map(r => new Date(r.date).getDate()));
         const weekEndDay = Math.max(...weekRecords.map(r => new Date(r.date).getDate()));
 
@@ -499,7 +449,6 @@ function displayWeeklyRecords() {
             <td data-label="정산"><strong>${formatToManwon(weekNet)}</strong></td>
             <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
             <td data-label="이동">${data.tripCount}</td>
-            <td data-label="대기">${waitHours}h ${waitMinutes}m</td>
             <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
         `;
         weeklyTbody.appendChild(tr);
@@ -514,7 +463,7 @@ function displayMonthlyRecords() {
     const recordsByMonth = {};
     for (let i = 1; i <= 12; i++) {
         const monthKey = `${selectedYear}-${i.toString().padStart(2, '0')}`;
-        recordsByMonth[monthKey] = { income: 0, expense: 0, distance: 0, liters: 0, tripCount: 0, waitingTime: 0 };
+        recordsByMonth[monthKey] = { income: 0, expense: 0, distance: 0, liters: 0, tripCount: 0 };
     }
     yearlyRecords.forEach(r => {
         if (r.type === '이동취소') return;
@@ -527,7 +476,6 @@ function displayMonthlyRecords() {
             recordsByMonth[monthKey].tripCount++;
         }
         if (r.type === '주유소') recordsByMonth[monthKey].liters += parseFloat(r.liters || 0);
-        recordsByMonth[monthKey].waitingTime += parseInt(r.waitingTime || 0);
     });
     monthlyTbody.innerHTML = '';
     Object.keys(recordsByMonth).sort().reverse().forEach(monthKey => {
@@ -536,8 +484,6 @@ function displayMonthlyRecords() {
 
         const month = monthKey.substring(5, 7);
         const netIncome = data.income - data.expense;
-        const waitHours = Math.floor(data.waitingTime / 60);
-        const waitMinutes = data.waitingTime % 60;
         const tr = document.createElement('tr');
 
         const now = new Date();
@@ -555,7 +501,6 @@ function displayMonthlyRecords() {
             <td data-label="정산"><strong>${formatToManwon(netIncome)}</strong></td>
             <td data-label="운행거리(km)">${data.distance.toFixed(1)}</td>
             <td data-label="이동">${data.tripCount}</td>
-            <td data-label="대기">${waitHours}h ${waitMinutes}m</td>
             <td data-label="주유량(L)">${data.liters.toFixed(2)}</td>
         `;
         monthlyTbody.appendChild(tr);
@@ -769,7 +714,6 @@ function editRecord(id) {
     ureaStationInput.value = recordToEdit.ureaStation;
     supplyItemInput.value = recordToEdit.supplyItem;
     supplyMileageInput.value = recordToEdit.mileage;
-    waitingTimeInput.value = recordToEdit.waitingTime;
     
     toggleUI(recordToEdit.type);
     
@@ -793,12 +737,6 @@ function cancelEdit() {
     timeInput.value = getCurrentTimeString();
     addressDisplay.innerHTML = "";
     manualDistanceInput.value = "";
-    waitStatus.textContent = '대기 상태: 대기 중';
-    waitingTimeInput.value = "";
-    startWaitBtn.disabled = false;
-    endWaitBtn.disabled = true;
-    if (waitTimerInterval) clearInterval(waitTimerInterval);
-    waitStartTime = null;
     toggleUI(typeSelect.value);
 }
 function getFormData(isNew = false) {
@@ -819,8 +757,7 @@ function getFormData(isNew = false) {
         ureaUnitPrice: parseInt(ureaUnitPriceInput.value) || 0,
         ureaStation: ureaStationInput.value || '',
         supplyItem: supplyItemInput.value || '',
-        mileage: parseInt(supplyMileageInput.value) || 0,
-        waitingTime: parseInt(waitingTimeInput.value) || 0
+        mileage: parseInt(supplyMileageInput.value) || 0
     };
     if (isNew) formData.id = Date.now();
     return formData;
@@ -828,7 +765,7 @@ function getFormData(isNew = false) {
 function exportToCsv() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     if (records.length === 0) return void showToast('저장할 기록이 없습니다.');
-    const headers = ['날짜', '시간', '구분', '출발지', '도착지', '운행거리(km)', '대기시간(분)', '수입(원)', '지출(원)', '주유량(L)', '단가(원/L)', '주유브랜드', '요소수주입량(L)', '요소수단가(원/L)', '요소수주입처', '소모품내역', '교체시점(km)'];
+    const headers = ['날짜', '시간', '구분', '출발지', '도착지', '운행거리(km)', '수입(원)', '지출(원)', '주유량(L)', '단가(원/L)', '주유브랜드', '요소수주입량(L)', '요소수단가(원/L)', '요소수주입처', '소모품내역', '교체시점(km)'];
     const escapeCsvCell = cell => {
         if (cell == null) return '';
         const str = String(cell);
@@ -836,7 +773,7 @@ function exportToCsv() {
     };
     const csvRows = [headers.join(',')];
     records.forEach(r => {
-        const row = [r.date, r.time, r.type, r.from, r.to, r.distance, r.waitingTime, r.income, r.cost, r.liters, r.unitPrice, r.brand, r.ureaLiters, r.ureaUnitPrice, r.ureaStation, r.supplyItem, r.mileage];
+        const row = [r.date, r.time, r.type, r.from, r.to, r.distance, r.income, r.cost, r.liters, r.unitPrice, r.brand, r.ureaLiters, r.ureaUnitPrice, r.ureaStation, r.supplyItem, r.mileage];
         csvRows.push(row.map(escapeCsvCell).join(','))
     });
     const csvString = "" + csvRows.join('\n');
@@ -997,7 +934,7 @@ function updateCentersFromRecords() {
 }
 
 function saveFormState() {
-    const state = { date: dateInput.value, time: timeInput.value, type: typeSelect.value, from: fromSelect.value, to: toSelect.value, fromCustom: fromCustom.value, toCustom: toCustom.value, manualDistance: manualDistanceInput.value, waitingTime: waitingTimeInput.value, fuelUnitPrice: fuelUnitPriceInput.value, fuelLiters: fuelLitersInput.value, fuelBrand: fuelBrandSelect.value, ureaUnitPrice: ureaUnitPriceInput.value, ureaLiters: ureaLitersInput.value, ureaStation: ureaStationInput.value, supplyItem: supplyItemInput.value, supplyMileage: supplyMileageInput.value, cost: costInput.value, income: incomeInput.value };
+    const state = { date: dateInput.value, time: timeInput.value, type: typeSelect.value, from: fromSelect.value, to: toSelect.value, fromCustom: fromCustom.value, toCustom: toCustom.value, manualDistance: manualDistanceInput.value, fuelUnitPrice: fuelUnitPriceInput.value, fuelLiters: fuelLitersInput.value, fuelBrand: fuelBrandSelect.value, ureaUnitPrice: ureaUnitPriceInput.value, ureaLiters: ureaLitersInput.value, ureaStation: ureaStationInput.value, supplyItem: supplyItemInput.value, supplyMileage: supplyMileageInput.value, cost: costInput.value, income: incomeInput.value };
     sessionStorage.setItem('unsavedRecordForm', JSON.stringify(state));
 }
 function loadFormState() {
@@ -1005,7 +942,7 @@ function loadFormState() {
     if (!savedStateJSON) return;
     const state = JSON.parse(savedStateJSON);
     if (!state) return;
-    dateInput.value = state.date; timeInput.value = state.time; typeSelect.value = state.type; fromSelect.value = state.from; toSelect.value = state.to; fromCustom.value = state.fromCustom; toCustom.value = state.toCustom; manualDistanceInput.value = state.manualDistance; waitingTimeInput.value = state.waitingTime; fuelUnitPriceInput.value = state.fuelUnitPrice; fuelLitersInput.value = state.fuelLiters; fuelBrandSelect.value = state.fuelBrand; ureaUnitPriceInput.value = state.ureaUnitPrice; ureaLitersInput.value = state.ureaLiters; ureaStationInput.value = state.ureaStation; supplyItemInput.value = state.supplyItem; supplyMileageInput.value = state.supplyMileage; costInput.value = state.cost; incomeInput.value = state.income;
+    dateInput.value = state.date; timeInput.value = state.time; typeSelect.value = state.type; fromSelect.value = state.from; toSelect.value = state.to; fromCustom.value = state.fromCustom; toCustom.value = state.toCustom; manualDistanceInput.value = state.manualDistance; fuelUnitPriceInput.value = state.fuelUnitPrice; fuelLitersInput.value = state.fuelLiters; fuelBrandSelect.value = state.fuelBrand; ureaUnitPriceInput.value = state.ureaUnitPrice; ureaLitersInput.value = state.ureaLiters; ureaStationInput.value = state.ureaStation; supplyItemInput.value = state.supplyItem; supplyMileageInput.value = state.supplyMileage; costInput.value = state.cost; incomeInput.value = state.income;
     toggleUI(typeSelect.value);
     fromCustom.classList.toggle("hidden", fromSelect.value !== 'direct');
     toCustom.classList.toggle("hidden", toSelect.value !== 'direct');
@@ -1016,20 +953,22 @@ recordForm.addEventListener("submit", function(event) {
     event.preventDefault();
     const action = this.submitAction.value;
     const editingId = parseInt(editIdInput.value);
-    let records = JSON.parse(localStorage.getItem('records')) || [];
-
-    if (action === 'start' || action === 'end') {
+    
+    if (action === 'start' || action === 'end' || action === 'end-edit') {
         dateInput.value = getTodayString();
         timeInput.value = getCurrentTimeString();
     }
 
-    if (editingId) { // 수정 로직
+    let records = JSON.parse(localStorage.getItem('records')) || [];
+    let toastMessage = '';
+
+    if (editingId) {
         const recordIndex = records.findIndex(r => r.id === editingId);
         if (recordIndex > -1) {
-            records[recordIndex] = { ...records[recordIndex], ...getFormData() };
-            showToast('기록이 수정되었습니다.');
+            records[recordIndex] = { ...getFormData(), id: editingId }; // Keep original ID
+            toastMessage = action === 'end-edit' ? '운행이 종료 기록되었습니다.' : '기록이 수정되었습니다.';
         }
-    } else { // 새 기록 로직
+    } else {
         const newRecord = getFormData(true);
         if (newRecord.type === '화물운송' && newRecord.income > 0) {
             const fareKey = `${newRecord.from}-${newRecord.to}`;
@@ -1038,12 +977,13 @@ recordForm.addEventListener("submit", function(event) {
             localStorage.setItem('saved_fares', JSON.stringify(fares));
         }
         records.push(newRecord);
-        showToast('운행 기록이 저장되었습니다.');
+        toastMessage = '운행 기록이 저장되었습니다.';
     }
 
     records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     localStorage.setItem('records', JSON.stringify(records));
     
+    showToast(toastMessage);
     cancelEdit();
     sessionStorage.removeItem('unsavedRecordForm');
     updateAllDisplays();
@@ -1131,8 +1071,6 @@ weeklyYearSelect.addEventListener("change", displayWeeklyRecords);
 weeklyMonthSelect.addEventListener("change", displayWeeklyRecords);
 monthlyYearSelect.addEventListener("change", displayMonthlyRecords);
 
-startWaitBtn.addEventListener("click", startWaitTimer);
-endWaitBtn.addEventListener("click", stopWaitTimer);
 const formatDate = date => date.toISOString().slice(0, 10);
 prevDayBtn.addEventListener("click", () => {
     const currentDate = new Date(todayDatePicker.value);

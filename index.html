@@ -59,14 +59,6 @@
                     
                     <div id="address-display" class="note"></div>
                     <input type="number" id="manual-distance" placeholder="운행거리(km) 직접입력">
-                    
-                    <hr>
-                    <div class="input-group row">
-                        <button type="button" id="start-wait-btn">대기 시작</button>
-                        <button type="button" id="end-wait-btn">대기 종료</button>
-                    </div>
-                    <div id="wait-status">대기 상태: 대기 중</div>
-                    <input type="hidden" id="waiting-time">
                 </fieldset>
 
                 <fieldset id="fuel-details" class="hidden">
@@ -108,19 +100,18 @@
                     </div>
                 </fieldset>
 
-                <!-- MODIFIED START: 버튼 영역 구조 변경 및 onclick 이벤트 추가 -->
-                <div id="trip-actions" class="input-group row">
-                    <button type="submit" id="start-trip-btn" onclick="this.form.submitAction.value='start'">운행 시작</button>
-                    <button type="submit" id="end-trip-btn" onclick="this.form.submitAction.value='end'">운행 종료</button>
+                <div id="trip-actions" class="action-btn-group">
+                    <button type="submit" onclick="this.form.submitAction.value='start'">운행 시작</button>
+                    <button type="submit" onclick="this.form.submitAction.value='end'">운행 종료</button>
                 </div>
-                <div id="edit-actions" class="input-group row hidden">
-                    <button type="submit" id="submit-edit-btn" onclick="this.form.submitAction.value='edit'">수정</button>
+                <div id="edit-actions" class="action-btn-group hidden">
+                    <button type="submit" onclick="this.form.submitAction.value='end-edit'">운행 종료</button>
+                    <button type="submit" class="edit-btn" onclick="this.form.submitAction.value='edit'">수정</button>
                     <button type="button" id="delete-edit-btn" class="delete-btn">삭제</button>
                     <button type="button" id="cancel-edit-btn">취소</button>
                 </div>
                 <input type="hidden" id="edit-id">
                 <input type="hidden" name="submitAction" value="default">
-                <!-- MODIFIED END -->
             </form>
 
             <div class="view-section">
@@ -152,7 +143,7 @@
                     </div>
                     <div id="daily-summary" class="summary"></div>
                     <table id="daily-summary-table" class="yearly-summary-table">
-                        <thead><tr><th>일</th><th>수입</th><th>지출</th><th>정산</th><th>운행거리(km)</th><th>이동</th><th>대기</th><th>주유량(L)</th><th>관리</th></tr></thead>
+                        <thead><tr><th>일</th><th>수입</th><th>지출</th><th>정산</th><th>운행거리(km)</th><th>이동</th><th>주유량(L)</th><th>관리</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -164,7 +155,7 @@
                     </div>
                     <div id="weekly-summary" class="summary"></div>
                     <table id="weekly-summary-table" class="yearly-summary-table">
-                        <thead><tr><th>주차</th><th>기간</th><th>수입</th><th>지출</th><th>정산</th><th>운행거리(km)</th><th>이동</th><th>대기</th><th>주유량(L)</th></tr></thead>
+                        <thead><tr><th>주차</th><th>기간</th><th>수입</th><th>지출</th><th>정산</th><th>운행거리(km)</th><th>이동</th><th>주유량(L)</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -175,7 +166,7 @@
                     </div>
                     <div id="monthly-yearly-summary" class="summary"></div>
                     <table id="monthly-summary-table" class="yearly-summary-table">
-                        <thead><tr><th>월</th><th>수입</th><th>지출</th><th>정산</th><th>운행거리(km)</th><th>이동</th><th>대기</th><th>주유량(L)</th></tr></thead>
+                        <thead><tr><th>월</th><th>수입</th><th>지출</th><th>정산</th><th>운행거리(km)</th><th>이동</th><th>주유량(L)</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>

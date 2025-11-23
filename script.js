@@ -1,164 +1,4 @@
-/** 버전: 6.9 | 최종 수정일: 2025-11-18 (운행 시작/종료 버튼 기능 구현) */
-
-// --- DOM 요소 ---
-const recordForm = document.getElementById('record-form');
-// ... (기존 변수 선언)
-
-// MODIFIED START: 버튼 관련 DOM 요소 수정
-const startTripBtn = document.getElementById('start-trip-btn');
-const endTripBtn = document.getElementById('end-trip-btn');
-const submitEditBtn = document.getElementById('submit-edit-btn');
-const cancelEditBtn = document.getElementById('cancel-edit-btn');
-const deleteEditBtn = document.getElementById('delete-edit-btn');
-const editIdInput = document.getElementById('edit-id');
-const tripActions = document.getElementById('trip-actions');
-const editActions = document.getElementById('edit-actions');
-// MODIFIED END
-
-const mainPage = document.getElementById('main-page');
-// ... (이하 나머지 변수 선언은 동일)
-
-
-// ... (기존 함수들 중간 생략) ...
-
-
-// MODIFIED START: editRecord 함수 수정
-function editRecord(id) {
-    if (mainPage.classList.contains('hidden')) backToMainBtn.click();
-    const records = JSON.parse(localStorage.getItem('records')) || [];
-    const recordToEdit = records.find(r => r.id === id);
-    if (!recordToEdit) return;
-
-    dateInput.value = recordToEdit.date;
-    timeInput.value = recordToEdit.time;
-    typeSelect.value = recordToEdit.type;
-    populateCenterSelectors();
-    fromSelect.value = recordToEdit.from;
-    toSelect.value = recordToEdit.to;
-    manualDistanceInput.value = recordToEdit.distance;
-    incomeInput.value = recordToEdit.income > 0 ? (recordToEdit.income / 10000).toFixed(2) : '';
-    costInput.value = recordToEdit.cost > 0 ? (recordToEdit.cost / 10000).toFixed(2) : '';
-    fuelLitersInput.value = recordToEdit.liters;
-    fuelUnitPriceInput.value = recordToEdit.unitPrice;
-    fuelBrandSelect.value = recordToEdit.brand;
-    ureaLitersInput.value = recordToEdit.ureaLiters;
-    ureaUnitPriceInput.value = recordToEdit.ureaUnitPrice;
-    ureaStationInput.value = recordToEdit.ureaStation;
-    supplyItemInput.value = recordToEdit.supplyItem;
-    supplyMileageInput.value = recordToEdit.mileage;
-    waitingTimeInput.value = recordToEdit.waitingTime;
-    
-    toggleUI(recordToEdit.type);
-    
-    editIdInput.value = id;
-
-    // UI 변경: 수정/삭제 버튼 보이기
-    tripActions.classList.add('hidden');
-    editActions.classList.remove('hidden');
-    submitEditBtn.classList.add('edit-mode'); // 스타일 유지를 위해 클래스 추가
-    deleteEditBtn.onclick = () => deleteRecord(id);
-    
-    window.scrollTo(0, 0);
-    updateAddressDisplay();
-}
-// MODIFIED END
-
-// MODIFIED START: cancelEdit 함수 수정
-function cancelEdit() {
-    recordForm.reset();
-    editIdInput.value = "";
-
-    // UI 변경: 운행 시작/종료 버튼 보이기
-    tripActions.classList.remove('hidden');
-    editActions.classList.add('hidden');
-    submitEditBtn.classList.remove('edit-mode');
-    deleteEditBtn.onclick = null;
-    
-    dateInput.value = getTodayString();
-    timeInput.value = getCurrentTimeString();
-    addressDisplay.innerHTML = "";
-    manualDistanceInput.value = "";
-    waitStatus.textContent = '대기 상태: 대기 중';
-    waitingTimeInput.value = "";
-    startWaitBtn.disabled = false;
-    endWaitBtn.disabled = true;
-    if (waitTimerInterval) clearInterval(waitTimerInterval);
-    waitStartTime = null;
-    toggleUI(typeSelect.value);
-}
-// MODIFIED END
-
-
-// ... (기존 함수들 중간 생략) ...
-
-
-// ===============================================================
-// 이벤트 리스너 (파일 하단)
-// ===============================================================
-
-// MODIFIED START: 폼 제출 로직 변경
-// 기존 recordForm.addEventListener("submit", ...) 제거
-
-// 새로운 기록 저장 함수 (운행 시작/종료 버튼 공용)
-function saveNewTripRecord() {
-    // 저장 시점의 현재 시간으로 날짜/시간 필드 설정
-    dateInput.value = getTodayString();
-    timeInput.value = getCurrentTimeString();
-    
-    let records = JSON.parse(localStorage.getItem('records')) || [];
-    const newRecord = getFormData(true);
-    
-    if (newRecord.type === '화물운송' && newRecord.income > 0) {
-        const fareKey = `${newRecord.from}-${newRecord.to}`;
-        const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
-        fares[fareKey] = newRecord.income;
-        localStorage.setItem('saved_fares', JSON.stringify(fares));
-    }
-    
-    records.push(newRecord);
-    records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-    localStorage.setItem('records', JSON.stringify(records));
-    
-    showToast('운행 기록이 저장되었습니다.');
-    cancelEdit();
-    sessionStorage.removeItem('unsavedRecordForm');
-    updateAllDisplays();
-}
-
-// 수정된 기록 저장 함수
-function saveEditedRecord() {
-    const editingId = parseInt(editIdInput.value);
-    if (!editingId) return;
-
-    let records = JSON.parse(localStorage.getItem('records')) || [];
-    const recordIndex = records.findIndex(r => r.id === editingId);
-    
-    if (recordIndex > -1) {
-        records[recordIndex] = { ...records[recordIndex], ...getFormData() };
-        records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-        localStorage.setItem('records', JSON.stringify(records));
-        
-        showToast('기록이 수정되었습니다.');
-        cancelEdit();
-        sessionStorage.removeItem('unsavedRecordForm');
-        updateAllDisplays();
-    }
-}
-
-// 신규 버튼 이벤트 리스너
-startTripBtn.addEventListener("click", saveNewTripRecord);
-endTripBtn.addEventListener("click", saveNewTripRecord);
-submitEditBtn.addEventListener("click", saveEditedRecord);
-
-// MODIFIED END
-
-todayTbody.addEventListener("click", e => {
-// ... (이하 나머지 코드는 동일)```
-
-**전체 `script.js` 파일**이 필요하시면 아래 내용을 사용하세요.
-
-```javascript
-/** 버전: 6.9 | 최종 수정일: 2025-11-18 (운행 시작/종료 버튼 기능 구현) */
+/** 버전: 7.0 | 최종 수정일: 2025-11-18 (버튼 로직 수정 및 안정화) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -193,9 +33,6 @@ const supplyDetails = document.getElementById('supply-details');
 const supplyItemInput = document.getElementById('supply-item');
 const supplyMileageInput = document.getElementById('supply-mileage');
 
-const startTripBtn = document.getElementById('start-trip-btn');
-const endTripBtn = document.getElementById('end-trip-btn');
-const submitEditBtn = document.getElementById('submit-edit-btn');
 const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const deleteEditBtn = document.getElementById('delete-edit-btn');
 const editIdInput = document.getElementById('edit-id');
@@ -937,10 +774,8 @@ function editRecord(id) {
     toggleUI(recordToEdit.type);
     
     editIdInput.value = id;
-
     tripActions.classList.add('hidden');
     editActions.classList.remove('hidden');
-    submitEditBtn.classList.add('edit-mode');
     deleteEditBtn.onclick = () => deleteRecord(id);
     
     window.scrollTo(0, 0);
@@ -949,10 +784,9 @@ function editRecord(id) {
 function cancelEdit() {
     recordForm.reset();
     editIdInput.value = "";
-
+    
     tripActions.classList.remove('hidden');
     editActions.classList.add('hidden');
-    submitEditBtn.classList.remove('edit-mode');
     deleteEditBtn.onclick = null;
     
     dateInput.value = getTodayString();
@@ -1178,52 +1012,42 @@ function loadFormState() {
     updateAddressDisplay();
 }
 
-function saveNewTripRecord() {
-    dateInput.value = getTodayString();
-    timeInput.value = getCurrentTimeString();
-    
+recordForm.addEventListener("submit", function(event) {
+    event.preventDefault();
+    const action = this.submitAction.value;
+    const editingId = parseInt(editIdInput.value);
     let records = JSON.parse(localStorage.getItem('records')) || [];
-    const newRecord = getFormData(true);
-    
-    if (newRecord.type === '화물운송' && newRecord.income > 0) {
-        const fareKey = `${newRecord.from}-${newRecord.to}`;
-        const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
-        fares[fareKey] = newRecord.income;
-        localStorage.setItem('saved_fares', JSON.stringify(fares));
+
+    if (action === 'start' || action === 'end') {
+        dateInput.value = getTodayString();
+        timeInput.value = getCurrentTimeString();
     }
-    
-    records.push(newRecord);
+
+    if (editingId) { // 수정 로직
+        const recordIndex = records.findIndex(r => r.id === editingId);
+        if (recordIndex > -1) {
+            records[recordIndex] = { ...records[recordIndex], ...getFormData() };
+            showToast('기록이 수정되었습니다.');
+        }
+    } else { // 새 기록 로직
+        const newRecord = getFormData(true);
+        if (newRecord.type === '화물운송' && newRecord.income > 0) {
+            const fareKey = `${newRecord.from}-${newRecord.to}`;
+            const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+            fares[fareKey] = newRecord.income;
+            localStorage.setItem('saved_fares', JSON.stringify(fares));
+        }
+        records.push(newRecord);
+        showToast('운행 기록이 저장되었습니다.');
+    }
+
     records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     localStorage.setItem('records', JSON.stringify(records));
     
-    showToast('운행 기록이 저장되었습니다.');
     cancelEdit();
     sessionStorage.removeItem('unsavedRecordForm');
     updateAllDisplays();
-}
-
-function saveEditedRecord() {
-    const editingId = parseInt(editIdInput.value);
-    if (!editingId) return;
-
-    let records = JSON.parse(localStorage.getItem('records')) || [];
-    const recordIndex = records.findIndex(r => r.id === editingId);
-    
-    if (recordIndex > -1) {
-        records[recordIndex] = { ...records[recordIndex], ...getFormData() };
-        records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-        localStorage.setItem('records', JSON.stringify(records));
-        
-        showToast('기록이 수정되었습니다.');
-        cancelEdit();
-        sessionStorage.removeItem('unsavedRecordForm');
-        updateAllDisplays();
-    }
-}
-
-startTripBtn.addEventListener("click", saveNewTripRecord);
-endTripBtn.addEventListener("click", saveNewTripRecord);
-submitEditBtn.addEventListener("click", saveEditedRecord);
+});
 
 todayTbody.addEventListener("click", e => {
     if (e.target.classList.contains("location-clickable")) {

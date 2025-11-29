@@ -1,4 +1,4 @@
-/** 버전: 7.8 | 최종 수정일: 2025-11-18 (시간 수정 오류 해결 및 종료시간 UI 개선) */
+/** 버전: 8.0 | 최종 수정일: 2025-11-18 (시간 고정 및 운행종료 로직 완벽 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -182,7 +182,7 @@ function populateCenterDatalist() {
 function toggleUI(type) {
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, fuelActions, editActions].forEach(el => el.classList.add('hidden'));
     
-    if (type === '화물운송' || type === '이동취소') {
+    if (type === '화물운송' || type === '이동취소' || type === '공차이동') {
         transportDetails.classList.remove('hidden');
         tripActions.classList.remove('hidden');
     } else if (type === '주유소') {
@@ -241,7 +241,7 @@ function copyAddressToClipboard(centerName) {
 
 function createSummaryHTML(title, records) {
     const cancelledCount = records.filter(r => r.type === '이동취소').length;
-    const validRecords = records.filter(r => r.type !== '이동취소');
+    const validRecords = records.filter(r => r.type !== '이동취소' && r.type !== '운행종료');
     let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0;
     let totalFuelCost = 0, totalFuelLiters = 0;
 
@@ -252,7 +252,7 @@ function createSummaryHTML(title, records) {
             totalFuelCost += parseInt(r.cost || 0);
             totalFuelLiters += parseFloat(r.liters || 0);
         }
-        if (['화물운송'].includes(r.type)) {
+        if (['화물운송', '공차이동'].includes(r.type)) {
             totalDistance += parseFloat(r.distance || 0);
             totalTripCount++;
         }
@@ -301,13 +301,16 @@ function toggleAllSummaryValues(gridElement) {
 }
 
 function calculateTotalDuration(records) {
-    const transportRecords = records.filter(r => r.from && r.to);
-    if (transportRecords.length < 2) return '0h 0m';
-
-    const sortedRecords = transportRecords.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    // '운행종료'를 포함하여 계산을 위해 정렬
+    const sortedRecords = [...records].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     
     let totalMinutes = 0;
+    if (sortedRecords.length < 2) return '0h 0m';
+
     for (let i = 1; i < sortedRecords.length; i++) {
+        // '운행종료' 기록은 계산의 기준점이 됨 (이전 기록의 종료 시점)
+        // 단, '운행종료' 기록 자체에서 시작하는 시간은 없으므로, 
+        // 두 기록 사이의 간격을 더하는 방식이 유효함
         const currentTime = new Date(`${sortedRecords[i].date}T${sortedRecords[i].time}`);
         const prevTime = new Date(`${sortedRecords[i-1].date}T${sortedRecords[i-1].time}`);
         totalMinutes += (currentTime - prevTime) / 60000;
@@ -321,47 +324,43 @@ function calculateTotalDuration(records) {
 function displayTodayRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
     const selectedDate = todayDatePicker.value;
-    const dateObj = new Date(selectedDate + 'T00:00:00');
-    const title = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
     const filteredRecords = records.filter(r => r.date === selectedDate);
     
     todayTbody.innerHTML = '';
     
-    const transportRecords = filteredRecords.filter(r => r.from && r.to)
-                                           .sort((a, b) => a.time.localeCompare(b.time));
-
-    const recordsWithDuration = filteredRecords.map(r => {
-        const transportIndex = transportRecords.findIndex(tr => tr.id === r.id);
-        if (transportIndex > -1) {
-            r.startTime = r.time;
-            if (transportIndex < transportRecords.length - 1) {
-                const nextRecord = transportRecords[transportIndex + 1];
-                r.endTime = nextRecord.time;
-                const currentTime = new Date(`${r.date}T${r.endTime}`);
-                const prevTime = new Date(`${r.date}T${r.startTime}`);
-                const diff = currentTime - prevTime;
-                const hours = Math.floor(diff / 3600000);
-                const minutes = Math.floor((diff % 3600000) / 60000);
-                r.duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-            } else {
-                r.endTime = '';
-                r.duration = '-';
-            }
-        } else {
-            r.startTime = r.time;
-            r.endTime = '-';
-            r.duration = '-';
-        }
-        return r;
-    }).sort((a, b) => b.time.localeCompare(a.time));
+    // 화면 표시용: '운행종료', '주유소', '소모품', '지출' 제외
+    // 단, 시간 계산을 위해서는 '운행종료'도 포함된 전체 리스트가 필요함
+    const allTimeRecords = filteredRecords.filter(r => ['화물운송', '공차이동', '이동취소', '운행종료'].includes(r.type))
+                                          .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     
-    recordsWithDuration.forEach(r => {
+    const recordsToDisplay = filteredRecords.filter(r => !['주유소', '소모품', '지출', '운행종료'].includes(r.type))
+                                            .sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time));
+    
+    recordsToDisplay.forEach(r => {
         const tr = document.createElement('tr');
         tr.onclick = () => editRecord(r.id);
 
         let detailsCell = '', moneyCell = '';
         
-        if (r.from && r.to) {
+        // 시간 및 소요시간 계산
+        let startTime = r.time;
+        let endTime = '진행중';
+        let duration = '-';
+
+        const currentIndex = allTimeRecords.findIndex(item => item.id === r.id);
+        if (currentIndex > -1 && currentIndex < allTimeRecords.length - 1) {
+            const nextRecord = allTimeRecords[currentIndex + 1];
+            endTime = nextRecord.time;
+            
+            const startObj = new Date(`${r.date}T${startTime}`);
+            const endObj = new Date(`${nextRecord.date}T${endTime}`);
+            const diff = endObj - startObj;
+            const hours = Math.floor(diff / 3600000);
+            const minutes = Math.floor((diff % 3600000) / 60000);
+            duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+        }
+
+        if (['화물운송', '공차이동', '이동취소'].includes(r.type)) {
             const fromLocation = `<strong class="location-clickable" data-center-name="${r.from}">${r.from}</strong>`;
             const toLocation = `<strong class="location-clickable" data-center-name="${r.to}">${r.to}</strong>`;
             detailsCell = `${fromLocation} →<br>${toLocation}`; 
@@ -377,18 +376,17 @@ function displayTodayRecords() {
                     (r.cost > 0 ? ` <span class="cost">-${formatToManwon(r.cost)}</span>` : '');
 
         tr.innerHTML = `
-            <td data-label="시작시간">${r.startTime}</td>
-            <td data-label="종료시간">${r.endTime || '진행중'}</td>
-            <td data-label="소요시간">${r.duration}</td>
+            <td data-label="시작시간">${startTime}</td>
+            <td data-label="종료시간">${endTime}</td>
+            <td data-label="소요시간">${duration}</td>
             <td data-label="내용">${detailsCell}</td>
             <td data-label="수입/지출">${moneyCell}</td>
         `;
         todayTbody.appendChild(tr);
     });
 
-    todaySummaryDiv.innerHTML = createSummaryHTML(title, filteredRecords);
+    todaySummaryDiv.innerHTML = createSummaryHTML('오늘의 기록', filteredRecords);
 }
-
 
 function displayDailyRecords() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
@@ -408,20 +406,22 @@ function displayDailyRecords() {
     
     Object.keys(recordsByDate).sort().reverse().forEach(date => {
         const dayData = recordsByDate[date];
-        const validRecords = dayData.records.filter(r => r.type !== '이동취소');
+        // 소요시간 계산을 위해 운행종료 포함한 운송 관련 기록 전체 사용
+        const transportRecords = dayData.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
+        
+        // 통계 계산용 (운행종료 제외)
+        const validRecords = dayData.records.filter(r => ['화물운송', '공차이동'].includes(r.type));
         
         validRecords.forEach(r => {
             dayData.income += parseInt(r.income || 0);
             dayData.expense += parseInt(r.cost || 0);
-            if (['화물운송'].includes(r.type)) {
-                dayData.distance += parseFloat(r.distance || 0);
-                dayData.tripCount++;
-            }
+            dayData.distance += parseFloat(r.distance || 0);
+            dayData.tripCount++;
         });
         
         const day = date.substring(8, 10);
         const dailyNet = dayData.income - dayData.expense;
-        const duration = calculateTotalDuration(validRecords);
+        const duration = calculateTotalDuration(transportRecords);
         
         const tr = document.createElement('tr');
         if (date === getTodayString()) {
@@ -470,20 +470,19 @@ function displayWeeklyRecords() {
         const weekRecords = recordsByWeek[week];
         if (weekRecords.length === 0) return;
 
-        const validWeekRecords = weekRecords.filter(r => r.type !== '이동취소');
+        const transportRecords = weekRecords.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
+        const validWeekRecords = weekRecords.filter(r => ['화물운송', '공차이동'].includes(r.type));
         let data = { income: 0, expense: 0, distance: 0, tripCount: 0 };
 
         validWeekRecords.forEach(r => {
             data.income += parseInt(r.income || 0);
             data.expense += parseInt(r.cost || 0);
-            if (['화물운송'].includes(r.type)) {
-                data.distance += parseFloat(r.distance || 0);
-                data.tripCount++;
-            }
+            data.distance += parseFloat(r.distance || 0);
+            data.tripCount++;
         });
 
         const weekNet = data.income - data.expense;
-        const duration = calculateTotalDuration(validWeekRecords);
+        const duration = calculateTotalDuration(transportRecords);
         const weekStartDay = Math.min(...weekRecords.map(r => new Date(r.date).getDate()));
         const weekEndDay = Math.max(...weekRecords.map(r => new Date(r.date).getDate()));
 
@@ -521,22 +520,21 @@ function displayMonthlyRecords() {
     
     Object.keys(recordsByMonth).sort().reverse().forEach(monthKey => {
         const monthData = recordsByMonth[monthKey];
-        const validRecords = monthData.records.filter(r => r.type !== '이동취소');
+        const transportRecords = monthData.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
+        const validRecords = monthData.records.filter(r => ['화물운송', '공차이동'].includes(r.type));
 
         if(validRecords.length === 0) return;
 
         validRecords.forEach(r => {
             monthData.income += parseInt(r.income || 0);
             monthData.expense += parseInt(r.cost || 0);
-            if (['화물운송'].includes(r.type)) {
-                monthData.distance += parseFloat(r.distance || 0);
-                monthData.tripCount++;
-            }
+            monthData.distance += parseFloat(r.distance || 0);
+            monthData.tripCount++;
         });
 
         const month = monthKey.substring(5, 7);
         const netIncome = monthData.income - monthData.expense;
-        const duration = calculateTotalDuration(validRecords);
+        const duration = calculateTotalDuration(transportRecords);
         
         const tr = document.createElement('tr');
         const now = new Date();
@@ -574,13 +572,13 @@ function displayCurrentMonthData() {
     const now = new Date();
     const currentPeriod = now.toISOString().slice(0, 7);
     const currentMonth = now.getMonth() + 1;
-    const records = allRecords.filter(r => r.date.startsWith(currentPeriod) && r.type !== '이동취소');
+    const records = allRecords.filter(r => r.date.startsWith(currentPeriod) && r.type !== '이동취소' && r.type !== '운행종료');
     currentMonthTitle.textContent = `${currentMonth}월 실시간 요약`;
     let totalIncome = 0, totalExpense = 0, totalTripCount = 0, totalDistance = 0, totalLiters = 0;
     records.forEach(r => {
         totalIncome += parseInt(r.income || 0);
         totalExpense += parseInt(r.cost || 0);
-        if (['화물운송'].includes(r.type)) {
+        if (['화물운송', '공차이동'].includes(r.type)) {
             totalTripCount++;
             totalDistance += parseFloat(r.distance || 0);
         }
@@ -606,14 +604,14 @@ function displayCurrentMonthData() {
 }
 function displayCumulativeData() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
-    const validRecords = allRecords.filter(r => r.type !== '이동취소');
+    const validRecords = allRecords.filter(r => r.type !== '이동취소' && r.type !== '운행종료');
     let totalIncome = 0, totalExpense = 0, totalTripCount = 0, totalLiters = 0, recordedDistance = 0;
     
     validRecords.forEach(r => {
         totalIncome += parseInt(r.income || 0);
         totalExpense += parseInt(r.cost || 0);
         if (r.type === '주유소') totalLiters += parseFloat(r.liters || 0);
-        if (['화물운송'].includes(r.type)) {
+        if (['화물운송', '공차이동'].includes(r.type)) {
             totalTripCount++;
             recordedDistance += parseFloat(r.distance || 0);
         }
@@ -636,7 +634,7 @@ function displayCumulativeData() {
 }
 function renderMileageSummary(period = 'monthly') {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
-    const validRecords = allRecords.filter(r => ['화물운송'].includes(r.type));
+    const validRecords = allRecords.filter(r => ['화물운송', '공차이동'].includes(r.type));
     let summaryData = {};
     const now = new Date();
     
@@ -820,169 +818,6 @@ function getFormData(isNew = false) {
     if (isNew) formData.id = Date.now();
     return formData;
 }
-function exportToJson() {
-    const backupData = {
-        records: JSON.parse(localStorage.getItem('records') || '[]'),
-        centers: getCenters(),
-        saved_locations: getSavedLocations(),
-        saved_fares: JSON.parse(localStorage.getItem('saved_fares') || '{}'),
-        mileage_correction: parseFloat(localStorage.getItem('mileage_correction')) || 0,
-        fuel_subsidy_limit: parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0
-    };
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `운행기록_백업_${(new Date).toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('JSON 파일로 저장(백업)되었습니다!');
-}
-function importFromJson(event) {
-    if (!confirm('경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
-        event.target.value = ''; return;
-    }
-    const file = event.target.files[0];
-    if (!file) { event.target.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const content = e.target.result;
-            const data = JSON.parse(content);
-            if (data.saved_locations && typeof data.saved_locations === 'object') {
-                const migratedLocations = {};
-                for (const centerName in data.saved_locations) {
-                    const locationData = data.saved_locations[centerName];
-                    let finalAddress = '', finalMemo = '';
-                    if (typeof locationData === 'object' && locationData !== null) {
-                        finalAddress = locationData.address || '';
-                        finalMemo = locationData.memo || '';
-                    } else if (typeof locationData === 'string') {
-                        finalAddress = locationData;
-                    }
-                    const memoKeywords = ['메모:', '참고:', '비고:'];
-                    for (const keyword of memoKeywords) {
-                        if (finalAddress.includes(keyword)) {
-                            const parts = finalAddress.split(keyword);
-                            finalAddress = parts[0].trim();
-                            if (!finalMemo) finalMemo = parts.slice(1).join(keyword).trim();
-                            break;
-                        }
-                    }
-                    migratedLocations[centerName] = { address: finalAddress, memo: finalMemo };
-                }
-                data.saved_locations = migratedLocations;
-            }
-            if (data && Array.isArray(data.records)) {
-                localStorage.setItem('records', JSON.stringify(data.records));
-                if (Array.isArray(data.centers)) localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
-                if (data.saved_locations) localStorage.setItem('saved_locations', JSON.stringify(data.saved_locations));
-                if (data.saved_fares) localStorage.setItem('saved_fares', JSON.stringify(data.saved_fares));
-                if (data.mileage_correction) localStorage.setItem('mileage_correction', data.mileage_correction);
-                if (data.fuel_subsidy_limit) localStorage.setItem('fuel_subsidy_limit', data.fuel_subsidy_limit);
-            } else if (Array.isArray(data)) {
-                localStorage.setItem('records', JSON.stringify(data));
-            } else {
-                throw new Error('Invalid file format');
-            }
-            alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
-            location.reload();
-        } catch (error) {
-            console.error('Import Error:', error);
-            alert('오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.');
-        } finally {
-            event.target.value = '';
-        }
-    };
-    reader.readAsText(file);
-}
-function displayCenterList() {
-    centerListContainer.innerHTML = "";
-    const centers = getCenters();
-    const locations = getSavedLocations();
-    if (centers.length === 0) return void(centerListContainer.innerHTML = '<p class="note">등록된 지역이 없습니다.</p>');
-    centers.forEach(center => {
-        const locationData = locations[center] || { address: "", memo: "" };
-        const address = locationData.address || "", memo = locationData.memo || "";
-        const item = document.createElement("div");
-        item.className = "center-item";
-        item.dataset.centerName = center;
-        item.innerHTML = `<div class="info"><span class="center-name">${center}</span><div class="action-buttons"><button class="edit-btn">수정</button><button class="delete-btn">삭제</button></div></div>${address?`<span class="note">주소: ${address}</span>`:""}${memo?`<span class="note">메모: ${memo}</span>`:""}`;
-        centerListContainer.appendChild(item);
-    });
-}
-function deleteCenter(centerNameToDelete) {
-    if (confirm(`'${centerNameToDelete}' 지역을 목록에서 정말 삭제하시겠습니까?\n(기존 기록은 변경되지 않습니다.)`)) {
-        let centers = getCenters(), locations = getSavedLocations();
-        centers = centers.filter(c => c !== centerNameToDelete);
-        delete locations[centerNameToDelete];
-        localStorage.setItem('logistics_centers', JSON.stringify(centers));
-        localStorage.setItem('saved_locations', JSON.stringify(locations));
-        refreshCenterUI();
-    }
-}
-function handleCenterEdit(e) {
-    const item = e.target.closest(".center-item");
-    const originalName = item.dataset.centerName;
-    const locations = getSavedLocations();
-    const originalData = locations[originalName] || { address: "", memo: "" };
-    const originalAddress = originalData.address || "", originalMemo = originalData.memo || "";
-    item.innerHTML = `<div class="edit-form"><input type="text" class="edit-input" value="${originalName}" placeholder="지역 이름"><input type="text" class="edit-address-input" value="${originalAddress}" placeholder="주소 (선택)"><input type="text" class="edit-memo-input" value="${originalMemo}" placeholder="메모 (선택)"><div class="action-buttons"><button class="setting-save-btn">저장</button><button class="cancel-edit-btn">취소</button></div></div>`;
-    item.querySelector(".setting-save-btn").onclick = () => saveCenterEdit(item, originalName);
-    item.querySelector(".cancel-edit-btn").onclick = () => refreshCenterUI();
-    item.querySelector(".edit-input").focus();
-}
-function saveCenterEdit(item, originalName) {
-    const newName = item.querySelector(".edit-input").value.trim();
-    const newAddress = item.querySelector(".edit-address-input").value.trim();
-    const newMemo = item.querySelector(".edit-memo-input").value.trim();
-    if (!newName) return void alert("지역 이름은 비워둘 수 없습니다.");
-    let centers = getCenters(), locations = getSavedLocations();
-    if (centers.includes(newName) && newName !== originalName) return void alert("이미 존재하는 지역 이름입니다.");
-    centers = centers.map(c => c === originalName ? newName : c);
-    localStorage.setItem('logistics_centers', JSON.stringify(centers));
-    delete locations[originalName];
-    locations[newName] = { address: newAddress, memo: newMemo };
-    localStorage.setItem('saved_locations', JSON.stringify(locations));
-    let records = JSON.parse(localStorage.getItem('records')) || [];
-    records = records.map(r => {
-        if (r.from === originalName) r.from = newName;
-        if (r.to === originalName) r.to = newName;
-        return r;
-    });
-    localStorage.setItem('records', JSON.stringify(records));
-    refreshCenterUI();
-    updateAllDisplays();
-}
-function refreshCenterUI() {
-    displayCenterList();
-    populateCenterDatalist();
-}
-function updateCentersFromRecords() {
-    const records = JSON.parse(localStorage.getItem('records')) || [];
-    if (records.length === 0) return;
-    const centers = getCenters();
-    const centerSet = new Set(centers);
-    let needsUpdate = false;
-    records.forEach(r => {
-        if (r.from && !centerSet.has(r.from)) { centerSet.add(r.from); centers.push(r.from); needsUpdate = true }
-        if (r.to && !centerSet.has(r.to)) { centerSet.add(r.to); centers.push(r.to); needsUpdate = true }
-    });
-    if (needsUpdate) localStorage.setItem('logistics_centers', JSON.stringify(centers));
-}
-
-function saveFormState() {
-    const state = { date: dateInput.value, time: timeInput.value, type: typeSelect.value, from: fromCenterInput.value, to: toCenterInput.value, manualDistance: manualDistanceInput.value, fuelUnitPrice: fuelUnitPriceInput.value, fuelLiters: fuelLitersInput.value, fuelBrand: fuelBrandSelect.value, supplyItem: supplyItemInput.value, supplyMileage: supplyMileageInput.value, expenseItem: expenseItemInput.value, cost: costInput.value, income: incomeInput.value };
-    sessionStorage.setItem('unsavedRecordForm', JSON.stringify(state));
-}
-function loadFormState() {
-    const savedStateJSON = sessionStorage.getItem('unsavedRecordForm');
-    if (!savedStateJSON) return;
-    const state = JSON.parse(savedStateJSON);
-    if (!state) return;
-    dateInput.value = state.date; timeInput.value = state.time; typeSelect.value = state.type; fromCenterInput.value = state.from; toCenterInput.value = state.to; manualDistanceInput.value = state.manualDistance; fuelUnitPriceInput.value = state.fuelUnitPrice; fuelLitersInput.value = state.fuelLiters; fuelBrandSelect.value = state.fuelBrand; supplyItemInput.value = state.supplyItem; supplyMileageInput.value = state.supplyMileage; expenseItemInput.value = state.expenseItem; costInput.value = state.cost; incomeInput.value = state.income;
-    toggleUI(typeSelect.value);
-    updateAddressDisplay();
-}
 
 recordForm.addEventListener("submit", function(event) {
     event.preventDefault();
@@ -999,8 +834,9 @@ recordForm.addEventListener("submit", function(event) {
             const formData = getFormData();
             
             if (action === 'edit') {
-                delete formData.date;
-                delete formData.time;
+                // 수정 시에는 기존 시간 정보를 강제로 유지 (중요!)
+                formData.date = originalRecord.date;
+                formData.time = originalRecord.time;
                 toastMessage = '기록이 수정되었습니다.';
             } 
             else if (action === 'end-edit') {
@@ -1008,21 +844,36 @@ recordForm.addEventListener("submit", function(event) {
                 formData.time = getCurrentTimeString();
                 toastMessage = '운행이 종료 기록되었습니다.';
             }
-            records[recordIndex] = { ...originalRecord, ...formData };
+            records[recordIndex] = { ...formData, id: editingId };
         }
     } else {
-        dateInput.value = getTodayString();
-        timeInput.value = getCurrentTimeString();
-        
-        const newRecord = getFormData(true);
-        if (newRecord.type === '화물운송' && newRecord.income > 0) {
-            const fareKey = `${newRecord.from}-${newRecord.to}`;
-            const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
-            fares[fareKey] = newRecord.income;
-            localStorage.setItem('saved_fares', JSON.stringify(fares));
+        // '운행 종료' 버튼은 '운행종료' 타입의 새로운 기록을 생성
+        if (action === 'end') {
+            const endRecord = {
+                id: Date.now(),
+                date: getTodayString(),
+                time: getCurrentTimeString(),
+                type: '운행종료',
+                // 기타 필요한 빈 필드 초기화
+                distance: 0, cost: 0, income: 0
+            };
+            records.push(endRecord);
+            toastMessage = '운행이 종료되었습니다.';
+        } else {
+            // '운행 시작' 또는 기타 기록
+            dateInput.value = getTodayString();
+            timeInput.value = getCurrentTimeString();
+            
+            const newRecord = getFormData(true);
+            if (newRecord.type === '화물운송' && newRecord.income > 0) {
+                const fareKey = `${newRecord.from}-${newRecord.to}`;
+                const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+                fares[fareKey] = newRecord.income;
+                localStorage.setItem('saved_fares', JSON.stringify(fares));
+            }
+            records.push(newRecord);
+            toastMessage = '기록이 저장되었습니다.';
         }
-        records.push(newRecord);
-        toastMessage = '기록이 저장되었습니다.';
     }
 
     records.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
@@ -1033,7 +884,6 @@ recordForm.addEventListener("submit", function(event) {
     sessionStorage.removeItem('unsavedRecordForm');
     updateAllDisplays();
 });
-
 
 todayTbody.addEventListener("click", e => {
     if (e.target.classList.contains("location-clickable")) {
@@ -1288,7 +1138,7 @@ function generatePrintView(year, month, period, isDetailed) {
                recordDay >= startDate && recordDay <= endDate;
     }).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
 
-    const transportRecords = filteredRecords.filter(r => ['화물운송'].includes(r.type));
+    const transportRecords = filteredRecords.filter(r => ['화물운송', '공차이동'].includes(r.type));
     let totalIncome = 0;
     let totalExpense = 0;
     let totalDistance = 0;
@@ -1296,7 +1146,7 @@ function generatePrintView(year, month, period, isDetailed) {
     filteredRecords.forEach(r => {
         totalIncome += r.income || 0;
         totalExpense += r.cost || 0;
-        if (['화물운송'].includes(r.type)) {
+        if (['화물운송', '공차이동'].includes(r.type)) {
             totalDistance += r.distance || 0;
         }
     });

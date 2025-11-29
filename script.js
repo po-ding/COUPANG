@@ -1,4 +1,4 @@
-/** 버전: 8.1 | 최종 수정일: 2025-11-18 (시간 고정, 운행종료, 주소복사 완벽 해결) */
+/** 버전: 9.0 | 최종 수정일: 2025-11-18 (시간 고정, 운행종료, 주소복사 완벽 해결) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -153,7 +153,6 @@ function getSavedLocations() {
 function saveLocationData(centerName, data) {
     if (!centerName || centerName.trim() === '') return false;
     const locations = getSavedLocations();
-    // 기존 데이터가 있으면 유지하면서 업데이트
     locations[centerName] = { ...locations[centerName], ...data };
     localStorage.setItem('saved_locations', JSON.stringify(locations));
     return true;
@@ -166,7 +165,6 @@ function addCenter(newCenter, address = '', memo = '') {
         centers.push(trimmedCenter);
         localStorage.setItem('logistics_centers', JSON.stringify(centers));
     }
-    // 주소나 메모가 있는 경우 저장 (이미 존재해도 업데이트)
     if (address || memo) {
         saveLocationData(trimmedCenter, {
             address: address.trim(),
@@ -183,10 +181,8 @@ function populateCenterDatalist() {
 }
 
 function toggleUI(type) {
-    // 기본적으로 모든 섹션 숨김
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, fuelActions, editActions].forEach(el => el.classList.add('hidden'));
     
-    // 수정 모드인지 확인
     const isEditMode = !editModeIndicator.classList.contains('hidden');
 
     if (type === '화물운송' || type === '이동취소' || type === '공차이동') {
@@ -206,10 +202,7 @@ function toggleUI(type) {
         if (!isEditMode) tripActions.classList.remove('hidden');
     }
 
-    // 수정 모드일 경우 수정 버튼 그룹 강제 표시
-    if (isEditMode) {
-        editActions.classList.remove('hidden');
-    }
+    if (isEditMode) editActions.classList.remove('hidden');
 
     incomeWrapper.classList.toggle('hidden', type !== '화물운송');
     costWrapper.classList.toggle('hidden', type === '화물운송');
@@ -240,15 +233,17 @@ function copyTextToClipboard(text, successMessage) {
         showToast('복사에 실패했습니다.');
     });
 }
+
+// MODIFIED: 주소 복사 기능 강화
 function copyAddressToClipboard(centerName) {
     if (!centerName) return;
     const locations = getSavedLocations();
     const locationData = locations[centerName];
     
-    // 주소가 있으면 주소 복사, 없으면 이름 복사 (수정된 로직)
     if (locationData && locationData.address) {
         copyTextToClipboard(locationData.address, `'${centerName}' 주소가 복사되었습니다.`);
     } else {
+        // 주소가 없으면 지역 이름이라도 복사
         copyTextToClipboard(centerName, `'${centerName}' 이름이 복사되었습니다.`);
     }
 }
@@ -315,7 +310,6 @@ function toggleAllSummaryValues(gridElement) {
 }
 
 function calculateTotalDuration(records) {
-    // 시간 계산을 위해 정렬
     const sortedRecords = [...records].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     
     let totalMinutes = 0;
@@ -324,7 +318,6 @@ function calculateTotalDuration(records) {
     for (let i = 1; i < sortedRecords.length; i++) {
         const currentTime = new Date(`${sortedRecords[i].date}T${sortedRecords[i].time}`);
         const prevTime = new Date(`${sortedRecords[i-1].date}T${sortedRecords[i-1].time}`);
-        // 이전 기록이 운행종료가 아닐 때만 시간 더하기 (운행종료는 구간의 끝점 역할만 함)
         if (sortedRecords[i-1].type !== '운행종료') {
             totalMinutes += (currentTime - prevTime) / 60000;
         }
@@ -342,11 +335,9 @@ function displayTodayRecords() {
     
     todayTbody.innerHTML = '';
     
-    // 시간 계산을 위해 해당 날짜의 모든 '시점' 기록(운행, 종료 등)을 가져와 정렬
     const allTimeRecords = filteredRecords.filter(r => ['화물운송', '공차이동', '이동취소', '운행종료'].includes(r.type))
                                           .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     
-    // 화면에 표시할 기록 (운행종료 등 제외)
     const recordsToDisplay = filteredRecords.filter(r => !['주유소', '소모품', '지출', '운행종료'].includes(r.type))
                                             .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     
@@ -356,15 +347,11 @@ function displayTodayRecords() {
 
         let detailsCell = '', moneyCell = '';
         
-        // 시작/종료 시간 및 소요시간 계산 로직
         let startTime = r.time;
         let endTime = '진행중';
         let duration = '-';
 
-        // 전체 타임라인에서 현재 기록의 위치 찾기
         const currentIndex = allTimeRecords.findIndex(item => item.id === r.id);
-        
-        // 다음 기록이 있다면 그 시간을 종료 시간으로 사용
         if (currentIndex > -1 && currentIndex < allTimeRecords.length - 1) {
             const nextRecord = allTimeRecords[currentIndex + 1];
             endTime = nextRecord.time;
@@ -378,8 +365,12 @@ function displayTodayRecords() {
         }
 
         if (['화물운송', '공차이동', '이동취소'].includes(r.type)) {
-            const fromLocation = `<strong class="location-clickable" data-center-name="${r.from}">${r.from}</strong>`;
-            const toLocation = `<strong class="location-clickable" data-center-name="${r.to}">${r.to}</strong>`;
+            // MODIFIED: data-center-name 속성에 값 이스케이프 처리
+            const fromVal = r.from ? r.from.replace(/"/g, '&quot;') : '';
+            const toVal = r.to ? r.to.replace(/"/g, '&quot;') : '';
+            
+            const fromLocation = `<strong class="location-clickable" data-center-name="${fromVal}">${r.from}</strong>`;
+            const toLocation = `<strong class="location-clickable" data-center-name="${toVal}">${r.to}</strong>`;
             detailsCell = `${fromLocation} →<br>${toLocation}`; 
             if (r.type !== '이동취소') {
                 detailsCell += `<br><span class="note">${r.distance} km</span>`;
@@ -423,9 +414,7 @@ function displayDailyRecords() {
     
     Object.keys(recordsByDate).sort().reverse().forEach(date => {
         const dayData = recordsByDate[date];
-        // 소요시간 계산용: 운행종료 포함
         const transportRecords = dayData.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
-        // 통계용: 운행종료 제외
         const validRecords = dayData.records.filter(r => ['화물운송', '공차이동'].includes(r.type));
         
         validRecords.forEach(r => {
@@ -849,25 +838,22 @@ recordForm.addEventListener("submit", function(event) {
             const originalRecord = records[recordIndex];
             const formData = getFormData();
             
-            // '수정' 액션일 경우, 기존 시간 정보를 무조건 유지
             if (action === 'edit') {
+                // MODIFIED: 수정 시 시간 정보 강제 유지 (덮어쓰기 방지)
                 formData.date = originalRecord.date;
                 formData.time = originalRecord.time;
                 toastMessage = '기록이 수정되었습니다.';
             } 
-            // '운행 종료' 액션일 경우, 현재 시간으로 강제 업데이트
             else if (action === 'end-edit') {
                 formData.date = getTodayString();
                 formData.time = getCurrentTimeString();
                 toastMessage = '운행이 종료 기록되었습니다.';
             }
-            // 수정된 데이터로 덮어쓰기
-            records[recordIndex] = { ...formData, id: editingId };
+            records[recordIndex] = { ...originalRecord, ...formData };
         }
     } else {
-        // 새 기록의 경우
         if (action === 'end') {
-            // 운행 종료 버튼: 운행종료 레코드 생성
+            // MODIFIED: 운행 종료 버튼 클릭 시 '운행종료' 기록 추가
             const endRecord = {
                 id: Date.now(),
                 date: getTodayString(),
@@ -878,7 +864,7 @@ recordForm.addEventListener("submit", function(event) {
             records.push(endRecord);
             toastMessage = '운행이 종료되었습니다.';
         } else {
-            // 운행 시작 및 기타: 현재 시간으로 기록 생성
+            // 운행 시작 등 일반 기록
             dateInput.value = getTodayString();
             timeInput.value = getCurrentTimeString();
             
@@ -903,13 +889,18 @@ recordForm.addEventListener("submit", function(event) {
     updateAllDisplays();
 });
 
+// MODIFIED: 클릭 이벤트 핸들러 수정 (이벤트 위임 개선)
 todayTbody.addEventListener("click", e => {
-    if (e.target.classList.contains("location-clickable")) {
+    const clickableElement = e.target.closest('.location-clickable');
+    if (clickableElement) {
         e.stopPropagation();
-        const centerName = e.target.dataset.centerName;
-        copyAddressToClipboard(centerName)
+        const centerName = clickableElement.dataset.centerName;
+        copyAddressToClipboard(centerName);
     }
 });
+
+// ... (이후 코드는 이전과 동일, copyAddressToClipboard 등은 위에서 이미 수정됨)
+
 addressDisplay.addEventListener("click", e => {
     if (e.target.classList.contains("address-clickable")) {
         copyTextToClipboard(e.target.dataset.address, '주소가 복사되었습니다.')

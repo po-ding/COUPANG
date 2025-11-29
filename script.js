@@ -1,4 +1,4 @@
-/** 버전: 12.0 Full | 최종 수정일: 2025-11-29 (주소 자동복사 복구 및 대기 버튼 추가) */
+/** 버전: 12.1 Full | 최종 수정일: 2025-11-29 (동일 상하차지 운행거리 자동 입력 기능 추가) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -34,7 +34,7 @@ const tripActions = document.getElementById('trip-actions');
 const generalActions = document.getElementById('general-actions');
 const editActions = document.getElementById('edit-actions');
 
-const btnWaiting = document.getElementById('btn-waiting'); // 신규 대기 버튼
+const btnWaiting = document.getElementById('btn-waiting');
 const btnStartTrip = document.getElementById('btn-start-trip');
 const btnEndTrip = document.getElementById('btn-end-trip');
 const btnSaveGeneral = document.getElementById('btn-save-general');
@@ -115,7 +115,6 @@ const importJsonBtn = document.getElementById('import-json-btn');
 const importFileInput = document.getElementById('import-file-input');
 const clearBtn = document.getElementById('clear-btn');
 
-// 통계 카드 요소들
 const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
 const currentMonthTripCount = document.getElementById('current-month-trip-count');
@@ -202,7 +201,7 @@ function toggleUI() {
 
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, generalActions, editActions].forEach(el => el.classList.add('hidden'));
     
-    if (type === '화물운송' || type === '대기') { // 대기 타입도 화물운송 UI와 유사하게 처리
+    if (type === '화물운송' || type === '대기') {
         transportDetails.classList.remove('hidden');
         costInfoFieldset.classList.remove('hidden');
         costWrapper.classList.add('hidden'); 
@@ -210,7 +209,6 @@ function toggleUI() {
         
         if (!isEditMode) {
             tripActions.classList.remove('hidden');
-            // 대기 버튼은 type이 화물운송일 때만 보이게
             if(type === '화물운송') btnWaiting.classList.remove('hidden');
         }
     } else {
@@ -254,17 +252,21 @@ function copyTextToClipboard(text, msg) {
     .catch(err => console.log('복사 실패:', err));
 }
 
-// MODIFIED: 상하차지 입력 시 주소 자동 복사 로직 추가
+// 상하차지 입력 이벤트 (주소 자동 복사, 운임 및 거리 자동 채우기)
 [fromCenterInput, toCenterInput].forEach(input => {
     input.addEventListener('input', () => {
-        // 1. 운임 자동 채우기
         if(typeSelect.value === '화물운송') {
             const k = `${fromCenterInput.value.trim()}-${toCenterInput.value.trim()}`;
+            
+            // 1. 운임 자동 채우기
             const f = JSON.parse(localStorage.getItem('saved_fares')) || {};
             if(f[k]) incomeInput.value = (f[k]/10000).toFixed(2);
+
+            // 2. 거리 자동 채우기 (NEW)
+            const d = JSON.parse(localStorage.getItem('saved_distances')) || {};
+            if(d[k]) manualDistanceInput.value = d[k];
         }
         
-        // 2. 주소 표시 업데이트
         updateAddressDisplay();
         
         // 3. 주소 자동 복사
@@ -273,7 +275,6 @@ function copyTextToClipboard(text, msg) {
             const saved = getSavedLocations();
             const loc = saved[val];
             if(loc && loc.address) {
-                // 너무 잦은 토스트를 방지하려면 여기서 조절 가능하지만, 요청대로 바로 복사
                 copyTextToClipboard(loc.address, `'${val}' 주소 자동 복사됨`);
             }
         }
@@ -321,7 +322,7 @@ function resetForm() {
 // 5. 버튼 이벤트 핸들러
 // ===============================================================
 
-// [운행 대기] (신규 추가)
+// [운행 대기]
 btnWaiting.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -329,9 +330,8 @@ btnWaiting.addEventListener('click', () => {
         date: getTodayString(),
         time: getCurrentTimeString(),
         ...formData,
-        type: '대기' // 타입 강제 지정
+        type: '대기'
     };
-    
     const records = getRecords();
     records.push(newRecord);
     saveRecords(records);
@@ -341,7 +341,7 @@ btnWaiting.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [운행 시작]
+// [운행 시작] (거리 및 운임 저장 로직 추가)
 btnStartTrip.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -351,11 +351,22 @@ btnStartTrip.addEventListener('click', () => {
         ...formData
     };
     
-    if (formData.type === '화물운송' && formData.income > 0) {
-        const fareKey = `${formData.from}-${formData.to}`;
-        const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
-        fares[fareKey] = formData.income;
-        localStorage.setItem('saved_fares', JSON.stringify(fares));
+    if (formData.type === '화물운송') {
+        const routeKey = `${formData.from}-${formData.to}`;
+        
+        // 운임 저장
+        if (formData.income > 0) {
+            const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+            fares[routeKey] = formData.income;
+            localStorage.setItem('saved_fares', JSON.stringify(fares));
+        }
+        
+        // 거리 저장 (NEW)
+        if (formData.distance > 0) {
+            const distances = JSON.parse(localStorage.getItem('saved_distances')) || {};
+            distances[routeKey] = formData.distance;
+            localStorage.setItem('saved_distances', JSON.stringify(distances));
+        }
     }
 
     const records = getRecords();
@@ -383,7 +394,7 @@ btnEndTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [기록 저장] (주유, 지출 등)
+// [기록 저장]
 btnSaveGeneral.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -402,7 +413,7 @@ btnSaveGeneral.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [수정 완료]
+// [수정 완료] (거리 및 운임 저장 로직 추가)
 btnUpdateRecord.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     if (!id) return;
@@ -414,6 +425,14 @@ btnUpdateRecord.addEventListener('click', () => {
         const original = records[index];
         const newData = getFormDataWithoutTime();
         
+        // 수정 시에도 거리 정보 업데이트 (NEW)
+        if (newData.type === '화물운송' && newData.distance > 0) {
+            const routeKey = `${newData.from}-${newData.to}`;
+            const distances = JSON.parse(localStorage.getItem('saved_distances')) || {};
+            distances[routeKey] = newData.distance;
+            localStorage.setItem('saved_distances', JSON.stringify(distances));
+        }
+
         records[index] = {
             ...original,
             ...newData,
@@ -517,7 +536,6 @@ function displayTodayRecords() {
     
     todayTbody.innerHTML = '';
     
-    // 화면 표시용 리스트 (운행종료 제외)
     const displayList = dayRecords.filter(r => r.type !== '운행종료');
 
     displayList.forEach(r => {
@@ -862,7 +880,8 @@ exportJsonBtn.addEventListener('click', () => {
         locations: getSavedLocations(),
         fares: JSON.parse(localStorage.getItem('saved_fares'))||{},
         subsidy: localStorage.getItem('fuel_subsidy_limit'),
-        correction: localStorage.getItem('mileage_correction')
+        correction: localStorage.getItem('mileage_correction'),
+        distances: JSON.parse(localStorage.getItem('saved_distances'))||{}
     };
     const b = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download=`backup_${getTodayString()}.json`;
@@ -878,6 +897,7 @@ importFileInput.addEventListener('change', (e) => {
         if(d.centers) localStorage.setItem('logistics_centers', JSON.stringify(d.centers));
         if(d.locations) localStorage.setItem('saved_locations', JSON.stringify(d.locations));
         if(d.fares) localStorage.setItem('saved_fares', JSON.stringify(d.fares));
+        if(d.distances) localStorage.setItem('saved_distances', JSON.stringify(d.distances));
         if(d.subsidy) localStorage.setItem('fuel_subsidy_limit', d.subsidy);
         if(d.correction) localStorage.setItem('mileage_correction', d.correction);
         alert('복원완료'); location.reload();

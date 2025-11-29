@@ -1,4 +1,4 @@
-/** 버전: 11.3 Full | 최종 수정일: 2025-11-29 (출력 시 상하차지 너비 400px 고정) */
+/** 버전: 11.4 Full | 최종 수정일: 2025-11-29 (출력 시 상하차지 너비 50px 고정) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -391,7 +391,6 @@ btnEditEndTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-
 btnDeleteRecord.addEventListener('click', () => {
     if(confirm('정말 삭제하시겠습니까?')) {
         const id = parseInt(editIdInput.value);
@@ -550,32 +549,28 @@ function displayDailyRecords() {
     });
     
     Object.keys(recordsByDate).sort().reverse().forEach(date => {
-        const dayData = recordsByDate[date];
-        const transport = dayData.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
+        const dailyData = recordsByDate[date];
+        const transport = dailyData.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
         
         let inc = 0, exp = 0, dist = 0, count = 0;
-        dayData.records.forEach(r => {
+        dailyData.records.forEach(r => {
             if(r.type !== '운행종료' && r.type !== '이동취소') {
                 inc += (r.income||0); exp += (r.cost||0);
             }
             if(r.type === '화물운송') { dist += (r.distance||0); count++; }
         });
         
-        const day = date.substring(8, 10);
-        const dailyNet = inc - exp;
-        const duration = calculateTotalDuration(transport);
-        
         const tr = document.createElement('tr');
         if(date === getTodayString()) tr.style.fontWeight = 'bold';
         
         tr.innerHTML = `
-            <td>${parseInt(day)}일</td>
+            <td>${parseInt(date.substring(8,10))}일</td>
             <td><span class="income">${formatToManwon(inc)}</span></td>
             <td><span class="cost">${formatToManwon(exp)}</span></td>
-            <td><strong>${formatToManwon(dailyNet)}</strong></td>
+            <td><strong>${formatToManwon(inc-exp)}</strong></td>
             <td>${dist.toFixed(1)}</td>
             <td>${count}</td>
-            <td>${duration}</td>
+            <td>${calculateTotalDuration(transport)}</td>
             <td><button class="edit-btn" onclick="viewDateDetails('${date}')">상세</button></td>
         `;
         dailyTbody.appendChild(tr);
@@ -723,7 +718,7 @@ todayDatePicker.addEventListener('change', displayTodayRecords);
 prevDayBtn.addEventListener('click', () => changeDateBy(-1));
 nextDayBtn.addEventListener('click', () => changeDateBy(1));
 
-// 프린트 (상/하차지 분리, 좌측 정렬, 굵은 구분선, 폭 400px 고정)
+// 프린트 (상/하차지 50px 고정)
 function generatePrintView(year, month, period, isDetailed) {
     const records = getRecords();
     const sDay = period === 'first' ? 1 : 16;
@@ -751,7 +746,7 @@ function generatePrintView(year, month, period, isDetailed) {
         .summary{border:1px solid #ddd;padding:15px;margin-bottom:20px}
         .date-border { border-top: 2px solid #000 !important; }
         .left-align { text-align: left; padding-left: 5px; }
-        .col-location { width: 400px; }
+        .col-location { width: 50px; } 
     </style>
     </head><body><h2>${year}년 ${month}월 ${period === 'first'?'1~15일':'16~말일'} 운송내역</h2>
     <div class="summary"><p>건수: ${transport.length}건 | 거리: ${dist.toFixed(1)}km | 수입: ${formatToManwon(inc)}만 | 지출: ${formatToManwon(exp)}만 | 순수익: ${formatToManwon(inc-exp)}만</p></div>

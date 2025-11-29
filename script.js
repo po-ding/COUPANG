@@ -1,4 +1,4 @@
-/** 버전: 11.0 Full | 최종 수정일: 2025-11-29 (수정 시 시간 변경 허용 및 운행 종료 로직 확정) */
+/** 버전: 10.4 Full | 최종 수정일: 2025-11-29 (날짜 이동 버튼 오류 수정) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -148,7 +148,14 @@ let displayedSubsidyCount = 0;
 // ===============================================================
 // 2. 유틸리티 함수
 // ===============================================================
-const getTodayString = () => new Date().toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\. /g, '-').slice(0, -1);
+const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const getCurrentTimeString = () => new Date().toLocaleTimeString('ko-KR', {hour12: false, hour: '2-digit', minute: '2-digit'});
 const formatToManwon = (val) => isNaN(val) ? '0' : Math.round(val / 10000).toLocaleString('ko-KR');
 
@@ -164,7 +171,6 @@ function showToast(msg) {
 // ===============================================================
 function getRecords() { return JSON.parse(localStorage.getItem('records')) || []; }
 function saveRecords(records) {
-    // 날짜와 시간 순으로 정렬하여 저장
     records.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     localStorage.setItem('records', JSON.stringify(records));
 }
@@ -202,21 +208,18 @@ function toggleUI() {
     const type = typeSelect.value;
     const isEditMode = !editModeIndicator.classList.contains('hidden');
 
-    // 모든 섹션 숨김
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, generalActions, editActions].forEach(el => el.classList.add('hidden'));
     
-    // 타입별 UI 표시
     if (type === '화물운송') {
         transportDetails.classList.remove('hidden');
         costInfoFieldset.classList.remove('hidden');
-        costWrapper.classList.add('hidden'); // 수입만 표시
+        costWrapper.classList.add('hidden');
         incomeWrapper.classList.remove('hidden');
         
         if (!isEditMode) tripActions.classList.remove('hidden');
     } else {
-        // 그 외 (주유, 소모품, 지출)
         costInfoFieldset.classList.remove('hidden');
-        incomeWrapper.classList.add('hidden'); // 지출만 표시
+        incomeWrapper.classList.add('hidden');
         costWrapper.classList.remove('hidden');
 
         if (type === '주유소') {
@@ -236,7 +239,6 @@ function toggleUI() {
     }
 }
 
-// 시간/날짜를 제외한 폼 데이터 가져오기
 function getFormDataWithoutTime() {
     const fromValue = fromCenterInput.value.trim();
     const toValue = toCenterInput.value.trim();
@@ -265,7 +267,6 @@ function resetForm() {
     editIdInput.value = '';
     editModeIndicator.classList.add('hidden');
     
-    // 날짜/시간 현재로 리셋 및 활성화
     dateInput.value = getTodayString();
     timeInput.value = getCurrentTimeString();
     dateInput.disabled = false;
@@ -279,12 +280,11 @@ function resetForm() {
 // 5. 버튼 이벤트 핸들러
 // ===============================================================
 
-// [운행 시작]
 btnStartTrip.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
         id: Date.now(),
-        date: getTodayString(), // 무조건 현재 시간
+        date: getTodayString(),
         time: getCurrentTimeString(),
         ...formData
     };
@@ -305,12 +305,11 @@ btnStartTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [운행 종료]
 btnEndTrip.addEventListener('click', () => {
     const records = getRecords();
     records.push({
         id: Date.now(),
-        date: getTodayString(), // 무조건 현재 시간
+        date: getTodayString(),
         time: getCurrentTimeString(),
         type: '운행종료',
         distance: 0, cost: 0, income: 0
@@ -321,12 +320,11 @@ btnEndTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [기록 저장]
 btnSaveGeneral.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
         id: Date.now(),
-        date: getTodayString(), // 무조건 현재 시간
+        date: getTodayString(),
         time: getCurrentTimeString(),
         ...formData
     };
@@ -340,7 +338,6 @@ btnSaveGeneral.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [수정 완료]
 btnUpdateRecord.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     if (!id) return;
@@ -352,12 +349,11 @@ btnUpdateRecord.addEventListener('click', () => {
         const original = records[index];
         const newData = getFormDataWithoutTime();
         
-        // MODIFIED: 수정 시에는 입력창에 있는 날짜/시간 값을 사용 (수정 가능하도록)
         records[index] = {
             ...original,
             ...newData,
-            date: dateInput.value, // 입력창 값 사용
-            time: timeInput.value  // 입력창 값 사용
+            date: original.date,
+            time: original.time
         };
         
         saveRecords(records);
@@ -367,25 +363,22 @@ btnUpdateRecord.addEventListener('click', () => {
     }
 });
 
-// [수정 모드에서 종료] (현재 시간으로 종료 기록 생성)
 btnEditEndTrip.addEventListener('click', () => {
     const records = getRecords();
-    // 입력창의 시간이 아니라, 무조건 현재(GPS) 시간으로 '운행종료' 기록 추가
     records.push({
         id: Date.now(),
-        date: getTodayString(), 
+        date: getTodayString(),
         time: getCurrentTimeString(),
         type: '운행종료',
         distance: 0, cost: 0, income: 0
     });
     saveRecords(records);
     
-    showToast('현재 시간으로 종료 처리됨.');
+    showToast('종료 처리됨.');
     resetForm();
     updateAllDisplays();
 });
 
-// [삭제]
 btnDeleteRecord.addEventListener('click', () => {
     if(confirm('정말 삭제하시겠습니까?')) {
         const id = parseInt(editIdInput.value);
@@ -398,7 +391,6 @@ btnDeleteRecord.addEventListener('click', () => {
     }
 });
 
-// [취소]
 btnCancelEdit.addEventListener('click', resetForm);
 
 
@@ -423,6 +415,25 @@ function calculateTotalDuration(records) {
     return `${hours}h ${minutes}m`;
 }
 
+// MODIFIED: 날짜 변경 로직 수정
+function changeDateBy(offset) {
+    const currentVal = todayDatePicker.value;
+    if (!currentVal) return;
+
+    const [y, m, d] = currentVal.split('-').map(Number);
+    // 월은 0부터 시작하므로 -1
+    const date = new Date(y, m - 1, d);
+    
+    date.setDate(date.getDate() + offset);
+    
+    const newYear = date.getFullYear();
+    const newMonth = String(date.getMonth() + 1).padStart(2, '0');
+    const newDay = String(date.getDate()).padStart(2, '0');
+    
+    todayDatePicker.value = `${newYear}-${newMonth}-${newDay}`;
+    displayTodayRecords();
+}
+
 function displayTodayRecords() {
     const records = getRecords();
     const selectedDate = todayDatePicker.value;
@@ -432,7 +443,6 @@ function displayTodayRecords() {
     
     todayTbody.innerHTML = '';
     
-    // 화면 표시용 리스트 (운행종료 제외)
     const displayList = dayRecords.filter(r => r.type !== '운행종료');
 
     displayList.forEach(r => {
@@ -639,18 +649,14 @@ function editRecord(id) {
     const r = getRecords().find(x => x.id === id);
     if(!r) return;
     
-    // 폼에 값 채우기
     dateInput.value = r.date;
     timeInput.value = r.time;
     typeSelect.value = r.type;
-    
-    // 상세 필드
     fromCenterInput.value = r.from || '';
     toCenterInput.value = r.to || '';
     manualDistanceInput.value = r.distance || '';
     incomeInput.value = r.income ? (r.income/10000) : '';
     costInput.value = r.cost ? (r.cost/10000) : '';
-    
     fuelBrandSelect.value = r.brand || '';
     fuelLitersInput.value = r.liters || '';
     fuelUnitPriceInput.value = r.unitPrice || '';
@@ -658,19 +664,16 @@ function editRecord(id) {
     supplyItemInput.value = r.supplyItem || '';
     supplyMileageInput.value = r.mileage || '';
 
-    // UI 모드 변경
     editIdInput.value = id;
     editModeIndicator.classList.remove('hidden');
-    
-    // MODIFIED: 수정 모드에서도 사용자가 시간을 바꿀 수 있게 함 (요청사항)
-    dateInput.disabled = false;
-    timeInput.disabled = false;
+    dateInput.disabled = true; 
+    timeInput.disabled = true; 
     
     toggleUI();
     window.scrollTo(0,0);
 }
 
-// 클립보드 복사 (이벤트 위임)
+// 클립보드 복사
 todayTbody.addEventListener('click', (e) => {
     const target = e.target.closest('.location-clickable');
     if(target) {
@@ -703,8 +706,11 @@ function calcFuel() {
 }));
 typeSelect.addEventListener('change', toggleUI);
 refreshBtn.addEventListener('click', () => { resetForm(); location.reload(); });
+todayDatePicker.addEventListener('change', displayTodayRecords);
+prevDayBtn.addEventListener('click', () => changeDateBy(-1));
+nextDayBtn.addEventListener('click', () => changeDateBy(1));
 
-// 프린트 (상/하차지 분리, 좌측 정렬, 굵은 구분선)
+// 프린트
 function generatePrintView(year, month, period, isDetailed) {
     const records = getRecords();
     const sDay = period === 'first' ? 1 : 16;
@@ -715,7 +721,6 @@ function generatePrintView(year, month, period, isDetailed) {
         return r.date.startsWith(`${year}-${month}`) && d.getDate() >= sDay && d.getDate() <= eDay;
     }).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
 
-    // 통계
     const transport = target.filter(r => r.type === '화물운송');
     let inc=0, exp=0, dist=0;
     target.forEach(r => { inc += (r.income||0); exp += (r.cost||0); });
@@ -739,14 +744,13 @@ function generatePrintView(year, month, period, isDetailed) {
         if(lastDate !== '' && lastDate !== r.date) borderClass = 'class="date-border"';
         lastDate = r.date;
 
-        // 상/하차지 분리 로직
         let from = '', to = '', desc = r.type;
         if(r.from || r.to) {
             from = r.from || '';
             to = r.to || '';
-            desc = ''; // 운송 건은 내용 칸 비움
+            desc = ''; 
         } else {
-            from = r.expenseItem || r.supplyItem || r.brand || ''; // 기타 내역은 상차지 칸에 표시
+            from = r.expenseItem || r.supplyItem || r.brand || '';
         }
 
         h += `<tr ${borderClass}>
@@ -761,6 +765,7 @@ function generatePrintView(year, month, period, isDetailed) {
     h += `</tbody></table><button onclick="window.print()">인쇄</button></body></html>`;
     w.document.write(h); w.document.close();
 }
+
 printFirstHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', false));
 printSecondHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'second', false));
 printFirstHalfDetailBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', true));

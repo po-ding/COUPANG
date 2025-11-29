@@ -1,9 +1,8 @@
-/** 버전: 7.3 | 최종 수정일: 2025-11-18 (자동완성 UI 적용 및 기능 안정화) */
+/** 버전: 7.5 | 최종 수정일: 2025-11-18 (기록 수정 시 시간 보존 로직 수정) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
 const clearBtn = document.getElementById('clear-btn');
-const exportCsvBtn = document.getElementById('export-csv-btn');
 const exportJsonBtn = document.getElementById('export-json-btn');
 const importJsonBtn = document.getElementById('import-json-btn');
 const importFileInput = document.getElementById('import-file-input');
@@ -802,34 +801,12 @@ function getFormData(isNew = false) {
     if (isNew) formData.id = Date.now();
     return formData;
 }
-function exportToCsv() {
-    const records = JSON.parse(localStorage.getItem('records')) || [];
-    if (records.length === 0) return void showToast('저장할 기록이 없습니다.');
-    const headers = ['날짜', '시간', '구분', '출발지', '도착지', '운행거리(km)', '수입(원)', '지출(원)', '주유량(L)', '단가(원/L)', '주유브랜드', '요소수주입량(L)', '요소수단가(원/L)', '요소수주입처', '소모품내역', '교체시점(km)'];
-    const escapeCsvCell = cell => {
-        if (cell == null) return '';
-        const str = String(cell);
-        return str.includes(',') ? `"${str}"` : str;
-    };
-    const csvRows = [headers.join(',')];
-    records.forEach(r => {
-        const row = [r.date, r.time, r.type, r.from, r.to, r.distance, r.income, r.cost, r.liters, r.unitPrice, r.brand, r.ureaLiters, r.ureaUnitPrice, r.ureaStation, r.supplyItem, r.mileage];
-        csvRows.push(row.map(escapeCsvCell).join(','))
-    });
-    const csvString = "" + csvRows.join('\n');
-    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `운행기록_백업_${(new Date).toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('엑셀(CSV) 파일로 저장되었습니다!');
-}
 function exportToJson() {
     const backupData = {
         records: JSON.parse(localStorage.getItem('records') || '[]'),
         centers: getCenters(),
         saved_locations: getSavedLocations(),
+        saved_fares: JSON.parse(localStorage.getItem('saved_fares') || '{}'),
         mileage_correction: parseFloat(localStorage.getItem('mileage_correction')) || 0,
         fuel_subsidy_limit: parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0
     };
@@ -880,6 +857,7 @@ function importFromJson(event) {
                 localStorage.setItem('records', JSON.stringify(data.records));
                 if (Array.isArray(data.centers)) localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
                 if (data.saved_locations) localStorage.setItem('saved_locations', JSON.stringify(data.saved_locations));
+                if (data.saved_fares) localStorage.setItem('saved_fares', JSON.stringify(data.saved_fares));
                 if (data.mileage_correction) localStorage.setItem('mileage_correction', data.mileage_correction);
                 if (data.fuel_subsidy_limit) localStorage.setItem('fuel_subsidy_limit', data.fuel_subsidy_limit);
             } else if (Array.isArray(data)) {
@@ -992,21 +970,31 @@ recordForm.addEventListener("submit", function(event) {
     const action = this.submitAction.value;
     const editingId = parseInt(editIdInput.value);
     
-    if (action === 'start' || action === 'end' || action === 'end-edit') {
-        dateInput.value = getTodayString();
-        timeInput.value = getCurrentTimeString();
-    }
-
     let records = JSON.parse(localStorage.getItem('records')) || [];
     let toastMessage = '';
 
     if (editingId) {
         const recordIndex = records.findIndex(r => r.id === editingId);
         if (recordIndex > -1) {
-            records[recordIndex] = { ...getFormData(), id: editingId }; // Keep original ID
-            toastMessage = action === 'end-edit' ? '운행이 종료 기록되었습니다.' : '기록이 수정되었습니다.';
+            const originalRecord = records[recordIndex];
+            const formData = getFormData();
+
+            if (action === 'edit') {
+                formData.date = originalRecord.date;
+                formData.time = originalRecord.time;
+                toastMessage = '기록이 수정되었습니다.';
+            } else if (action === 'end-edit') {
+                formData.date = getTodayString();
+                formData.time = getCurrentTimeString();
+                toastMessage = '운행이 종료 기록되었습니다.';
+            }
+            
+            records[recordIndex] = { ...formData, id: editingId };
         }
     } else {
+        dateInput.value = getTodayString();
+        timeInput.value = getCurrentTimeString();
+        
         const newRecord = getFormData(true);
         if (newRecord.type === '화물운송' && newRecord.income > 0) {
             const fareKey = `${newRecord.from}-${newRecord.to}`;
@@ -1076,7 +1064,6 @@ mileageCorrectionSaveBtn.addEventListener("click", () => {
     showToast(`주행거리 보정값이 ${correction} km로 저장되었습니다.`);
     displayCumulativeData();
 });
-exportCsvBtn.addEventListener("click", exportToCsv);
 exportJsonBtn.addEventListener("click", exportToJson);
 importJsonBtn.addEventListener("click", () => importFileInput.click());
 importFileInput.addEventListener("change", importFromJson);

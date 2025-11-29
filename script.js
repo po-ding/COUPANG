@@ -13,22 +13,22 @@ const centerDatalist = document.getElementById('center-list');
 const manualDistanceInput = document.getElementById('manual-distance');
 const addressDisplay = document.getElementById('address-display');
 
-// 상세 입력 섹션
+// 상세 입력 필드들
 const transportDetails = document.getElementById('transport-details');
 const fuelDetails = document.getElementById('fuel-details');
-const expenseDetails = document.getElementById('expense-details');
-const supplyDetails = document.getElementById('supply-details');
-const costInfoFieldset = document.getElementById('cost-info-fieldset');
-const costWrapper = document.getElementById('cost-wrapper');
-const incomeWrapper = document.getElementById('income-wrapper');
-
-// 입력 필드들
 const fuelUnitPriceInput = document.getElementById('fuel-unit-price');
 const fuelLitersInput = document.getElementById('fuel-liters');
 const fuelBrandSelect = document.getElementById('fuel-brand');
+const expenseDetails = document.getElementById('expense-details');
 const expenseItemInput = document.getElementById('expense-item');
+const supplyDetails = document.getElementById('supply-details');
 const supplyItemInput = document.getElementById('supply-item');
 const supplyMileageInput = document.getElementById('supply-mileage');
+
+// 비용 관련
+const costInfoFieldset = document.getElementById('cost-info-fieldset');
+const costWrapper = document.getElementById('cost-wrapper');
+const incomeWrapper = document.getElementById('income-wrapper');
 const costInput = document.getElementById('cost');
 const incomeInput = document.getElementById('income');
 
@@ -40,17 +40,17 @@ const editActions = document.getElementById('edit-actions');
 // 실제 실행 버튼들
 const btnStartTrip = document.getElementById('btn-start-trip');
 const btnEndTrip = document.getElementById('btn-end-trip');
-const btnSaveGeneral = document.getElementById('btn-save-general'); // 수정된 ID
+const btnSaveGeneral = document.getElementById('btn-save-general');
 const btnEditEndTrip = document.getElementById('btn-edit-end-trip');
 const btnUpdateRecord = document.getElementById('btn-update-record');
 const btnDeleteRecord = document.getElementById('btn-delete-record');
 const btnCancelEdit = document.getElementById('btn-cancel-edit');
 
-// 상태 표시
+// 상태 표시 및 ID
 const editModeIndicator = document.getElementById('edit-mode-indicator');
 const editIdInput = document.getElementById('edit-id');
 
-// 페이지 네비게이션
+// 페이지 및 탭
 const mainPage = document.getElementById('main-page');
 const settingsPage = document.getElementById('settings-page');
 const goToSettingsBtn = document.getElementById('go-to-settings-btn');
@@ -59,36 +59,28 @@ const refreshBtn = document.getElementById('refresh-btn');
 const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
 
-// 조회 및 통계 관련 DOM
+// 조회 관련
 const todayDatePicker = document.getElementById('today-date-picker');
 const todaySummaryDiv = document.getElementById('today-summary');
 const todayTbody = document.querySelector('#today-records-table tbody');
 const prevDayBtn = document.getElementById('prev-day-btn');
 const nextDayBtn = document.getElementById('next-day-btn');
 
-// ... (기타 통계용 Select, Div 생략 없이 모두 포함)
 const dailyYearSelect = document.getElementById('daily-year-select');
 const dailyMonthSelect = document.getElementById('daily-month-select');
 const dailySummaryDiv = document.getElementById('daily-summary');
 const dailyTbody = document.querySelector('#daily-summary-table tbody');
+
 const weeklyYearSelect = document.getElementById('weekly-year-select');
 const weeklyMonthSelect = document.getElementById('weekly-month-select');
 const weeklySummaryDiv = document.getElementById('weekly-summary');
 const weeklyTbody = document.querySelector('#weekly-summary-table tbody');
+
 const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyYearlySummaryDiv = document.getElementById('monthly-yearly-summary');
 const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
 
-// 설정 페이지 요소
-const toggleCenterManagementBtn = document.getElementById('toggle-center-management');
-const centerManagementBody = document.getElementById('center-management-body');
-const centerListContainer = document.getElementById('center-list-container');
-const newCenterNameInput = document.getElementById('new-center-name');
-const newCenterAddressInput = document.getElementById('new-center-address');
-const newCenterMemoInput = document.getElementById('new-center-memo');
-const addCenterBtn = document.getElementById('add-center-btn');
-
-const togglePrintManagementBtn = document.getElementById('toggle-print-management');
+// 설정 페이지 내 요소
 const printYearSelect = document.getElementById('print-year-select');
 const printMonthSelect = document.getElementById('print-month-select');
 const printFirstHalfBtn = document.getElementById('print-first-half-btn');
@@ -96,34 +88,25 @@ const printSecondHalfBtn = document.getElementById('print-second-half-btn');
 const printFirstHalfDetailBtn = document.getElementById('print-first-half-detail-btn');
 const printSecondHalfDetailBtn = document.getElementById('print-second-half-detail-btn');
 
-const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
-const batchApplyBtn = document.getElementById('batch-apply-btn');
-const batchFromCenterInput = document.getElementById('batch-from-center');
-const batchToCenterInput = document.getElementById('batch-to-center');
-const batchIncomeInput = document.getElementById('batch-income');
-const batchStatus = document.getElementById('batch-status');
+const newCenterNameInput = document.getElementById('new-center-name');
+const newCenterAddressInput = document.getElementById('new-center-address');
+const newCenterMemoInput = document.getElementById('new-center-memo');
+const addCenterBtn = document.getElementById('add-center-btn');
+const centerListContainer = document.getElementById('center-list-container');
 
-const toggleSubsidyManagementBtn = document.getElementById('toggle-subsidy-management');
-const subsidyLimitInput = document.getElementById('subsidy-limit');
-const subsidySaveBtn = document.getElementById('subsidy-save-btn');
-const subsidySummaryDiv = document.getElementById('subsidy-summary');
-const subsidyRecordsContainer = document.getElementById('subsidy-records-container');
-const subsidyRecordsList = document.getElementById('subsidy-records-list');
-const subsidyLoadMoreContainer = document.getElementById('subsidy-load-more-container');
-
-const toggleMileageManagementBtn = document.getElementById('toggle-mileage-management');
-const mileageCorrectionInput = document.getElementById('mileage-correction');
-const mileageCorrectionSaveBtn = document.getElementById('mileage-correction-save-btn');
-const mileageSummaryControls = document.getElementById('mileage-summary-controls');
-const mileageSummaryCards = document.getElementById('mileage-summary-cards');
-
-const toggleDataManagementBtn = document.getElementById('toggle-data-management');
 const exportJsonBtn = document.getElementById('export-json-btn');
 const importJsonBtn = document.getElementById('import-json-btn');
 const importFileInput = document.getElementById('import-file-input');
 const clearBtn = document.getElementById('clear-btn');
 
-// 통계 카드 요소들
+// 설정값
+const mileageCorrectionInput = document.getElementById('mileage-correction');
+const mileageCorrectionSaveBtn = document.getElementById('mileage-correction-save-btn');
+const subsidyLimitInput = document.getElementById('subsidy-limit');
+const subsidySaveBtn = document.getElementById('subsidy-save-btn');
+const subsidySummaryDiv = document.getElementById('subsidy-summary');
+const mileageSummaryCards = document.getElementById('mileage-summary-cards');
+const mileageSummaryControls = document.getElementById('mileage-summary-controls');
 const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
 const currentMonthTripCount = document.getElementById('current-month-trip-count');
@@ -141,6 +124,19 @@ const cumulativeExpense = document.getElementById('cumulative-expense');
 const cumulativeNetIncome = document.getElementById('cumulative-net-income');
 const cumulativeAvgEconomy = document.getElementById('cumulative-avg-economy');
 const cumulativeCostPerKm = document.getElementById('cumulative-cost-per-km');
+const toggleCenterManagementBtn = document.getElementById('toggle-center-management');
+const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
+const toggleSubsidyManagementBtn = document.getElementById('toggle-subsidy-management');
+const toggleMileageManagementBtn = document.getElementById('toggle-mileage-management');
+const toggleDataManagementBtn = document.getElementById('toggle-data-management');
+const togglePrintManagementBtn = document.getElementById('toggle-print-management');
+
+// 일괄 적용 관련
+const batchApplyBtn = document.getElementById('batch-apply-btn');
+const batchFromCenterInput = document.getElementById('batch-from-center');
+const batchToCenterInput = document.getElementById('batch-to-center');
+const batchIncomeInput = document.getElementById('batch-income');
+const batchStatus = document.getElementById('batch-status');
 
 
 // ===============================================================
@@ -162,6 +158,7 @@ function showToast(msg) {
 // ===============================================================
 function getRecords() { return JSON.parse(localStorage.getItem('records')) || []; }
 function saveRecords(records) {
+    // 날짜와 시간 순으로 정렬하여 저장
     records.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     localStorage.setItem('records', JSON.stringify(records));
 }
@@ -174,8 +171,7 @@ function getCenters() {
 function saveLocationData(centerName, data) {
     if (!centerName) return;
     const locations = getSavedLocations();
-    // 기존 데이터 유지하며 병합
-    locations[centerName] = { ...(locations[centerName] || {}), ...data };
+    locations[centerName] = { ...locations[centerName], ...data };
     localStorage.setItem('saved_locations', JSON.stringify(locations));
 }
 function addCenter(newCenter, address = '', memo = '') {
@@ -258,6 +254,7 @@ function resetForm() {
     editIdInput.value = '';
     editModeIndicator.classList.add('hidden');
     
+    // 날짜/시간 현재로 리셋 및 활성화
     dateInput.value = getTodayString();
     timeInput.value = getCurrentTimeString();
     dateInput.disabled = false;
@@ -268,7 +265,7 @@ function resetForm() {
 }
 
 // ===============================================================
-// 5. 버튼 이벤트 핸들러 (명확하게 분리)
+// 5. 버튼 이벤트 핸들러
 // ===============================================================
 
 // [운행 시작]
@@ -281,7 +278,6 @@ btnStartTrip.addEventListener('click', () => {
         ...formData
     };
     
-    // 운임 저장
     if (formData.type === '화물운송' && formData.income > 0) {
         const fareKey = `${formData.from}-${formData.to}`;
         const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
@@ -445,10 +441,9 @@ function displayTodayRecords() {
 
         let content = '';
         if(r.type === '화물운송') {
-             // 주소 복사를 위한 data-center 속성 추가
-             const fromVal = (r.from||'').replace(/"/g, '&quot;');
-             const toVal = (r.to||'').replace(/"/g, '&quot;');
-             content = `<strong class="location-clickable" data-center="${fromVal}">${r.from}</strong> → <strong class="location-clickable" data-center="${toVal}">${r.to}</strong>`;
+             const fromSafe = (r.from||'').replace(/"/g, '&quot;');
+             const toSafe = (r.to||'').replace(/"/g, '&quot;');
+             content = `<strong class="location-clickable" data-center="${fromSafe}">${r.from}</strong> → <strong class="location-clickable" data-center="${toSafe}">${r.to}</strong>`;
              if(r.distance) content += `<br><span class="note">${r.distance} km</span>`;
         } else {
             content = `<strong>${r.type}</strong><br><span class="note">${r.expenseItem || r.supplyItem || r.brand || ''}</span>`;

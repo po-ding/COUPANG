@@ -1,4 +1,4 @@
-/** 버전: 7.6 | 최종 수정일: 2025-11-18 (기간별 운송 내역 출력 기능 추가) */
+/** 버전: 7.6 | 최종 수정일: 2025-11-18 (수정 시 시간 보존 로직 수정 및 출력 기능 분리) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -118,7 +118,8 @@ const printYearSelect = document.getElementById('print-year-select');
 const printMonthSelect = document.getElementById('print-month-select');
 const printFirstHalfBtn = document.getElementById('print-first-half-btn');
 const printSecondHalfBtn = document.getElementById('print-second-half-btn');
-
+const printFirstHalfDetailBtn = document.getElementById('print-first-half-detail-btn');
+const printSecondHalfDetailBtn = document.getElementById('print-second-half-detail-btn');
 
 const SUBSIDY_PAGE_SIZE = 10;
 let displayedSubsidyCount = 0;
@@ -1270,7 +1271,7 @@ function displaySubsidyRecords(loadMore = false) {
     }
 }
 
-function generatePrintView(year, month, period) {
+function generatePrintView(year, month, period, isDetailed) {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
     const startDate = (period === 'first') ? 1 : 16;
     const endDate = (period === 'first') ? 15 : 31;
@@ -1280,66 +1281,73 @@ function generatePrintView(year, month, period) {
         const recordDate = new Date(r.date + "T00:00:00");
         const recordDay = recordDate.getDate();
         return r.date.startsWith(`${year}-${month}`) &&
-               ['화물운송', '공차이동'].includes(r.type) &&
                recordDay >= startDate && recordDay <= endDate;
     }).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
 
+    const transportRecords = filteredRecords.filter(r => ['화물운송', '공차이동'].includes(r.type));
     let totalIncome = 0;
+    let totalExpense = 0;
     let totalDistance = 0;
-
+    
     filteredRecords.forEach(r => {
         totalIncome += r.income || 0;
-        totalDistance += r.distance || 0;
+        totalExpense += r.cost || 0;
+        if (['화물운송', '공차이동'].includes(r.type)) {
+            totalDistance += r.distance || 0;
+        }
     });
 
     const printWindow = window.open('', '_blank');
-    const html = `
+    let html = `
         <html>
             <head>
                 <title>운송 내역 출력 (${year}년 ${month}월)</title>
                 <style>
                     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 20px; }
                     h1, h2 { text-align: center; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+                    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
                     th { background-color: #f2f2f2; }
                     .summary { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; }
                     .summary p { margin: 5px 0; }
                     .print-btn { display: block; margin: 20px auto; padding: 10px 20px; font-size: 16px; }
-                    @media print {
-                        .print-btn { display: none; }
-                    }
+                    @media print { .print-btn { display: none; } }
                 </style>
             </head>
             <body>
                 <button class="print-btn" onclick="window.print()">이 페이지 인쇄하기</button>
-                <h1>운송 내역</h1>
+                <h1>운송 내역 (${isDetailed ? '상세' : '간편'})</h1>
                 <h2>기간: ${year}년 ${month}월 ${periodStr}</h2>
-
                 <div class="summary">
-                    <p><strong>총 운행 건수:</strong> ${filteredRecords.length} 건</p>
+                    <p><strong>총 운행 건수:</strong> ${transportRecords.length} 건</p>
+                    ${isDetailed ? `
                     <p><strong>총 운행 거리:</strong> ${totalDistance.toFixed(1)} km</p>
-                    <p><strong>총 운임 수입:</strong> ${totalIncome.toLocaleString('ko-KR')} 원</p>
+                    <p><strong>총 수입:</strong> ${totalIncome.toLocaleString('ko-KR')} 원</p>
+                    <p><strong>총 지출:</strong> ${totalExpense.toLocaleString('ko-KR')} 원</p>
+                    <p><strong>정산 금액:</strong> ${(totalIncome - totalExpense).toLocaleString('ko-KR')} 원</p>
+                    ` : ''}
                 </div>
-
                 <table>
                     <thead>
                         <tr>
+                            ${isDetailed ? '<th>시간</th>' : ''}
                             <th>날짜</th>
-                            <th>구분</th>
                             <th>상/하차 정보</th>
-                            <th>거리(km)</th>
-                            <th>운임(원)</th>
+                            ${isDetailed ? '<th>거리(km)</th><th>수입(원)</th><th>지출(원)</th><th>항목</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredRecords.map(r => `
+                        ${(isDetailed ? filteredRecords : transportRecords).map(r => `
                             <tr>
+                                ${isDetailed ? `<td>${r.time}</td>` : ''}
                                 <td>${r.date}</td>
-                                <td>${r.type}</td>
-                                <td>${r.from} → ${r.to}</td>
-                                <td>${r.distance}</td>
+                                <td>${r.from ? `${r.from} → ${r.to}`: r.type}</td>
+                                ${isDetailed ? `
+                                <td>${r.distance || '-'}</td>
                                 <td>${(r.income || 0).toLocaleString('ko-KR')}</td>
+                                <td>${(r.cost || 0).toLocaleString('ko-KR')}</td>
+                                <td>${r.supplyItem || r.type}</td>
+                                ` : ''}
                             </tr>
                         `).join('')}
                     </tbody>
@@ -1351,12 +1359,9 @@ function generatePrintView(year, month, period) {
     printWindow.document.close();
 }
 
-printFirstHalfBtn.addEventListener('click', () => {
-    generatePrintView(printYearSelect.value, printMonthSelect.value, 'first');
-});
-
-printSecondHalfBtn.addEventListener('click', () => {
-    generatePrintView(printYearSelect.value, printMonthSelect.value, 'second');
-});
+printFirstHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', false));
+printSecondHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'second', false));
+printFirstHalfDetailBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', true));
+printSecondHalfDetailBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'second', true));
 
 document.addEventListener("DOMContentLoaded", initialSetup);

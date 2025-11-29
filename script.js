@@ -801,169 +801,6 @@ function getFormData(isNew = false) {
     if (isNew) formData.id = Date.now();
     return formData;
 }
-function exportToJson() {
-    const backupData = {
-        records: JSON.parse(localStorage.getItem('records') || '[]'),
-        centers: getCenters(),
-        saved_locations: getSavedLocations(),
-        saved_fares: JSON.parse(localStorage.getItem('saved_fares') || '{}'),
-        mileage_correction: parseFloat(localStorage.getItem('mileage_correction')) || 0,
-        fuel_subsidy_limit: parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0
-    };
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `운행기록_백업_${(new Date).toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('JSON 파일로 저장(백업)되었습니다!');
-}
-function importFromJson(event) {
-    if (!confirm('경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
-        event.target.value = ''; return;
-    }
-    const file = event.target.files[0];
-    if (!file) { event.target.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const content = e.target.result;
-            const data = JSON.parse(content);
-            if (data.saved_locations && typeof data.saved_locations === 'object') {
-                const migratedLocations = {};
-                for (const centerName in data.saved_locations) {
-                    const locationData = data.saved_locations[centerName];
-                    let finalAddress = '', finalMemo = '';
-                    if (typeof locationData === 'object' && locationData !== null) {
-                        finalAddress = locationData.address || '';
-                        finalMemo = locationData.memo || '';
-                    } else if (typeof locationData === 'string') {
-                        finalAddress = locationData;
-                    }
-                    const memoKeywords = ['메모:', '참고:', '비고:'];
-                    for (const keyword of memoKeywords) {
-                        if (finalAddress.includes(keyword)) {
-                            const parts = finalAddress.split(keyword);
-                            finalAddress = parts[0].trim();
-                            if (!finalMemo) finalMemo = parts.slice(1).join(keyword).trim();
-                            break;
-                        }
-                    }
-                    migratedLocations[centerName] = { address: finalAddress, memo: finalMemo };
-                }
-                data.saved_locations = migratedLocations;
-            }
-            if (data && Array.isArray(data.records)) {
-                localStorage.setItem('records', JSON.stringify(data.records));
-                if (Array.isArray(data.centers)) localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
-                if (data.saved_locations) localStorage.setItem('saved_locations', JSON.stringify(data.saved_locations));
-                if (data.saved_fares) localStorage.setItem('saved_fares', JSON.stringify(data.saved_fares));
-                if (data.mileage_correction) localStorage.setItem('mileage_correction', data.mileage_correction);
-                if (data.fuel_subsidy_limit) localStorage.setItem('fuel_subsidy_limit', data.fuel_subsidy_limit);
-            } else if (Array.isArray(data)) {
-                localStorage.setItem('records', JSON.stringify(data));
-            } else {
-                throw new Error('Invalid file format');
-            }
-            alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
-            location.reload();
-        } catch (error) {
-            console.error('Import Error:', error);
-            alert('오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.');
-        } finally {
-            event.target.value = '';
-        }
-    };
-    reader.readAsText(file);
-}
-function displayCenterList() {
-    centerListContainer.innerHTML = "";
-    const centers = getCenters();
-    const locations = getSavedLocations();
-    if (centers.length === 0) return void(centerListContainer.innerHTML = '<p class="note">등록된 지역이 없습니다.</p>');
-    centers.forEach(center => {
-        const locationData = locations[center] || { address: "", memo: "" };
-        const address = locationData.address || "", memo = locationData.memo || "";
-        const item = document.createElement("div");
-        item.className = "center-item";
-        item.dataset.centerName = center;
-        item.innerHTML = `<div class="info"><span class="center-name">${center}</span><div class="action-buttons"><button class="edit-btn">수정</button><button class="delete-btn">삭제</button></div></div>${address?`<span class="note">주소: ${address}</span>`:""}${memo?`<span class="note">메모: ${memo}</span>`:""}`;
-        centerListContainer.appendChild(item);
-    });
-}
-function deleteCenter(centerNameToDelete) {
-    if (confirm(`'${centerNameToDelete}' 지역을 목록에서 정말 삭제하시겠습니까?\n(기존 기록은 변경되지 않습니다.)`)) {
-        let centers = getCenters(), locations = getSavedLocations();
-        centers = centers.filter(c => c !== centerNameToDelete);
-        delete locations[centerNameToDelete];
-        localStorage.setItem('logistics_centers', JSON.stringify(centers));
-        localStorage.setItem('saved_locations', JSON.stringify(locations));
-        refreshCenterUI();
-    }
-}
-function handleCenterEdit(e) {
-    const item = e.target.closest(".center-item");
-    const originalName = item.dataset.centerName;
-    const locations = getSavedLocations();
-    const originalData = locations[originalName] || { address: "", memo: "" };
-    const originalAddress = originalData.address || "", originalMemo = originalData.memo || "";
-    item.innerHTML = `<div class="edit-form"><input type="text" class="edit-input" value="${originalName}" placeholder="지역 이름"><input type="text" class="edit-address-input" value="${originalAddress}" placeholder="주소 (선택)"><input type="text" class="edit-memo-input" value="${originalMemo}" placeholder="메모 (선택)"><div class="action-buttons"><button class="setting-save-btn">저장</button><button class="cancel-edit-btn">취소</button></div></div>`;
-    item.querySelector(".setting-save-btn").onclick = () => saveCenterEdit(item, originalName);
-    item.querySelector(".cancel-edit-btn").onclick = () => refreshCenterUI();
-    item.querySelector(".edit-input").focus();
-}
-function saveCenterEdit(item, originalName) {
-    const newName = item.querySelector(".edit-input").value.trim();
-    const newAddress = item.querySelector(".edit-address-input").value.trim();
-    const newMemo = item.querySelector(".edit-memo-input").value.trim();
-    if (!newName) return void alert("지역 이름은 비워둘 수 없습니다.");
-    let centers = getCenters(), locations = getSavedLocations();
-    if (centers.includes(newName) && newName !== originalName) return void alert("이미 존재하는 지역 이름입니다.");
-    centers = centers.map(c => c === originalName ? newName : c);
-    localStorage.setItem('logistics_centers', JSON.stringify(centers));
-    delete locations[originalName];
-    locations[newName] = { address: newAddress, memo: newMemo };
-    localStorage.setItem('saved_locations', JSON.stringify(locations));
-    let records = JSON.parse(localStorage.getItem('records')) || [];
-    records = records.map(r => {
-        if (r.from === originalName) r.from = newName;
-        if (r.to === originalName) r.to = newName;
-        return r;
-    });
-    localStorage.setItem('records', JSON.stringify(records));
-    refreshCenterUI();
-    updateAllDisplays();
-}
-function refreshCenterUI() {
-    displayCenterList();
-    populateCenterDatalist();
-}
-function updateCentersFromRecords() {
-    const records = JSON.parse(localStorage.getItem('records')) || [];
-    if (records.length === 0) return;
-    const centers = getCenters();
-    const centerSet = new Set(centers);
-    let needsUpdate = false;
-    records.forEach(r => {
-        if (r.from && !centerSet.has(r.from)) { centerSet.add(r.from); centers.push(r.from); needsUpdate = true }
-        if (r.to && !centerSet.has(r.to)) { centerSet.add(r.to); centers.push(r.to); needsUpdate = true }
-    });
-    if (needsUpdate) localStorage.setItem('logistics_centers', JSON.stringify(centers));
-}
-
-function saveFormState() {
-    const state = { date: dateInput.value, time: timeInput.value, type: typeSelect.value, from: fromCenterInput.value, to: toCenterInput.value, manualDistance: manualDistanceInput.value, fuelUnitPrice: fuelUnitPriceInput.value, fuelLiters: fuelLitersInput.value, fuelBrand: fuelBrandSelect.value, ureaUnitPrice: ureaUnitPriceInput.value, ureaLiters: ureaLitersInput.value, ureaStation: ureaStationInput.value, supplyItem: supplyItemInput.value, supplyMileage: supplyMileageInput.value, cost: costInput.value, income: incomeInput.value };
-    sessionStorage.setItem('unsavedRecordForm', JSON.stringify(state));
-}
-function loadFormState() {
-    const savedStateJSON = sessionStorage.getItem('unsavedRecordForm');
-    if (!savedStateJSON) return;
-    const state = JSON.parse(savedStateJSON);
-    if (!state) return;
-    dateInput.value = state.date; timeInput.value = state.time; typeSelect.value = state.type; fromCenterInput.value = state.from; toCenterInput.value = state.to; manualDistanceInput.value = state.manualDistance; fuelUnitPriceInput.value = state.fuelUnitPrice; fuelLitersInput.value = state.fuelLiters; fuelBrandSelect.value = state.fuelBrand; ureaUnitPriceInput.value = state.ureaUnitPrice; ureaLitersInput.value = state.ureaLiters; ureaStationInput.value = state.ureaStation; supplyItemInput.value = state.supplyItem; supplyMileageInput.value = state.supplyMileage; costInput.value = state.cost; incomeInput.value = state.income;
-    toggleUI(typeSelect.value);
-    updateAddressDisplay();
-}
 
 recordForm.addEventListener("submit", function(event) {
     event.preventDefault();
@@ -973,25 +810,27 @@ recordForm.addEventListener("submit", function(event) {
     let records = JSON.parse(localStorage.getItem('records')) || [];
     let toastMessage = '';
 
-    if (editingId) {
+    if (editingId) { // 수정 모드일 때
         const recordIndex = records.findIndex(r => r.id === editingId);
         if (recordIndex > -1) {
             const originalRecord = records[recordIndex];
             const formData = getFormData();
-
+            
+            // '수정' 버튼은 시간 정보를 보존
             if (action === 'edit') {
                 formData.date = originalRecord.date;
                 formData.time = originalRecord.time;
                 toastMessage = '기록이 수정되었습니다.';
-            } else if (action === 'end-edit') {
+            } 
+            // '운행 종료' 버튼은 현재 시간으로 덮어쓰기
+            else if (action === 'end-edit') {
                 formData.date = getTodayString();
                 formData.time = getCurrentTimeString();
                 toastMessage = '운행이 종료 기록되었습니다.';
             }
-            
             records[recordIndex] = { ...formData, id: editingId };
         }
-    } else {
+    } else { // 새 기록 모드일 때
         dateInput.value = getTodayString();
         timeInput.value = getCurrentTimeString();
         

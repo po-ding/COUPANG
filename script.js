@@ -1,4 +1,4 @@
-/** 버전: 11.4 Full | 최종 수정일: 2025-11-29 (출력 시 상하차지 너비 50px 고정) */
+/** 버전: 11.5 Full | 최종 수정일: 2025-11-29 (출력 너비 조정: 날짜 50px, 상하차 150px) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -208,8 +208,10 @@ function toggleUI() {
     const type = typeSelect.value;
     const isEditMode = !editModeIndicator.classList.contains('hidden');
 
+    // 모든 섹션 숨김
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, generalActions, editActions].forEach(el => el.classList.add('hidden'));
     
+    // 타입별 UI 표시
     if (type === '화물운송') {
         transportDetails.classList.remove('hidden');
         costInfoFieldset.classList.remove('hidden');
@@ -239,6 +241,7 @@ function toggleUI() {
     }
 }
 
+// 시간/날짜를 제외한 폼 데이터 가져오기
 function getFormDataWithoutTime() {
     const fromValue = fromCenterInput.value.trim();
     const toValue = toCenterInput.value.trim();
@@ -267,6 +270,7 @@ function resetForm() {
     editIdInput.value = '';
     editModeIndicator.classList.add('hidden');
     
+    // 날짜/시간 현재로 리셋 및 활성화
     dateInput.value = getTodayString();
     timeInput.value = getCurrentTimeString();
     dateInput.disabled = false;
@@ -280,6 +284,7 @@ function resetForm() {
 // 5. 버튼 이벤트 핸들러
 // ===============================================================
 
+// [운행 시작]
 btnStartTrip.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -305,6 +310,7 @@ btnStartTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
+// [운행 종료]
 btnEndTrip.addEventListener('click', () => {
     const records = getRecords();
     records.push({
@@ -320,6 +326,7 @@ btnEndTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
+// [기록 저장] (주유, 지출 등)
 btnSaveGeneral.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -338,6 +345,7 @@ btnSaveGeneral.addEventListener('click', () => {
     updateAllDisplays();
 });
 
+// [수정 완료] (기존 시간 유지!)
 btnUpdateRecord.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     if (!id) return;
@@ -352,6 +360,7 @@ btnUpdateRecord.addEventListener('click', () => {
         records[index] = {
             ...original,
             ...newData,
+            // 핵심: 날짜와 시간은 원본 그대로 사용
             date: original.date,
             time: original.time
         };
@@ -363,6 +372,7 @@ btnUpdateRecord.addEventListener('click', () => {
     }
 });
 
+// [수정 모드에서 종료] (GPS 시간으로 덮어쓰기)
 btnEditEndTrip.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     let records = getRecords();
@@ -371,11 +381,13 @@ btnEditEndTrip.addEventListener('click', () => {
 
     const index = records.findIndex(r => r.id === id);
 
+    // 만약 현재 수정 중인 기록이 이미 '운행종료' 타입이라면 -> GPS 시간으로 업데이트
     if (index !== -1 && records[index].type === '운행종료') {
         records[index].date = nowDate;
         records[index].time = nowTime;
         showToast('해당 종료 기록이 현재 시간으로 수정되었습니다.');
     } else {
+        // 다른 기록을 수정하다가 '운행종료'를 누른 경우 -> 새로운 종료 기록 추가
         records.push({
             id: Date.now(),
             date: nowDate,
@@ -391,6 +403,7 @@ btnEditEndTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
+// [삭제]
 btnDeleteRecord.addEventListener('click', () => {
     if(confirm('정말 삭제하시겠습니까?')) {
         const id = parseInt(editIdInput.value);
@@ -403,6 +416,7 @@ btnDeleteRecord.addEventListener('click', () => {
     }
 });
 
+// [취소]
 btnCancelEdit.addEventListener('click', resetForm);
 
 
@@ -427,15 +441,20 @@ function calculateTotalDuration(records) {
     return `${hours}h ${minutes}m`;
 }
 
+// 날짜 이동 로직
 function changeDateBy(offset) {
     const currentVal = todayDatePicker.value;
     if (!currentVal) return;
+
     const [y, m, d] = currentVal.split('-').map(Number);
     const date = new Date(y, m - 1, d);
+    
     date.setDate(date.getDate() + offset);
+    
     const newYear = date.getFullYear();
     const newMonth = String(date.getMonth() + 1).padStart(2, '0');
     const newDay = String(date.getDate()).padStart(2, '0');
+    
     todayDatePicker.value = `${newYear}-${newMonth}-${newDay}`;
     displayTodayRecords();
 }
@@ -449,6 +468,7 @@ function displayTodayRecords() {
     
     todayTbody.innerHTML = '';
     
+    // 화면 표시용 리스트 (운행종료 제외)
     const displayList = dayRecords.filter(r => r.type !== '운행종료');
 
     displayList.forEach(r => {
@@ -549,28 +569,32 @@ function displayDailyRecords() {
     });
     
     Object.keys(recordsByDate).sort().reverse().forEach(date => {
-        const dailyData = recordsByDate[date];
-        const transport = dailyData.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
+        const dayData = recordsByDate[date];
+        const transport = dayData.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
         
         let inc = 0, exp = 0, dist = 0, count = 0;
-        dailyData.records.forEach(r => {
+        dayData.records.forEach(r => {
             if(r.type !== '운행종료' && r.type !== '이동취소') {
                 inc += (r.income||0); exp += (r.cost||0);
             }
             if(r.type === '화물운송') { dist += (r.distance||0); count++; }
         });
         
+        const day = date.substring(8, 10);
+        const dailyNet = inc - exp;
+        const duration = calculateTotalDuration(transport);
+        
         const tr = document.createElement('tr');
         if(date === getTodayString()) tr.style.fontWeight = 'bold';
         
         tr.innerHTML = `
-            <td>${parseInt(date.substring(8,10))}일</td>
+            <td>${parseInt(day)}일</td>
             <td><span class="income">${formatToManwon(inc)}</span></td>
             <td><span class="cost">${formatToManwon(exp)}</span></td>
-            <td><strong>${formatToManwon(inc-exp)}</strong></td>
+            <td><strong>${formatToManwon(dailyNet)}</strong></td>
             <td>${dist.toFixed(1)}</td>
             <td>${count}</td>
-            <td>${calculateTotalDuration(transport)}</td>
+            <td>${duration}</td>
             <td><button class="edit-btn" onclick="viewDateDetails('${date}')">상세</button></td>
         `;
         dailyTbody.appendChild(tr);
@@ -718,7 +742,7 @@ todayDatePicker.addEventListener('change', displayTodayRecords);
 prevDayBtn.addEventListener('click', () => changeDateBy(-1));
 nextDayBtn.addEventListener('click', () => changeDateBy(1));
 
-// 프린트 (상/하차지 50px 고정)
+// 프린트 (상/하차지 분리, 좌측 정렬, 굵은 구분선, 날짜 50px, 상하차 150px 고정)
 function generatePrintView(year, month, period, isDetailed) {
     const records = getRecords();
     const sDay = period === 'first' ? 1 : 16;
@@ -746,11 +770,13 @@ function generatePrintView(year, month, period, isDetailed) {
         .summary{border:1px solid #ddd;padding:15px;margin-bottom:20px}
         .date-border { border-top: 2px solid #000 !important; }
         .left-align { text-align: left; padding-left: 5px; }
-        .col-location { width: 50px; } 
+        /* MODIFIED: Column widths */
+        .col-date { width: 50px; }
+        .col-location { width: 150px; }
     </style>
     </head><body><h2>${year}년 ${month}월 ${period === 'first'?'1~15일':'16~말일'} 운송내역</h2>
     <div class="summary"><p>건수: ${transport.length}건 | 거리: ${dist.toFixed(1)}km | 수입: ${formatToManwon(inc)}만 | 지출: ${formatToManwon(exp)}만 | 순수익: ${formatToManwon(inc-exp)}만</p></div>
-    <table><thead><tr>${isDetailed?'<th>시간</th>':''}<th>날짜</th><th class="col-location">상차지</th><th class="col-location">하차지</th><th>내용</th>${isDetailed?'<th>거리</th><th>수입</th><th>지출</th>':''}</tr></thead><tbody>`;
+    <table><thead><tr>${isDetailed?'<th>시간</th>':''}<th class="col-date">날짜</th><th class="col-location">상차지</th><th class="col-location">하차지</th><th>내용</th>${isDetailed?'<th>거리</th><th>수입</th><th>지출</th>':''}</tr></thead><tbody>`;
     
     (isDetailed ? target : transport).forEach(r => {
         let borderClass = '';

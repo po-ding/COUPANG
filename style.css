@@ -1,4 +1,4 @@
-/** 버전: 9.1 | 최종 수정일: 2025-11-29 */
+/** 버전: 10.4 | 최종 수정일: 2025-11-29 */
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; margin: 0; padding: 0.5em; background-color: #f5f5f5; }
 .container { max-width: 600px; margin: auto; background-color: white; padding: 0.8em; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -140,6 +140,20 @@ th { background-color: #f2f2f2; }
 #today-records-table tbody tr { cursor: pointer; }
 #today-records-table tbody tr:hover { background-color: #f8f9fa; }
 
+/* MODIFIED: Auto layout for the Today table to fit content compactly */
+.responsive-table.auto-layout th, 
+.responsive-table.auto-layout td {
+    white-space: nowrap; /* 줄바꿈 방지 */
+    width: auto;         /* 내용만큼만 너비 차지 */
+    padding: 0.5em;      /* 패딩 줄임 */
+}
+.responsive-table.auto-layout td:nth-child(4), /* 상차지 */
+.responsive-table.auto-layout td:nth-child(5) { /* 하차지 */
+     /* 상하차지는 길어질 수 있으므로 최대 너비 제한 없이 늘어나게 두거나 */
+     /* 필요하다면 max-width를 줄 수 있음. 여기선 auto로 둠 */
+}
+
+
 .progress-bar-container { background-color: #e9ecef; border-radius: .25rem; height: 1.5rem; overflow: hidden; display: flex; }
 .progress-bar { height: 100%; text-align: center; color: white; font-size: 0.8em; line-height: 1.5rem; white-space: nowrap; transition: width 0.6s ease; }
 .progress-bar-used { background-color: #17a2b8; }
@@ -170,6 +184,7 @@ th { background-color: #f2f2f2; }
     }
     .responsive-table td, .yearly-summary-table td { 
         text-align: right; padding-left: 50%; position: relative; border: none; border-bottom: 1px solid #eee; box-sizing: border-box; 
+        white-space: normal; /* 모바일에서는 줄바꿈 허용 */
     }
     .responsive-table td:before, .yearly-summary-table td:before { 
         content: attr(data-label); position: absolute; left: 0; width: 45%; padding-left: 1em; font-weight: bold; text-align: left; 

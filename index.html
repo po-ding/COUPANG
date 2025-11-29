@@ -95,18 +95,16 @@
                     </div>
                 </fieldset>
 
-                <!-- [버튼 그룹 1] 화물운송용 (시작/종료) -->
+                <!-- 버튼 그룹 -->
                 <div id="trip-actions" class="action-btn-group">
                     <button type="button" id="btn-start-trip">운행 시작</button>
                     <button type="button" id="btn-end-trip" style="background-color: #dc3545;">운행 종료</button>
                 </div>
 
-                <!-- [버튼 그룹 2] 일반 저장용 (주유, 지출, 소모품) -->
                 <div id="general-actions" class="action-btn-group hidden">
                     <button type="button" id="btn-save-general">기록 저장</button>
                 </div>
 
-                <!-- [버튼 그룹 3] 수정 모드 -->
                 <div id="edit-actions" class="action-btn-group hidden">
                     <div style="display:flex; flex-direction:column; gap:5px; width:100%;">
                         <button type="button" id="btn-edit-end-trip" style="background-color: #17a2b8;">현재 시간으로 운행 종료</button>
@@ -137,8 +135,19 @@
                         <button id="next-day-btn">→</button>
                     </div>
                     <div id="today-summary" class="summary"></div>
-                    <table id="today-records-table" class="responsive-table">
-                        <thead><tr><th>시작</th><th>종료</th><th>소요</th><th>내용</th><th>금액</th></tr></thead>
+                    <!-- MODIFIED: 테이블 헤더 상/하차 분리 -->
+                    <table id="today-records-table" class="responsive-table auto-layout">
+                        <thead>
+                            <tr>
+                                <th>시작</th>
+                                <th>종료</th>
+                                <th>소요</th>
+                                <th>상차</th>
+                                <th>하차</th>
+                                <th>비고</th>
+                                <th>금액</th>
+                            </tr>
+                        </thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -181,6 +190,7 @@
             
         </div>
 
+        <!-- 설정 페이지 (기존과 동일) -->
         <div id="settings-page" class="hidden">
             <div class="data-summary-section">
                 <h2>데이터 요약</h2>
@@ -307,8 +317,10 @@
                 </div>
                 <input type="file" id="import-file-input" class="hidden" accept=".json">
             </div>
+
         </div>
     </div>
+
     <div id="toast-notification"></div>
     <script src="script.js"></script>
 </body>

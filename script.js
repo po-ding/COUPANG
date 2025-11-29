@@ -1,4 +1,4 @@
-/** 버전: 10.2 Full | 최종 수정일: 2025-11-29 (출력물 상하차 분리 및 좌측 정렬) */
+/** 버전: 10.3 Full | 최종 수정일: 2025-11-29 (인쇄 화면: 일자별 구분선 및 열 너비 최적화) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -445,9 +445,9 @@ function displayTodayRecords() {
 
         let content = '';
         if(r.type === '화물운송') {
-             const fromSafe = (r.from||'').replace(/"/g, '&quot;');
-             const toSafe = (r.to||'').replace(/"/g, '&quot;');
-             content = `<strong class="location-clickable" data-center="${fromSafe}">${r.from}</strong> → <strong class="location-clickable" data-center="${toSafe}">${r.to}</strong>`;
+             const fromVal = (r.from||'').replace(/"/g, '&quot;');
+             const toVal = (r.to||'').replace(/"/g, '&quot;');
+             content = `<strong class="location-clickable" data-center="${fromVal}">${r.from}</strong> → <strong class="location-clickable" data-center="${toVal}">${r.to}</strong>`;
              if(r.distance) content += `<br><span class="note">${r.distance} km</span>`;
         } else {
             content = `<strong>${r.type}</strong><br><span class="note">${r.expenseItem || r.supplyItem || r.brand || ''}</span>`;
@@ -630,18 +630,14 @@ function editRecord(id) {
     const r = getRecords().find(x => x.id === id);
     if(!r) return;
     
-    // 폼에 값 채우기
     dateInput.value = r.date;
     timeInput.value = r.time;
     typeSelect.value = r.type;
-    
-    // 상세 필드
     fromCenterInput.value = r.from || '';
     toCenterInput.value = r.to || '';
     manualDistanceInput.value = r.distance || '';
     incomeInput.value = r.income ? (r.income/10000) : '';
     costInput.value = r.cost ? (r.cost/10000) : '';
-    
     fuelBrandSelect.value = r.brand || '';
     fuelLitersInput.value = r.liters || '';
     fuelUnitPriceInput.value = r.unitPrice || '';
@@ -649,17 +645,16 @@ function editRecord(id) {
     supplyItemInput.value = r.supplyItem || '';
     supplyMileageInput.value = r.mileage || '';
 
-    // UI 모드 변경
     editIdInput.value = id;
     editModeIndicator.classList.remove('hidden');
-    dateInput.disabled = true; // 시간 수정 금지
-    timeInput.disabled = true; // 시간 수정 금지
+    dateInput.disabled = true;
+    timeInput.disabled = true;
     
     toggleUI();
     window.scrollTo(0,0);
 }
 
-// 클립보드 복사 (이벤트 위임)
+// 클립보드 복사
 todayTbody.addEventListener('click', (e) => {
     const target = e.target.closest('.location-clickable');
     if(target) {
@@ -693,11 +688,12 @@ function calcFuel() {
 typeSelect.addEventListener('change', toggleUI);
 refreshBtn.addEventListener('click', () => { resetForm(); location.reload(); });
 
-// 프린트 함수 (상/하차지 분리 및 좌측 정렬 적용)
+// 프린트 (상/하차지 분리, 좌측 정렬, 굵은 구분선)
 function generatePrintView(year, month, period, isDetailed) {
     const records = getRecords();
     const sDay = period === 'first' ? 1 : 16;
     const eDay = period === 'first' ? 15 : 31;
+    
     const target = records.filter(r => {
         const d = new Date(r.date);
         return r.date.startsWith(`${year}-${month}`) && d.getDate() >= sDay && d.getDate() <= eDay;
@@ -710,29 +706,38 @@ function generatePrintView(year, month, period, isDetailed) {
     transport.forEach(r => dist += (r.distance||0));
 
     const w = window.open('','_blank');
+    let lastDate = '';
+
     let h = `<html><head><title>운송내역</title>
-    <style>body{font-family:sans-serif;margin:20px} table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:6px;text-align:center} th{background:#eee} .summary{border:1px solid #ddd;padding:15px;margin-bottom:20px}</style>
+    <style>
+        body{font-family:sans-serif;margin:20px} table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:6px;text-align:center} th{background:#eee} .summary{border:1px solid #ddd;padding:15px;margin-bottom:20px}
+        .date-border { border-top: 2px solid #000 !important; }
+        .left-align { text-align: left; padding-left: 5px; }
+    </style>
     </head><body><h2>${year}년 ${month}월 ${period === 'first'?'1~15일':'16~말일'} 운송내역</h2>
     <div class="summary"><p>건수: ${transport.length}건 | 거리: ${dist.toFixed(1)}km | 수입: ${formatToManwon(inc)}만 | 지출: ${formatToManwon(exp)}만 | 순수익: ${formatToManwon(inc-exp)}만</p></div>
     <table><thead><tr>${isDetailed?'<th>시간</th>':''}<th>날짜</th><th>상차지</th><th>하차지</th><th>내용</th>${isDetailed?'<th>거리</th><th>수입</th><th>지출</th>':''}</tr></thead><tbody>`;
     
     (isDetailed ? target : transport).forEach(r => {
-        // 상/하차지 및 내용 분기 처리
+        let borderClass = '';
+        if(lastDate !== '' && lastDate !== r.date) borderClass = 'class="date-border"';
+        lastDate = r.date;
+
+        // 상/하차지 분리 로직
         let from = '', to = '', desc = r.type;
         if(r.from || r.to) {
             from = r.from || '';
             to = r.to || '';
-            desc = ''; // 운송 건은 내용을 비움 (상하차지에 표시되므로)
+            desc = ''; // 운송 건은 내용 칸 비움
         } else {
-            // 지출, 소모품 등
-            from = r.expenseItem || r.supplyItem || r.brand || ''; // 상차지 칸에 내역 표시
+            from = r.expenseItem || r.supplyItem || r.brand || ''; // 기타 내역은 상차지 칸에 표시
         }
 
-        h += `<tr>
+        h += `<tr ${borderClass}>
             ${isDetailed?`<td>${r.time}</td>`:''}
-            <td>${r.date}</td>
-            <td style="text-align:left; padding-left:5px">${from}</td>
-            <td style="text-align:left; padding-left:5px">${to}</td>
+            <td>${r.date.substring(5)}</td>
+            <td class="left-align">${from}</td>
+            <td class="left-align">${to}</td>
             <td>${desc}</td>
             ${isDetailed?`<td>${r.distance||'-'}</td><td>${formatToManwon(r.income)}</td><td>${formatToManwon(r.cost)}</td>`:''}
         </tr>`;
@@ -740,13 +745,13 @@ function generatePrintView(year, month, period, isDetailed) {
     h += `</tbody></table><button onclick="window.print()">인쇄</button></body></html>`;
     w.document.write(h); w.document.close();
 }
-
 printFirstHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', false));
 printSecondHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'second', false));
 printFirstHalfDetailBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', true));
 printSecondHalfDetailBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'second', true));
 
-// 데이터 관리 이벤트
+
+// 데이터 관리
 exportJsonBtn.addEventListener('click', () => {
     const data = {
         records: getRecords(),

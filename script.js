@@ -1,4 +1,4 @@
-/** 버전: 13.1 Full | 최종 수정일: 2025-11-29 (구간별 거리, 수입, 비용 자동입력 완벽 구현) */
+/** 버전: 14.0 Full | 최종 수정일: 2025-11-30 (과거 기록 자동 동기화 및 자동완성 완벽 구현) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -159,7 +159,7 @@ function showToast(msg) {
 }
 
 // ===============================================================
-// 3. 데이터 관리 함수
+// 3. 데이터 관리 함수 (자동 동기화 추가)
 // ===============================================================
 function getRecords() { return JSON.parse(localStorage.getItem('records')) || []; }
 function saveRecords(records) {
@@ -171,6 +171,11 @@ function getCenters() {
     const stored = JSON.parse(localStorage.getItem('logistics_centers')) || [];
     return stored.length ? stored.sort() : ['안성', '안산', '용인', '이천', '인천'].sort();
 }
+// NEW: 자동완성용 데이터 가져오기
+function getSavedFares() { return JSON.parse(localStorage.getItem('saved_fares')) || {}; }
+function getSavedDistances() { return JSON.parse(localStorage.getItem('saved_distances')) || {}; }
+function getSavedCosts() { return JSON.parse(localStorage.getItem('saved_costs')) || {}; }
+
 
 function saveLocationData(centerName, data) {
     if (!centerName) return;
@@ -193,6 +198,42 @@ function populateCenterDatalist() {
     centerDatalist.innerHTML = getCenters().map(c => `<option value="${c}"></option>`).join('');
 }
 
+// *** 중요: 기존 기록에서 거리/운임/비용 정보를 추출하여 자동완성 DB에 동기화 ***
+function syncHistoryToAutocompleteDB() {
+    const records = getRecords();
+    const fares = getSavedFares();
+    const distances = getSavedDistances();
+    const costs = getSavedCosts();
+    let updated = false;
+
+    records.forEach(r => {
+        if (r.type === '화물운송' && r.from && r.to) {
+            const key = `${r.from.trim()}-${r.to.trim()}`;
+            
+            if (r.income > 0 && !fares[key]) {
+                fares[key] = r.income;
+                updated = true;
+            }
+            if (r.distance > 0 && !distances[key]) {
+                distances[key] = r.distance;
+                updated = true;
+            }
+            if (r.cost > 0 && !costs[key]) {
+                costs[key] = r.cost;
+                updated = true;
+            }
+        }
+    });
+
+    if (updated) {
+        localStorage.setItem('saved_fares', JSON.stringify(fares));
+        localStorage.setItem('saved_distances', JSON.stringify(distances));
+        localStorage.setItem('saved_costs', JSON.stringify(costs));
+        console.log("기존 운행 기록이 자동완성 데이터베이스에 동기화되었습니다.");
+    }
+}
+
+
 // ===============================================================
 // 4. UI 제어 및 폼 로직
 // ===============================================================
@@ -205,14 +246,8 @@ function toggleUI() {
     if (type === '화물운송' || type === '대기') {
         transportDetails.classList.remove('hidden');
         costInfoFieldset.classList.remove('hidden');
-        costWrapper.classList.add('hidden'); // 대기 중에는 비용 입력 가능성 있으나 보통 화물운송시 수입/지출
-        // 화물운송일 경우에만 수입/지출 모두 오픈, 하지만 여기서는 화물운송 로직에 맞춰 수입만 보여주고 지출은 숨김(기존 로직)
-        // 요청: 운행비용도 같이 처리 -> 화물운송 시에도 비용(지출) 입력이 필요하다면 costWrapper를 보여야 함.
-        // 하지만 기존 UI 로직상 화물운송은 costWrapper를 숨기고 incomeWrapper만 보여줬었음.
-        // "운행비용"을 입력하려면 costWrapper가 보여야 함.
-        // 여기서는 사용자의 의도(자동입력)를 위해 화물운송 시에도 지출 입력이 가능하도록 costWrapper를 보이게 수정하거나, 
-        // 기존 로직대로라면 운송 수입만 입력받는 구조임.
-        // *수정사항*: 화물운송 시에도 지출(운행비용) 입력 가능하도록 변경
+        costWrapper.classList.add('hidden'); // 화물운송은 기본적으로 수입만 표시 (하지만 자동완성은 동작)
+        // 만약 화물운송에도 지출(비용)을 표시하고 싶다면 아래 줄 주석 해제
         costWrapper.classList.remove('hidden'); 
         incomeWrapper.classList.remove('hidden');
         
@@ -261,25 +296,25 @@ function copyTextToClipboard(text, msg) {
     .catch(err => console.log('복사 실패:', err));
 }
 
-// MODIFIED: 상하차지 입력 시 자동 입력 로직 (운임, 거리, 비용)
+// 상하차지 입력 이벤트 (자동입력 & 주소복사)
 [fromCenterInput, toCenterInput].forEach(input => {
     input.addEventListener('input', () => {
         const from = fromCenterInput.value.trim();
         const to = toCenterInput.value.trim();
 
-        if(typeSelect.value === '화물운송' && from && to) {
+        if((typeSelect.value === '화물운송' || typeSelect.value === '대기') && from && to) {
             const key = `${from}-${to}`;
             
             // 1. 운임(수입) 불러오기
-            const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+            const fares = getSavedFares();
             if(fares[key]) incomeInput.value = (fares[key]/10000).toFixed(2);
 
             // 2. 거리 불러오기
-            const distances = JSON.parse(localStorage.getItem('saved_distances')) || {};
+            const distances = getSavedDistances();
             if(distances[key]) manualDistanceInput.value = distances[key];
 
-            // 3. 비용(지출) 불러오기 (NEW)
-            const costs = JSON.parse(localStorage.getItem('saved_costs')) || {};
+            // 3. 비용(지출) 불러오기
+            const costs = getSavedCosts();
             if(costs[key]) costInput.value = (costs[key]/10000).toFixed(2);
         }
         
@@ -357,7 +392,7 @@ btnWaiting.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [운행 시작] (거리, 운임, 비용 저장 로직 추가)
+// [운행 시작] (저장 시 거리/운임/비용 정보도 업데이트)
 btnStartTrip.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -367,26 +402,21 @@ btnStartTrip.addEventListener('click', () => {
         ...formData
     };
     
-    if (formData.type === '화물운송') {
+    if (formData.type === '화물운송' && formData.from && formData.to) {
         const routeKey = `${formData.from}-${formData.to}`;
         
-        // 운임 저장
         if (formData.income > 0) {
-            const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+            const fares = getSavedFares();
             fares[routeKey] = formData.income;
             localStorage.setItem('saved_fares', JSON.stringify(fares));
         }
-        
-        // 거리 저장
         if (formData.distance > 0) {
-            const distances = JSON.parse(localStorage.getItem('saved_distances')) || {};
+            const distances = getSavedDistances();
             distances[routeKey] = formData.distance;
             localStorage.setItem('saved_distances', JSON.stringify(distances));
         }
-
-        // 비용 저장 (NEW)
         if (formData.cost > 0) {
-            const costs = JSON.parse(localStorage.getItem('saved_costs')) || {};
+            const costs = getSavedCosts();
             costs[routeKey] = formData.cost;
             localStorage.setItem('saved_costs', JSON.stringify(costs));
         }
@@ -436,7 +466,7 @@ btnSaveGeneral.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [수정 완료] (거리, 운임, 비용 업데이트 반영)
+// [수정 완료]
 btnUpdateRecord.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     if (!id) return;
@@ -448,23 +478,22 @@ btnUpdateRecord.addEventListener('click', () => {
         const original = records[index];
         const newData = getFormDataWithoutTime();
         
-        // 수정 시에도 정보 업데이트
+        // 수정 시에도 자동완성 데이터 업데이트
         if (newData.type === '화물운송' && newData.from && newData.to) {
             const routeKey = `${newData.from}-${newData.to}`;
             
             if (newData.distance > 0) {
-                const distances = JSON.parse(localStorage.getItem('saved_distances')) || {};
+                const distances = getSavedDistances();
                 distances[routeKey] = newData.distance;
                 localStorage.setItem('saved_distances', JSON.stringify(distances));
             }
             if (newData.income > 0) {
-                const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+                const fares = getSavedFares();
                 fares[routeKey] = newData.income;
                 localStorage.setItem('saved_fares', JSON.stringify(fares));
             }
-            // 비용 업데이트 (NEW)
             if (newData.cost > 0) {
-                const costs = JSON.parse(localStorage.getItem('saved_costs')) || {};
+                const costs = getSavedCosts();
                 costs[routeKey] = newData.cost;
                 localStorage.setItem('saved_costs', JSON.stringify(costs));
             }
@@ -916,10 +945,10 @@ exportJsonBtn.addEventListener('click', () => {
         centers: getCenters(),
         locations: getSavedLocations(),
         fares: JSON.parse(localStorage.getItem('saved_fares'))||{},
-        subsidy: localStorage.getItem('fuel_subsidy_limit'),
-        correction: localStorage.getItem('mileage_correction'),
         distances: JSON.parse(localStorage.getItem('saved_distances'))||{},
-        costs: JSON.parse(localStorage.getItem('saved_costs'))||{}
+        costs: JSON.parse(localStorage.getItem('saved_costs'))||{},
+        subsidy: localStorage.getItem('fuel_subsidy_limit'),
+        correction: localStorage.getItem('mileage_correction')
     };
     const b = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download=`backup_${getTodayString()}.json`;
@@ -1152,6 +1181,9 @@ function updateAllDisplays() {
     displayMonthlyRecords();
 }
 function initialSetup() {
+    // NEW: 앱 시작 시 기존 기록을 스캔하여 자동완성 DB 업데이트
+    syncHistoryToAutocompleteDB(); 
+
     populateCenterDatalist();
     const y = new Date().getFullYear();
     const yrs = []; for(let i=0; i<5; i++) yrs.push(`<option value="${y-i}">${y-i}년</option>`);
@@ -1177,4 +1209,28 @@ function toggleAllSummaryValues(gridElement) {
         if(isShowing) { item.classList.add('active'); valueEl.classList.remove('hidden'); }
         else { item.classList.remove('active'); valueEl.classList.add('hidden'); }
     });
+}
+
+// NEW: 과거 기록 학습 함수
+function syncHistoryToAutocompleteDB() {
+    const records = getRecords();
+    const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+    const distances = JSON.parse(localStorage.getItem('saved_distances')) || {};
+    const costs = JSON.parse(localStorage.getItem('saved_costs')) || {};
+    let updated = false;
+
+    records.forEach(r => {
+        if (r.type === '화물운송' && r.from && r.to) {
+            const key = `${r.from.trim()}-${r.to.trim()}`;
+            if (r.income > 0 && !fares[key]) { fares[key] = r.income; updated = true; }
+            if (r.distance > 0 && !distances[key]) { distances[key] = r.distance; updated = true; }
+            if (r.cost > 0 && !costs[key]) { costs[key] = r.cost; updated = true; }
+        }
+    });
+
+    if (updated) {
+        localStorage.setItem('saved_fares', JSON.stringify(fares));
+        localStorage.setItem('saved_distances', JSON.stringify(distances));
+        localStorage.setItem('saved_costs', JSON.stringify(costs));
+    }
 }

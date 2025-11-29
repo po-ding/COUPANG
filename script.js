@@ -1,4 +1,4 @@
-/** 버전: 10.1 | 최종 수정일: 2025-11-29 (리스트 미노출 해결 및 날짜 포맷 표준화) */
+/** 버전: 10.2 Full | 최종 수정일: 2025-11-29 (출력물 상하차 분리 및 좌측 정렬) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -146,7 +146,7 @@ const SUBSIDY_PAGE_SIZE = 10;
 let displayedSubsidyCount = 0;
 
 // ===============================================================
-// 2. 유틸리티 함수 (날짜 포맷 표준화 - 중요!)
+// 2. 유틸리티 함수
 // ===============================================================
 const getTodayString = () => {
     const d = new Date();
@@ -208,7 +208,6 @@ function toggleUI() {
     const type = typeSelect.value;
     const isEditMode = !editModeIndicator.classList.contains('hidden');
 
-    // 모든 섹션 숨김
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, generalActions, editActions].forEach(el => el.classList.add('hidden'));
     
     if (type === '화물운송') {
@@ -268,7 +267,6 @@ function resetForm() {
     editIdInput.value = '';
     editModeIndicator.classList.add('hidden');
     
-    // 날짜/시간 현재로 리셋
     dateInput.value = getTodayString();
     timeInput.value = getCurrentTimeString();
     dateInput.disabled = false;
@@ -282,7 +280,6 @@ function resetForm() {
 // 5. 버튼 이벤트 핸들러
 // ===============================================================
 
-// [운행 시작]
 btnStartTrip.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -308,7 +305,6 @@ btnStartTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [운행 종료]
 btnEndTrip.addEventListener('click', () => {
     const records = getRecords();
     records.push({
@@ -324,7 +320,6 @@ btnEndTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [기록 저장]
 btnSaveGeneral.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -343,7 +338,6 @@ btnSaveGeneral.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [수정 완료]
 btnUpdateRecord.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     if (!id) return;
@@ -358,8 +352,8 @@ btnUpdateRecord.addEventListener('click', () => {
         records[index] = {
             ...original,
             ...newData,
-            date: original.date, // 시간 유지
-            time: original.time  // 시간 유지
+            date: original.date,
+            time: original.time
         };
         
         saveRecords(records);
@@ -369,7 +363,6 @@ btnUpdateRecord.addEventListener('click', () => {
     }
 });
 
-// [수정 모드에서 종료]
 btnEditEndTrip.addEventListener('click', () => {
     const records = getRecords();
     records.push({
@@ -386,7 +379,6 @@ btnEditEndTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [삭제]
 btnDeleteRecord.addEventListener('click', () => {
     if(confirm('정말 삭제하시겠습니까?')) {
         const id = parseInt(editIdInput.value);
@@ -399,7 +391,6 @@ btnDeleteRecord.addEventListener('click', () => {
     }
 });
 
-// [취소]
 btnCancelEdit.addEventListener('click', resetForm);
 
 
@@ -428,13 +419,11 @@ function displayTodayRecords() {
     const records = getRecords();
     const selectedDate = todayDatePicker.value;
     
-    // 해당 날짜의 모든 기록 (시간순 정렬)
     const dayRecords = records.filter(r => r.date === selectedDate)
                               .sort((a, b) => a.time.localeCompare(b.time));
     
     todayTbody.innerHTML = '';
     
-    // 테이블에 보여줄 기록 (운행종료는 제외)
     const displayList = dayRecords.filter(r => r.type !== '운행종료');
 
     displayList.forEach(r => {
@@ -445,7 +434,6 @@ function displayTodayRecords() {
         let duration = '-';
 
         const idx = dayRecords.findIndex(item => item.id === r.id);
-        // 다음 기록이 있으면 그것이 종료 시간
         if (idx > -1 && idx < dayRecords.length - 1) {
             const next = dayRecords[idx+1];
             endTime = next.time;
@@ -647,6 +635,7 @@ function editRecord(id) {
     timeInput.value = r.time;
     typeSelect.value = r.type;
     
+    // 상세 필드
     fromCenterInput.value = r.from || '';
     toCenterInput.value = r.to || '';
     manualDistanceInput.value = r.distance || '';
@@ -660,6 +649,7 @@ function editRecord(id) {
     supplyItemInput.value = r.supplyItem || '';
     supplyMileageInput.value = r.mileage || '';
 
+    // UI 모드 변경
     editIdInput.value = id;
     editModeIndicator.classList.remove('hidden');
     dateInput.disabled = true; // 시간 수정 금지
@@ -703,7 +693,7 @@ function calcFuel() {
 typeSelect.addEventListener('change', toggleUI);
 refreshBtn.addEventListener('click', () => { resetForm(); location.reload(); });
 
-// 프린트
+// 프린트 함수 (상/하차지 분리 및 좌측 정렬 적용)
 function generatePrintView(year, month, period, isDetailed) {
     const records = getRecords();
     const sDay = period === 'first' ? 1 : 16;
@@ -724,21 +714,39 @@ function generatePrintView(year, month, period, isDetailed) {
     <style>body{font-family:sans-serif;margin:20px} table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:6px;text-align:center} th{background:#eee} .summary{border:1px solid #ddd;padding:15px;margin-bottom:20px}</style>
     </head><body><h2>${year}년 ${month}월 ${period === 'first'?'1~15일':'16~말일'} 운송내역</h2>
     <div class="summary"><p>건수: ${transport.length}건 | 거리: ${dist.toFixed(1)}km | 수입: ${formatToManwon(inc)}만 | 지출: ${formatToManwon(exp)}만 | 순수익: ${formatToManwon(inc-exp)}만</p></div>
-    <table><thead><tr>${isDetailed?'<th>시간</th>':''}<th>날짜</th><th>내용</th>${isDetailed?'<th>거리</th><th>수입</th><th>지출</th>':''}</tr></thead><tbody>`;
+    <table><thead><tr>${isDetailed?'<th>시간</th>':''}<th>날짜</th><th>상차지</th><th>하차지</th><th>내용</th>${isDetailed?'<th>거리</th><th>수입</th><th>지출</th>':''}</tr></thead><tbody>`;
     
     (isDetailed ? target : transport).forEach(r => {
-        h += `<tr>${isDetailed?`<td>${r.time}</td>`:''}<td>${r.date}</td><td>${r.from?r.from+'→'+r.to : (r.expenseItem||r.supplyItem||r.type)}</td>${isDetailed?`<td>${r.distance||'-'}</td><td>${formatToManwon(r.income)}</td><td>${formatToManwon(r.cost)}</td>`:''}</tr>`;
+        // 상/하차지 및 내용 분기 처리
+        let from = '', to = '', desc = r.type;
+        if(r.from || r.to) {
+            from = r.from || '';
+            to = r.to || '';
+            desc = ''; // 운송 건은 내용을 비움 (상하차지에 표시되므로)
+        } else {
+            // 지출, 소모품 등
+            from = r.expenseItem || r.supplyItem || r.brand || ''; // 상차지 칸에 내역 표시
+        }
+
+        h += `<tr>
+            ${isDetailed?`<td>${r.time}</td>`:''}
+            <td>${r.date}</td>
+            <td style="text-align:left; padding-left:5px">${from}</td>
+            <td style="text-align:left; padding-left:5px">${to}</td>
+            <td>${desc}</td>
+            ${isDetailed?`<td>${r.distance||'-'}</td><td>${formatToManwon(r.income)}</td><td>${formatToManwon(r.cost)}</td>`:''}
+        </tr>`;
     });
     h += `</tbody></table><button onclick="window.print()">인쇄</button></body></html>`;
     w.document.write(h); w.document.close();
 }
+
 printFirstHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', false));
 printSecondHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'second', false));
 printFirstHalfDetailBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', true));
 printSecondHalfDetailBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'second', true));
 
-
-// 데이터 관리
+// 데이터 관리 이벤트
 exportJsonBtn.addEventListener('click', () => {
     const data = {
         records: getRecords(),
@@ -1082,8 +1090,7 @@ function initialSetup() {
     mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || 0;
     subsidyLimitInput.value = localStorage.getItem('fuel_subsidy_limit') || 0;
 
-    // 초기 로딩 시 오늘 날짜로 설정 (중요!)
-    todayDatePicker.value = getTodayString();
+    todayDatePicker.value = getTodayString(); // 오늘 날짜 초기화
 
     resetForm();
     updateAllDisplays();

@@ -1,4 +1,4 @@
-/** 버전: 7.2 | 최종 수정일: 2025-11-18 (소요시간 표시 및 대기 기능 완전 제거) */
+/** 버전: 7.3 | 최종 수정일: 2025-11-18 (자동완성 UI 적용 및 기능 안정화) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -12,10 +12,9 @@ const dateInput = document.getElementById('date');
 const timeInput = document.getElementById('time');
 const typeSelect = document.getElementById('type');
 const transportDetails = document.getElementById('transport-details');
-const fromSelect = document.getElementById('from-center');
-const toSelect = document.getElementById('to-center');
-const fromCustom = document.getElementById('from-custom');
-const toCustom = document.getElementById('to-custom');
+const fromCenterInput = document.getElementById('from-center');
+const toCenterInput = document.getElementById('to-center');
+const centerDatalist = document.getElementById('center-list');
 const costInfoFieldset = document.getElementById('cost-info-fieldset');
 const costWrapper = document.getElementById('cost-wrapper');
 const incomeWrapper = document.getElementById('income-wrapper');
@@ -100,10 +99,8 @@ const cumulativeNetIncome = document.getElementById('cumulative-net-income');
 const cumulativeAvgEconomy = document.getElementById('cumulative-avg-economy');
 const cumulativeCostPerKm = document.getElementById('cumulative-cost-per-km');
 const batchApplyBtn = document.getElementById('batch-apply-btn');
-const batchFromSelect = document.getElementById('batch-from-center');
-const batchToSelect = document.getElementById('batch-to-center');
-const batchFromCustom = document.getElementById('batch-from-custom');
-const batchToCustom = document.getElementById('batch-to-custom');
+const batchFromCenterInput = document.getElementById('batch-from-center');
+const batchToCenterInput = document.getElementById('batch-to-center');
 const batchIncomeInput = document.getElementById('batch-income');
 const batchStatus = document.getElementById('batch-status');
 const subsidySaveBtn = document.getElementById('subsidy-save-btn');
@@ -148,16 +145,16 @@ function getSavedLocations() {
     return JSON.parse(localStorage.getItem('saved_locations')) || {};
 }
 function saveLocationData(centerName, data) {
-    if (!centerName || centerName === 'direct') return false;
+    if (!centerName || centerName.trim() === '') return false;
     const locations = getSavedLocations();
     locations[centerName] = data;
     localStorage.setItem('saved_locations', JSON.stringify(locations));
     return true;
 }
 function addCenter(newCenter, address = '', memo = '') {
-    if (!newCenter || newCenter.trim() === '') return false;
-    const centers = getCenters();
     const trimmedCenter = newCenter.trim();
+    if (!trimmedCenter) return false;
+    const centers = getCenters();
     if (!centers.includes(trimmedCenter)) {
         centers.push(trimmedCenter);
         localStorage.setItem('logistics_centers', JSON.stringify(centers));
@@ -165,18 +162,15 @@ function addCenter(newCenter, address = '', memo = '') {
             address: address.trim(),
             memo: memo.trim()
         });
-        refreshCenterUI();
+        populateCenterDatalist();
         return true;
     }
     return false;
 }
-function populateCenterSelectors() {
+function populateCenterDatalist() {
     const centers = getCenters();
-    const options = centers.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="direct">직접 입력</option>';
-    fromSelect.innerHTML = options;
-    toSelect.innerHTML = options;
-    batchFromSelect.innerHTML = options;
-    batchToSelect.innerHTML = options;
+    const options = centers.map(c => `<option value="${c}"></option>`).join('');
+    centerDatalist.innerHTML = options;
 }
 
 function toggleUI(type) {
@@ -211,8 +205,8 @@ function toggleUI(type) {
 }
 
 function updateAddressDisplay() {
-    const fromValue = fromSelect.value;
-    const toValue = toSelect.value;
+    const fromValue = fromCenterInput.value;
+    const toValue = toCenterInput.value;
     const locations = getSavedLocations();
     const fromData = locations[fromValue] || {};
     const toData = locations[toValue] || {};
@@ -308,24 +302,17 @@ function toggleAllSummaryValues(gridElement) {
 }
 
 function calculateTotalDuration(records) {
-    const recordsByDate = {};
-    records.forEach(r => {
-        if (!recordsByDate[r.date]) recordsByDate[r.date] = [];
-        recordsByDate[r.date].push(r);
-    });
+    if (records.length < 2) return '0h 0m';
 
+    const sortedRecords = [...records].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    
     let totalMinutes = 0;
-    for (const date in recordsByDate) {
-        const dayRecords = recordsByDate[date];
-        if (dayRecords.length < 2) continue;
-        
-        const sortedDayRecords = dayRecords.sort((a, b) => a.time.localeCompare(b.time));
-        for (let i = 1; i < sortedDayRecords.length; i++) {
-            const currentTime = new Date(`${date}T${sortedDayRecords[i].time}`);
-            const prevTime = new Date(`${date}T${sortedDayRecords[i-1].time}`);
-            totalMinutes += (currentTime - prevTime) / 60000;
-        }
+    for (let i = 1; i < sortedRecords.length; i++) {
+        const currentTime = new Date(`${sortedRecords[i].date}T${sortedRecords[i].time}`);
+        const prevTime = new Date(`${sortedRecords[i-1].date}T${sortedRecords[i-1].time}`);
+        totalMinutes += (currentTime - prevTime) / 60000;
     }
+    
     const hours = Math.floor(totalMinutes / 60);
     const minutes = Math.round(totalMinutes % 60);
     return `${hours}h ${minutes}m`;
@@ -422,7 +409,7 @@ function displayDailyRecords() {
         
         const day = date.substring(8, 10);
         const dailyNet = dayData.income - dayData.expense;
-        const duration = calculateTotalDuration(validRecords);
+        const duration = calculateTotalDuration(validRecords.filter(r => r.type !== '주유소'));
         
         const tr = document.createElement('tr');
         if (date === getTodayString()) {
@@ -484,7 +471,7 @@ function displayWeeklyRecords() {
         });
 
         const weekNet = data.income - data.expense;
-        const duration = calculateTotalDuration(validWeekRecords);
+        const duration = calculateTotalDuration(validWeekRecords.filter(r => r.type !== '주유소'));
         const weekStartDay = Math.min(...weekRecords.map(r => new Date(r.date).getDate()));
         const weekEndDay = Math.max(...weekRecords.map(r => new Date(r.date).getDate()));
 
@@ -537,7 +524,7 @@ function displayMonthlyRecords() {
 
         const month = monthKey.substring(5, 7);
         const netIncome = monthData.income - monthData.expense;
-        const duration = calculateTotalDuration(validRecords);
+        const duration = calculateTotalDuration(validRecords.filter(r => r.type !== '주유소'));
         
         const tr = document.createElement('tr');
         const now = new Date();
@@ -754,9 +741,8 @@ function editRecord(id) {
     dateInput.value = recordToEdit.date;
     timeInput.value = recordToEdit.time;
     typeSelect.value = recordToEdit.type;
-    populateCenterSelectors();
-    fromSelect.value = recordToEdit.from;
-    toSelect.value = recordToEdit.to;
+    fromCenterInput.value = recordToEdit.from;
+    toCenterInput.value = recordToEdit.to;
     manualDistanceInput.value = recordToEdit.distance;
     incomeInput.value = recordToEdit.income > 0 ? (recordToEdit.income / 10000).toFixed(2) : '';
     costInput.value = recordToEdit.cost > 0 ? (recordToEdit.cost / 10000).toFixed(2) : '';
@@ -794,8 +780,8 @@ function cancelEdit() {
     toggleUI(typeSelect.value);
 }
 function getFormData(isNew = false) {
-    const fromValue = fromSelect.value === 'direct' ? fromCustom.value : fromSelect.value;
-    const toValue = toSelect.value === 'direct' ? toCustom.value : toSelect.value;
+    const fromValue = fromCenterInput.value.trim();
+    const toValue = toCenterInput.value.trim();
     addCenter(fromValue);
     addCenter(toValue);
     const formData = {
@@ -972,7 +958,7 @@ function saveCenterEdit(item, originalName) {
 }
 function refreshCenterUI() {
     displayCenterList();
-    populateCenterSelectors();
+    populateCenterDatalist();
 }
 function updateCentersFromRecords() {
     const records = JSON.parse(localStorage.getItem('records')) || [];
@@ -988,7 +974,7 @@ function updateCentersFromRecords() {
 }
 
 function saveFormState() {
-    const state = { date: dateInput.value, time: timeInput.value, type: typeSelect.value, from: fromSelect.value, to: toSelect.value, fromCustom: fromCustom.value, toCustom: toCustom.value, manualDistance: manualDistanceInput.value, fuelUnitPrice: fuelUnitPriceInput.value, fuelLiters: fuelLitersInput.value, fuelBrand: fuelBrandSelect.value, ureaUnitPrice: ureaUnitPriceInput.value, ureaLiters: ureaLitersInput.value, ureaStation: ureaStationInput.value, supplyItem: supplyItemInput.value, supplyMileage: supplyMileageInput.value, cost: costInput.value, income: incomeInput.value };
+    const state = { date: dateInput.value, time: timeInput.value, type: typeSelect.value, from: fromCenterInput.value, to: toCenterInput.value, manualDistance: manualDistanceInput.value, fuelUnitPrice: fuelUnitPriceInput.value, fuelLiters: fuelLitersInput.value, fuelBrand: fuelBrandSelect.value, ureaUnitPrice: ureaUnitPriceInput.value, ureaLiters: ureaLitersInput.value, ureaStation: ureaStationInput.value, supplyItem: supplyItemInput.value, supplyMileage: supplyMileageInput.value, cost: costInput.value, income: incomeInput.value };
     sessionStorage.setItem('unsavedRecordForm', JSON.stringify(state));
 }
 function loadFormState() {
@@ -996,10 +982,8 @@ function loadFormState() {
     if (!savedStateJSON) return;
     const state = JSON.parse(savedStateJSON);
     if (!state) return;
-    dateInput.value = state.date; timeInput.value = state.time; typeSelect.value = state.type; fromSelect.value = state.from; toSelect.value = state.to; fromCustom.value = state.fromCustom; toCustom.value = state.toCustom; manualDistanceInput.value = state.manualDistance; fuelUnitPriceInput.value = state.fuelUnitPrice; fuelLitersInput.value = state.fuelLiters; fuelBrandSelect.value = state.fuelBrand; ureaUnitPriceInput.value = state.ureaUnitPrice; ureaLitersInput.value = state.ureaLiters; ureaStationInput.value = state.ureaStation; supplyItemInput.value = state.supplyItem; supplyMileageInput.value = state.supplyMileage; costInput.value = state.cost; incomeInput.value = state.income;
+    dateInput.value = state.date; timeInput.value = state.time; typeSelect.value = state.type; fromCenterInput.value = state.from; toCenterInput.value = state.to; manualDistanceInput.value = state.manualDistance; fuelUnitPriceInput.value = state.fuelUnitPrice; fuelLitersInput.value = state.fuelLiters; fuelBrandSelect.value = state.fuelBrand; ureaUnitPriceInput.value = state.ureaUnitPrice; ureaLitersInput.value = state.ureaLiters; ureaStationInput.value = state.ureaStation; supplyItemInput.value = state.supplyItem; supplyMileageInput.value = state.supplyMileage; costInput.value = state.cost; incomeInput.value = state.income;
     toggleUI(typeSelect.value);
-    fromCustom.classList.toggle("hidden", fromSelect.value !== 'direct');
-    toCustom.classList.toggle("hidden", toSelect.value !== 'direct');
     updateAddressDisplay();
 }
 
@@ -1056,10 +1040,10 @@ addressDisplay.addEventListener("click", e => {
     }
 });
 batchApplyBtn.addEventListener("click", () => {
-    const from = batchFromSelect.value === 'direct' ? batchFromCustom.value : batchFromSelect.value;
-    const to = batchToSelect.value === 'direct' ? batchToCustom.value : batchToSelect.value;
+    const from = batchFromCenterInput.value.trim();
+    const to = batchToCenterInput.value.trim();
     const income = parseFloat(batchIncomeInput.value) || 0;
-    if (!from || !to || income <= 0) { alert("출발지, 도착지를 선택하고 유효한 운송 수입을 입력하세요."); return }
+    if (!from || !to || income <= 0) { alert("상차지, 하차지를 입력하고 유효한 운송 수입을 입력하세요."); return }
     let records = JSON.parse(localStorage.getItem('records')) || [];
     let updatedCount = 0;
     const recordsToUpdate = records.filter(r => r.type === '화물운송' && r.from === from && r.to === to && r.income === 0);
@@ -1074,8 +1058,8 @@ batchApplyBtn.addEventListener("click", () => {
         });
         localStorage.setItem('records', JSON.stringify(records));
         batchStatus.textContent = `✅ ${updatedCount}건의 운임이 성공적으로 적용되었습니다!`;
-        batchFromSelect.value = getCenters()[0];
-        batchToSelect.value = getCenters()[0];
+        batchFromCenterInput.value = "";
+        batchToCenterInput.value = "";
         batchIncomeInput.value = "";
         updateAllDisplays();
         setTimeout((() => batchStatus.textContent = ""), 3000)
@@ -1167,18 +1151,14 @@ ureaUnitPriceInput.addEventListener("input", () => calculateCost("urea"));
 ureaLitersInput.addEventListener("input", () => calculateCost("urea"));
 costInput.addEventListener("input", calculateLiters);
 typeSelect.addEventListener("change", () => toggleUI(typeSelect.value));
-fromSelect.addEventListener("change", () => {
-    fromCustom.classList.toggle("hidden", fromSelect.value !== 'direct');
-    autoFillIncome();
-    updateAddressDisplay()
+
+[fromCenterInput, toCenterInput].forEach(input => {
+    input.addEventListener('input', () => {
+        autoFillIncome();
+        updateAddressDisplay();
+    });
 });
-toSelect.addEventListener("change", () => {
-    toCustom.classList.toggle("hidden", toSelect.value !== 'direct');
-    autoFillIncome();
-    updateAddressDisplay()
-});
-batchFromSelect.addEventListener("change", () => batchFromCustom.classList.toggle("hidden", batchFromSelect.value !== 'direct'));
-batchToSelect.addEventListener("change", () => batchToCustom.classList.toggle("hidden", batchToSelect.value !== 'direct'));
+
 cancelEditBtn.addEventListener("click", () => {
     cancelEdit();
     sessionStorage.removeItem('unsavedRecordForm');
@@ -1186,11 +1166,14 @@ cancelEditBtn.addEventListener("click", () => {
 
 function autoFillIncome() {
     if (typeSelect.value !== '화물운송') return;
-    const from = fromSelect.value, to = toSelect.value;
-    if (from && to && from !== 'direct' && to !== 'direct') {
+    const from = fromCenterInput.value;
+    const to = toCenterInput.value;
+    if (from && to) {
         const fareKey = `${from}-${to}`;
         const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
-        if (fares[fareKey]) incomeInput.value = (fares[fareKey] / 10000).toFixed(2);
+        if (fares[fareKey]) {
+            incomeInput.value = (fares[fareKey] / 10000).toFixed(2);
+        }
     }
 }
 
@@ -1251,7 +1234,7 @@ mileageSummaryControls.addEventListener('click', (e) => {
 });
 function initialSetup() {
     updateCentersFromRecords();
-    populateCenterSelectors();
+    populateCenterDatalist();
     populateSelectors();
     cancelEdit();
     todayDatePicker.value = getTodayString();

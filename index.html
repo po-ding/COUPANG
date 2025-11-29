@@ -47,15 +47,12 @@
                 </fieldset>
 
                 <fieldset id="transport-details">
-                    <legend>운송 정보</legend>
+                    <legend>상/하차 정보</legend>
                     <div class="input-group row">
-                        <select id="from-center"></select>
-                        <select id="to-center"></select>
+                        <input type="text" id="from-center" list="center-list" placeholder="상차지 검색 또는 입력">
+                        <input type="text" id="to-center" list="center-list" placeholder="하차지 검색 또는 입력">
                     </div>
-                    <div class="input-group row">
-                        <input type="text" id="from-custom" class="hidden" placeholder="출발지 직접 입력">
-                        <input type="text" id="to-custom" class="hidden" placeholder="도착지 직접 입력">
-                    </div>
+                    <datalist id="center-list"></datalist>
                     
                     <div id="address-display" class="note"></div>
                     <input type="number" id="manual-distance" placeholder="운행거리(km) 직접입력">
@@ -253,12 +250,8 @@
                 <fieldset>
                     <legend>미정산 구간 운임 입력</legend>
                     <div class="input-group row">
-                        <select id="batch-from-center"></select>
-                        <select id="batch-to-center"></select>
-                    </div>
-                    <div class="input-group row">
-                        <input type="text" id="batch-from-custom" class="hidden" placeholder="출발지 직접 입력">
-                        <input type="text" id="batch-to-custom" class="hidden" placeholder="도착지 직접 입력">
+                        <input type="text" id="batch-from-center" list="center-list" placeholder="상차지 검색">
+                        <input type="text" id="batch-to-center" list="center-list" placeholder="하차지 검색">
                     </div>
                     <input type="number" id="batch-income" step="0.01" placeholder="적용할 운송 수입 (만원)">
                     <button type="button" id="batch-apply-btn">일괄 적용하기</button>

@@ -1,4 +1,4 @@
-/** 버전: 7.7 | 최종 수정일: 2025-11-18 (상/하차 정보 클릭 오류 수정) */
+/** 버전: 7.8 | 최종 수정일: 2025-11-18 (시간 수정 오류 해결 및 종료시간 UI 개선) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -180,10 +180,8 @@ function populateCenterDatalist() {
 }
 
 function toggleUI(type) {
-    // Hide all details and action buttons first
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, fuelActions, editActions].forEach(el => el.classList.add('hidden'));
     
-    // Show sections based on type
     if (type === '화물운송' || type === '이동취소') {
         transportDetails.classList.remove('hidden');
         tripActions.classList.remove('hidden');
@@ -201,7 +199,6 @@ function toggleUI(type) {
         tripActions.classList.remove('hidden');
     }
 
-    // Handle cost/income fields
     incomeWrapper.classList.toggle('hidden', type !== '화물운송');
     costWrapper.classList.toggle('hidden', type === '화물운송');
 }
@@ -333,21 +330,30 @@ function displayTodayRecords() {
     const transportRecords = filteredRecords.filter(r => r.from && r.to)
                                            .sort((a, b) => a.time.localeCompare(b.time));
 
-    const recordsWithDuration = filteredRecords.map((r, index, arr) => {
+    const recordsWithDuration = filteredRecords.map(r => {
         const transportIndex = transportRecords.findIndex(tr => tr.id === r.id);
-        if (transportIndex > 0) {
-            const currentTime = new Date(`${r.date}T${r.time}`);
-            const prevRecord = transportRecords[transportIndex - 1];
-            const prevTime = new Date(`${prevRecord.date}T${prevRecord.time}`);
-            const diff = currentTime - prevTime;
-            const hours = Math.floor(diff / 3600000);
-            const minutes = Math.floor((diff % 3600000) / 60000);
-            r.duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+        if (transportIndex > -1) {
+            r.startTime = r.time;
+            if (transportIndex < transportRecords.length - 1) {
+                const nextRecord = transportRecords[transportIndex + 1];
+                r.endTime = nextRecord.time;
+                const currentTime = new Date(`${r.date}T${r.endTime}`);
+                const prevTime = new Date(`${r.date}T${r.startTime}`);
+                const diff = currentTime - prevTime;
+                const hours = Math.floor(diff / 3600000);
+                const minutes = Math.floor((diff % 3600000) / 60000);
+                r.duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+            } else {
+                r.endTime = '';
+                r.duration = '-';
+            }
         } else {
+            r.startTime = r.time;
+            r.endTime = '-';
             r.duration = '-';
         }
         return r;
-    }).sort((a,b) => b.time.localeCompare(a.time));
+    }).sort((a, b) => b.time.localeCompare(a.time));
     
     recordsWithDuration.forEach(r => {
         const tr = document.createElement('tr');
@@ -355,14 +361,14 @@ function displayTodayRecords() {
 
         let detailsCell = '', moneyCell = '';
         
-        if (r.from && r.to) { // 상/하차 정보가 있는 기록
+        if (r.from && r.to) {
             const fromLocation = `<strong class="location-clickable" data-center-name="${r.from}">${r.from}</strong>`;
             const toLocation = `<strong class="location-clickable" data-center-name="${r.to}">${r.to}</strong>`;
             detailsCell = `${fromLocation} →<br>${toLocation}`; 
             if (r.type !== '이동취소') {
                 detailsCell += `<br><span class="note">${r.distance} km</span>`;
             }
-        } else { // 기타 기록 (주유, 소모품, 지출 등)
+        } else {
             detailsCell = `<strong>${r.expenseItem || r.supplyItem || r.type}</strong>`;
              if (r.mileage > 0) detailsCell += `<br><span class="note">${r.mileage.toLocaleString()} km</span>`;
         }
@@ -371,8 +377,9 @@ function displayTodayRecords() {
                     (r.cost > 0 ? ` <span class="cost">-${formatToManwon(r.cost)}</span>` : '');
 
         tr.innerHTML = `
-            <td data-label="시간">${r.time}</td>
-            <td data-label="소요시간">${(r.from && r.to) ? r.duration : r.type}</td>
+            <td data-label="시작시간">${r.startTime}</td>
+            <td data-label="종료시간">${r.endTime || '진행중'}</td>
+            <td data-label="소요시간">${r.duration}</td>
             <td data-label="내용">${detailsCell}</td>
             <td data-label="수입/지출">${moneyCell}</td>
         `;
@@ -381,6 +388,7 @@ function displayTodayRecords() {
 
     todaySummaryDiv.innerHTML = createSummaryHTML(title, filteredRecords);
 }
+
 
 function displayDailyRecords() {
     const allRecords = JSON.parse(localStorage.getItem('records')) || [];
@@ -1025,6 +1033,7 @@ recordForm.addEventListener("submit", function(event) {
     sessionStorage.removeItem('unsavedRecordForm');
     updateAllDisplays();
 });
+
 
 todayTbody.addEventListener("click", e => {
     if (e.target.classList.contains("location-clickable")) {

@@ -1,4 +1,4 @@
-/** 버전: 11.7 Full | 최종 수정일: 2025-11-29 (상하차 선택 시 주소 자동 복사 및 표시 오류 해결) */
+/** 버전: 12.0 Full | 최종 수정일: 2025-11-29 (주소 자동복사 복구 및 대기 버튼 추가) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -13,7 +13,6 @@ const centerDatalist = document.getElementById('center-list');
 const manualDistanceInput = document.getElementById('manual-distance');
 const addressDisplay = document.getElementById('address-display');
 
-// 상세 입력 섹션
 const transportDetails = document.getElementById('transport-details');
 const fuelDetails = document.getElementById('fuel-details');
 const expenseDetails = document.getElementById('expense-details');
@@ -22,7 +21,6 @@ const costInfoFieldset = document.getElementById('cost-info-fieldset');
 const costWrapper = document.getElementById('cost-wrapper');
 const incomeWrapper = document.getElementById('income-wrapper');
 
-// 입력 필드들
 const fuelUnitPriceInput = document.getElementById('fuel-unit-price');
 const fuelLitersInput = document.getElementById('fuel-liters');
 const fuelBrandSelect = document.getElementById('fuel-brand');
@@ -32,12 +30,11 @@ const supplyMileageInput = document.getElementById('supply-mileage');
 const costInput = document.getElementById('cost');
 const incomeInput = document.getElementById('income');
 
-// 버튼 그룹
 const tripActions = document.getElementById('trip-actions');
 const generalActions = document.getElementById('general-actions');
 const editActions = document.getElementById('edit-actions');
 
-// 실제 실행 버튼들
+const btnWaiting = document.getElementById('btn-waiting'); // 신규 대기 버튼
 const btnStartTrip = document.getElementById('btn-start-trip');
 const btnEndTrip = document.getElementById('btn-end-trip');
 const btnSaveGeneral = document.getElementById('btn-save-general');
@@ -46,11 +43,9 @@ const btnUpdateRecord = document.getElementById('btn-update-record');
 const btnDeleteRecord = document.getElementById('btn-delete-record');
 const btnCancelEdit = document.getElementById('btn-cancel-edit');
 
-// 상태 표시 및 ID
 const editModeIndicator = document.getElementById('edit-mode-indicator');
 const editIdInput = document.getElementById('edit-id');
 
-// 페이지 및 탭
 const mainPage = document.getElementById('main-page');
 const settingsPage = document.getElementById('settings-page');
 const goToSettingsBtn = document.getElementById('go-to-settings-btn');
@@ -59,14 +54,12 @@ const refreshBtn = document.getElementById('refresh-btn');
 const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
 
-// 조회 관련
 const todayDatePicker = document.getElementById('today-date-picker');
 const todaySummaryDiv = document.getElementById('today-summary');
 const todayTbody = document.querySelector('#today-records-table tbody');
 const prevDayBtn = document.getElementById('prev-day-btn');
 const nextDayBtn = document.getElementById('next-day-btn');
 
-// 통계/설정 관련 DOM
 const dailyYearSelect = document.getElementById('daily-year-select');
 const dailyMonthSelect = document.getElementById('daily-month-select');
 const dailySummaryDiv = document.getElementById('daily-summary');
@@ -79,7 +72,6 @@ const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyYearlySummaryDiv = document.getElementById('monthly-yearly-summary');
 const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
 
-// 설정 페이지 요소
 const toggleCenterManagementBtn = document.getElementById('toggle-center-management');
 const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
@@ -210,13 +202,17 @@ function toggleUI() {
 
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, generalActions, editActions].forEach(el => el.classList.add('hidden'));
     
-    if (type === '화물운송') {
+    if (type === '화물운송' || type === '대기') { // 대기 타입도 화물운송 UI와 유사하게 처리
         transportDetails.classList.remove('hidden');
         costInfoFieldset.classList.remove('hidden');
         costWrapper.classList.add('hidden'); 
         incomeWrapper.classList.remove('hidden');
         
-        if (!isEditMode) tripActions.classList.remove('hidden');
+        if (!isEditMode) {
+            tripActions.classList.remove('hidden');
+            // 대기 버튼은 type이 화물운송일 때만 보이게
+            if(type === '화물운송') btnWaiting.classList.remove('hidden');
+        }
     } else {
         costInfoFieldset.classList.remove('hidden');
         incomeWrapper.classList.add('hidden');
@@ -238,6 +234,51 @@ function toggleUI() {
         editActions.classList.remove('hidden');
     }
 }
+
+function updateAddressDisplay() {
+    const fromValue = fromCenterInput.value;
+    const toValue = toCenterInput.value;
+    const locations = getSavedLocations();
+    const fromData = locations[fromValue] || {};
+    const toData = locations[toValue] || {};
+    let addressHtml = '';
+    if (fromData.address) addressHtml += `<div class="address-clickable" data-address="${fromData.address}">${fromData.address}</div>`;
+    if (fromData.memo) addressHtml += `<div class="memo-display">${fromData.memo}</div>`;
+    if (toData.address) addressHtml += `<div class="address-clickable" data-address="${toData.address}">${toData.address}</div>`;
+    if (toData.memo) addressHtml += `<div class="memo-display">${toData.memo}</div>`;
+    addressDisplay.innerHTML = addressHtml;
+}
+
+function copyTextToClipboard(text, msg) {
+    navigator.clipboard.writeText(text).then(() => showToast(msg))
+    .catch(err => console.log('복사 실패:', err));
+}
+
+// MODIFIED: 상하차지 입력 시 주소 자동 복사 로직 추가
+[fromCenterInput, toCenterInput].forEach(input => {
+    input.addEventListener('input', () => {
+        // 1. 운임 자동 채우기
+        if(typeSelect.value === '화물운송') {
+            const k = `${fromCenterInput.value.trim()}-${toCenterInput.value.trim()}`;
+            const f = JSON.parse(localStorage.getItem('saved_fares')) || {};
+            if(f[k]) incomeInput.value = (f[k]/10000).toFixed(2);
+        }
+        
+        // 2. 주소 표시 업데이트
+        updateAddressDisplay();
+        
+        // 3. 주소 자동 복사
+        const val = input.value.trim();
+        if(val) {
+            const saved = getSavedLocations();
+            const loc = saved[val];
+            if(loc && loc.address) {
+                // 너무 잦은 토스트를 방지하려면 여기서 조절 가능하지만, 요청대로 바로 복사
+                copyTextToClipboard(loc.address, `'${val}' 주소 자동 복사됨`);
+            }
+        }
+    });
+});
 
 function getFormDataWithoutTime() {
     const fromValue = fromCenterInput.value.trim();
@@ -267,7 +308,6 @@ function resetForm() {
     editIdInput.value = '';
     editModeIndicator.classList.add('hidden');
     
-    // 날짜/시간 현재로 리셋 및 활성화
     dateInput.value = getTodayString();
     timeInput.value = getCurrentTimeString();
     dateInput.disabled = false;
@@ -281,6 +321,27 @@ function resetForm() {
 // 5. 버튼 이벤트 핸들러
 // ===============================================================
 
+// [운행 대기] (신규 추가)
+btnWaiting.addEventListener('click', () => {
+    const formData = getFormDataWithoutTime();
+    const newRecord = {
+        id: Date.now(),
+        date: getTodayString(),
+        time: getCurrentTimeString(),
+        ...formData,
+        type: '대기' // 타입 강제 지정
+    };
+    
+    const records = getRecords();
+    records.push(newRecord);
+    saveRecords(records);
+    
+    showToast('운행 대기 등록!');
+    resetForm();
+    updateAllDisplays();
+});
+
+// [운행 시작]
 btnStartTrip.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -306,6 +367,7 @@ btnStartTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
+// [운행 종료]
 btnEndTrip.addEventListener('click', () => {
     const records = getRecords();
     records.push({
@@ -321,6 +383,7 @@ btnEndTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
+// [기록 저장] (주유, 지출 등)
 btnSaveGeneral.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -339,6 +402,7 @@ btnSaveGeneral.addEventListener('click', () => {
     updateAllDisplays();
 });
 
+// [수정 완료]
 btnUpdateRecord.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     if (!id) return;
@@ -364,6 +428,7 @@ btnUpdateRecord.addEventListener('click', () => {
     }
 });
 
+// [수정 모드에서 종료]
 btnEditEndTrip.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     let records = getRecords();
@@ -392,6 +457,7 @@ btnEditEndTrip.addEventListener('click', () => {
     updateAllDisplays();
 });
 
+// [삭제]
 btnDeleteRecord.addEventListener('click', () => {
     if(confirm('정말 삭제하시겠습니까?')) {
         const id = parseInt(editIdInput.value);
@@ -404,6 +470,7 @@ btnDeleteRecord.addEventListener('click', () => {
     }
 });
 
+// [취소]
 btnCancelEdit.addEventListener('click', resetForm);
 
 
@@ -450,6 +517,7 @@ function displayTodayRecords() {
     
     todayTbody.innerHTML = '';
     
+    // 화면 표시용 리스트 (운행종료 제외)
     const displayList = dayRecords.filter(r => r.type !== '운행종료');
 
     displayList.forEach(r => {
@@ -471,14 +539,14 @@ function displayTodayRecords() {
 
         let fromCell = '-', toCell = '-', noteCell = '';
         
-        if(r.type === '화물운송') {
-            // 따옴표 처리
-            const fromVal = (r.from||'').replace(/"/g, '&quot;');
-            const toVal = (r.to||'').replace(/"/g, '&quot;');
-            fromCell = `<span class="location-clickable" data-center="${fromVal}">${r.from}</span>`;
-            toCell = `<span class="location-clickable" data-center="${toVal}">${r.to}</span>`;
+        if(r.type === '화물운송' || r.type === '대기') {
+            const fromSafe = (r.from||'').replace(/"/g, '&quot;');
+            const toSafe = (r.to||'').replace(/"/g, '&quot;');
+            fromCell = `<span class="location-clickable" data-center="${fromSafe}">${r.from || ''}</span>`;
+            toCell = `<span class="location-clickable" data-center="${toSafe}">${r.to || ''}</span>`;
             
             if(r.distance) noteCell = `<span class="note">${r.distance} km</span>`;
+            else if(r.type === '대기') noteCell = `<span class="note">대기</span>`;
         } else {
             noteCell = `<strong>${r.type}</strong><br><span class="note">${r.expenseItem || r.supplyItem || r.brand || ''}</span>`;
         }
@@ -551,7 +619,7 @@ function displayDailyRecords() {
     
     Object.keys(recordsByDate).sort().reverse().forEach(date => {
         const dayData = recordsByDate[date];
-        const transport = dayData.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
+        const transport = dayData.records.filter(r => ['화물운송', '공차이동', '대기', '운행종료'].includes(r.type));
         
         let inc = 0, exp = 0, dist = 0, count = 0;
         dayData.records.forEach(r => {
@@ -601,7 +669,7 @@ function displayWeeklyRecords() {
 
     Object.keys(weeks).forEach(w => {
         const data = weeks[w];
-        const transport = data.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
+        const transport = data.filter(r => ['화물운송', '공차이동', '대기', '운행종료'].includes(r.type));
         let inc = 0, exp = 0, dist = 0, count = 0;
         
         data.forEach(r => {
@@ -635,7 +703,7 @@ function displayMonthlyRecords() {
 
     Object.keys(months).sort().reverse().forEach(m => {
         const data = months[m];
-        const transport = data.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
+        const transport = data.records.filter(r => ['화물운송', '공차이동', '대기', '운행종료'].includes(r.type));
         let inc = 0, exp = 0, dist = 0, count = 0;
          data.records.forEach(r => {
              if(r.type !== '운행종료' && r.type !== '이동취소') { inc += (r.income||0); exp += (r.cost||0); }
@@ -693,51 +761,17 @@ todayTbody.addEventListener('click', (e) => {
     const target = e.target.closest('.location-clickable');
     if(target) {
         e.stopPropagation();
-        const centerName = target.getAttribute('data-center');
-        if(!centerName) return;
-
+        const center = target.getAttribute('data-center');
         const saved = getSavedLocations();
-        const loc = saved[centerName];
+        const loc = saved[center];
         
-        // MODIFIED: 주소가 있으면 주소 복사, 없으면 이름 복사 및 자동 복사 기능
         if(loc && loc.address) {
-            copyTextToClipboard(loc.address, `'${centerName}' 주소가 복사되었습니다.`);
+            copyTextToClipboard(loc.address, `'${center}' 주소가 복사되었습니다.`);
         } else {
-            copyTextToClipboard(centerName, `'${centerName}' 이름이 복사되었습니다.`);
+            copyTextToClipboard(center, `'${center}' 이름이 복사되었습니다.`);
         }
     }
 });
-
-// MODIFIED: 입력 시 자동 주소 표시 및 자동 복사
-[fromCenterInput, toCenterInput].forEach(input => {
-    input.addEventListener('input', () => {
-        // 운임 자동 채우기
-        if(typeSelect.value === '화물운송') {
-            const k = `${fromCenterInput.value.trim()}-${toCenterInput.value.trim()}`;
-            const f = JSON.parse(localStorage.getItem('saved_fares')) || {};
-            if(f[k]) incomeInput.value = (f[k]/10000).toFixed(2);
-        }
-        updateAddressDisplay();
-        
-        // MODIFIED: 입력된 값이 저장된 센터와 일치하면 주소 자동 복사
-        const val = input.value.trim();
-        if(val) {
-            const saved = getSavedLocations();
-            const loc = saved[val];
-            if(loc && loc.address) {
-                // 너무 잦은 복사를 방지하기 위해 디바운싱을 고려할 수 있으나
-                // 요청사항 "바로 복사"에 충실하게 즉시 복사 시도
-                // (단, 브라우저 정책상 포커스가 있어야 함)
-                copyTextToClipboard(loc.address, `'${val}' 주소 자동 복사됨`);
-            }
-        }
-    });
-});
-
-function copyTextToClipboard(text, msg) {
-    navigator.clipboard.writeText(text).then(() => showToast(msg))
-    .catch(err => console.log('복사 실패(권한 등):', err));
-}
 
 // 자동 계산
 fuelUnitPriceInput.addEventListener('input', calcFuel);
@@ -764,7 +798,7 @@ function generatePrintView(year, month, period, isDetailed) {
         return r.date.startsWith(`${year}-${month}`) && d.getDate() >= sDay && d.getDate() <= eDay;
     }).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
 
-    const transport = target.filter(r => r.type === '화물운송');
+    const transport = target.filter(r => ['화물운송', '대기'].includes(r.type));
     let inc=0, exp=0, dist=0;
     target.forEach(r => { inc += (r.income||0); exp += (r.cost||0); });
     transport.forEach(r => dist += (r.distance||0));
@@ -801,6 +835,7 @@ function generatePrintView(year, month, period, isDetailed) {
         } else {
             from = r.expenseItem || r.supplyItem || r.brand || '';
         }
+        if(r.type === '대기') desc = '대기';
 
         h += `<tr ${borderClass}>
             ${isDetailed?`<td>${r.time}</td>`:''}

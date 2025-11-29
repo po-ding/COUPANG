@@ -27,8 +27,8 @@
                 <fieldset id="datetime-info-fieldset">
                     <legend>기록 일시</legend>
                     <div class="input-group row">
-                        <input type="date" id="date">
-                        <input type="time" id="time">
+                        <input type="date" id="date" required>
+                        <input type="time" id="time" required>
                     </div>
                 </fieldset>
 
@@ -95,16 +95,19 @@
                     </div>
                 </fieldset>
 
-                <!-- 버튼 그룹 -->
+                <!-- [버튼 그룹 1] 화물운송용 (대기/시작/종료) -->
                 <div id="trip-actions" class="action-btn-group">
+                    <button type="button" id="btn-waiting" style="background-color: #6c757d;">운행 대기</button>
                     <button type="button" id="btn-start-trip">운행 시작</button>
                     <button type="button" id="btn-end-trip" style="background-color: #dc3545;">운행 종료</button>
                 </div>
 
+                <!-- [버튼 그룹 2] 일반 저장용 (주유, 지출, 소모품) -->
                 <div id="general-actions" class="action-btn-group hidden">
                     <button type="button" id="btn-save-general">기록 저장</button>
                 </div>
 
+                <!-- [버튼 그룹 3] 수정 모드 -->
                 <div id="edit-actions" class="action-btn-group hidden">
                     <div style="display:flex; flex-direction:column; gap:5px; width:100%;">
                         <button type="button" id="btn-edit-end-trip" style="background-color: #17a2b8;">현재 시간으로 운행 종료</button>
@@ -135,7 +138,6 @@
                         <button id="next-day-btn">→</button>
                     </div>
                     <div id="today-summary" class="summary"></div>
-                    <!-- MODIFIED: 테이블 헤더 분리 -->
                     <table id="today-records-table" class="responsive-table auto-layout">
                         <thead>
                             <tr>
@@ -192,6 +194,7 @@
 
         <!-- 설정 페이지 (기존과 동일) -->
         <div id="settings-page" class="hidden">
+            <!-- (설정 페이지 내용은 이전과 동일하므로 생략하지 않고 전체 코드 유지) -->
             <div class="data-summary-section">
                 <h2>데이터 요약</h2>
                 <div id="current-month-summary-container">
@@ -322,7 +325,6 @@
     </div>
 
     <div id="toast-notification"></div>
-
     <script src="script.js"></script>
 </body>
 </html>

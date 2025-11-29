@@ -275,7 +275,21 @@
                     <div id="subsidy-records-list"></div>
                     <div id="subsidy-load-more-container"></div>
                 </div>
+            </div>
 
+            <h2 id="toggle-print-management" class="collapsible-header">기간별 운송 내역 출력</h2>
+            <div id="print-management-body" class="collapsible-body hidden">
+                <fieldset>
+                    <legend>조회 기간 선택</legend>
+                    <div class="selector-group">
+                        <select id="print-year-select"></select>
+                        <select id="print-month-select"></select>
+                    </div>
+                    <div class="action-btn-group">
+                        <button id="print-first-half-btn">1일 ~ 15일 조회</button>
+                        <button id="print-second-half-btn">16일 ~ 말일 조회</button>
+                    </div>
+                </fieldset>
             </div>
 
             <h2 id="toggle-data-management" class="collapsible-header">데이터 관리</h2>

@@ -1,4 +1,4 @@
-/** 버전: 7.5 | 최종 수정일: 2025-11-18 (기록 수정 시 시간 보존 로직 수정) */
+/** 버전: 7.6 | 최종 수정일: 2025-11-18 (기간별 운송 내역 출력 기능 추가) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -113,6 +113,12 @@ const toggleBatchApplyBtn = document.getElementById('toggle-batch-apply');
 const toggleSubsidyManagementBtn = document.getElementById('toggle-subsidy-management');
 const toggleMileageManagementBtn = document.getElementById('toggle-mileage-management');
 const toggleDataManagementBtn = document.getElementById('toggle-data-management');
+const togglePrintManagementBtn = document.getElementById('toggle-print-management');
+const printYearSelect = document.getElementById('print-year-select');
+const printMonthSelect = document.getElementById('print-month-select');
+const printFirstHalfBtn = document.getElementById('print-first-half-btn');
+const printSecondHalfBtn = document.getElementById('print-second-half-btn');
+
 
 const SUBSIDY_PAGE_SIZE = 10;
 let displayedSubsidyCount = 0;
@@ -695,18 +701,22 @@ function populateSelectors() {
     dailyYearSelect.innerHTML = yearOptions;
     weeklyYearSelect.innerHTML = yearOptions;
     monthlyYearSelect.innerHTML = yearOptions;
+    printYearSelect.innerHTML = yearOptions;
 
     const monthOptions = Array.from({ length: 12 }, ((_, i) => `<option value="${(i+1).toString().padStart(2,"0")}">${i+1}월</option>`)).join('');
     dailyMonthSelect.innerHTML = monthOptions;
     weeklyMonthSelect.innerHTML = monthOptions;
+    printMonthSelect.innerHTML = monthOptions;
     
     dailyYearSelect.value = currentYear;
     weeklyYearSelect.value = currentYear;
     monthlyYearSelect.value = currentYear;
+    printYearSelect.value = currentYear;
     
     const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
     dailyMonthSelect.value = currentMonth;
     weeklyMonthSelect.value = currentMonth;
+    printMonthSelect.value = currentMonth;
 }
 function updateAllDisplays() {
     const activeView = document.querySelector(".view-content.active")?.id;
@@ -801,6 +811,169 @@ function getFormData(isNew = false) {
     if (isNew) formData.id = Date.now();
     return formData;
 }
+function exportToJson() {
+    const backupData = {
+        records: JSON.parse(localStorage.getItem('records') || '[]'),
+        centers: getCenters(),
+        saved_locations: getSavedLocations(),
+        saved_fares: JSON.parse(localStorage.getItem('saved_fares') || '{}'),
+        mileage_correction: parseFloat(localStorage.getItem('mileage_correction')) || 0,
+        fuel_subsidy_limit: parseFloat(localStorage.getItem('fuel_subsidy_limit')) || 0
+    };
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `운행기록_백업_${(new Date).toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('JSON 파일로 저장(백업)되었습니다!');
+}
+function importFromJson(event) {
+    if (!confirm('경고!\n현재 앱의 모든 기록과 설정이 선택한 파일의 내용으로 완전히 대체됩니다.\n계속하시겠습니까?')) {
+        event.target.value = ''; return;
+    }
+    const file = event.target.files[0];
+    if (!file) { event.target.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const content = e.target.result;
+            const data = JSON.parse(content);
+            if (data.saved_locations && typeof data.saved_locations === 'object') {
+                const migratedLocations = {};
+                for (const centerName in data.saved_locations) {
+                    const locationData = data.saved_locations[centerName];
+                    let finalAddress = '', finalMemo = '';
+                    if (typeof locationData === 'object' && locationData !== null) {
+                        finalAddress = locationData.address || '';
+                        finalMemo = locationData.memo || '';
+                    } else if (typeof locationData === 'string') {
+                        finalAddress = locationData;
+                    }
+                    const memoKeywords = ['메모:', '참고:', '비고:'];
+                    for (const keyword of memoKeywords) {
+                        if (finalAddress.includes(keyword)) {
+                            const parts = finalAddress.split(keyword);
+                            finalAddress = parts[0].trim();
+                            if (!finalMemo) finalMemo = parts.slice(1).join(keyword).trim();
+                            break;
+                        }
+                    }
+                    migratedLocations[centerName] = { address: finalAddress, memo: finalMemo };
+                }
+                data.saved_locations = migratedLocations;
+            }
+            if (data && Array.isArray(data.records)) {
+                localStorage.setItem('records', JSON.stringify(data.records));
+                if (Array.isArray(data.centers)) localStorage.setItem('logistics_centers', JSON.stringify(data.centers));
+                if (data.saved_locations) localStorage.setItem('saved_locations', JSON.stringify(data.saved_locations));
+                if (data.saved_fares) localStorage.setItem('saved_fares', JSON.stringify(data.saved_fares));
+                if (data.mileage_correction) localStorage.setItem('mileage_correction', data.mileage_correction);
+                if (data.fuel_subsidy_limit) localStorage.setItem('fuel_subsidy_limit', data.fuel_subsidy_limit);
+            } else if (Array.isArray(data)) {
+                localStorage.setItem('records', JSON.stringify(data));
+            } else {
+                throw new Error('Invalid file format');
+            }
+            alert('데이터 복원이 성공적으로 완료되었습니다. 앱을 새로고침합니다.');
+            location.reload();
+        } catch (error) {
+            console.error('Import Error:', error);
+            alert('오류: 파일을 읽는 중 문제가 발생했습니다. 유효한 JSON 파일인지 확인해주세요.');
+        } finally {
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+function displayCenterList() {
+    centerListContainer.innerHTML = "";
+    const centers = getCenters();
+    const locations = getSavedLocations();
+    if (centers.length === 0) return void(centerListContainer.innerHTML = '<p class="note">등록된 지역이 없습니다.</p>');
+    centers.forEach(center => {
+        const locationData = locations[center] || { address: "", memo: "" };
+        const address = locationData.address || "", memo = locationData.memo || "";
+        const item = document.createElement("div");
+        item.className = "center-item";
+        item.dataset.centerName = center;
+        item.innerHTML = `<div class="info"><span class="center-name">${center}</span><div class="action-buttons"><button class="edit-btn">수정</button><button class="delete-btn">삭제</button></div></div>${address?`<span class="note">주소: ${address}</span>`:""}${memo?`<span class="note">메모: ${memo}</span>`:""}`;
+        centerListContainer.appendChild(item);
+    });
+}
+function deleteCenter(centerNameToDelete) {
+    if (confirm(`'${centerNameToDelete}' 지역을 목록에서 정말 삭제하시겠습니까?\n(기존 기록은 변경되지 않습니다.)`)) {
+        let centers = getCenters(), locations = getSavedLocations();
+        centers = centers.filter(c => c !== centerNameToDelete);
+        delete locations[centerNameToDelete];
+        localStorage.setItem('logistics_centers', JSON.stringify(centers));
+        localStorage.setItem('saved_locations', JSON.stringify(locations));
+        refreshCenterUI();
+    }
+}
+function handleCenterEdit(e) {
+    const item = e.target.closest(".center-item");
+    const originalName = item.dataset.centerName;
+    const locations = getSavedLocations();
+    const originalData = locations[originalName] || { address: "", memo: "" };
+    const originalAddress = originalData.address || "", originalMemo = originalData.memo || "";
+    item.innerHTML = `<div class="edit-form"><input type="text" class="edit-input" value="${originalName}" placeholder="지역 이름"><input type="text" class="edit-address-input" value="${originalAddress}" placeholder="주소 (선택)"><input type="text" class="edit-memo-input" value="${originalMemo}" placeholder="메모 (선택)"><div class="action-buttons"><button class="setting-save-btn">저장</button><button class="cancel-edit-btn">취소</button></div></div>`;
+    item.querySelector(".setting-save-btn").onclick = () => saveCenterEdit(item, originalName);
+    item.querySelector(".cancel-edit-btn").onclick = () => refreshCenterUI();
+    item.querySelector(".edit-input").focus();
+}
+function saveCenterEdit(item, originalName) {
+    const newName = item.querySelector(".edit-input").value.trim();
+    const newAddress = item.querySelector(".edit-address-input").value.trim();
+    const newMemo = item.querySelector(".edit-memo-input").value.trim();
+    if (!newName) return void alert("지역 이름은 비워둘 수 없습니다.");
+    let centers = getCenters(), locations = getSavedLocations();
+    if (centers.includes(newName) && newName !== originalName) return void alert("이미 존재하는 지역 이름입니다.");
+    centers = centers.map(c => c === originalName ? newName : c);
+    localStorage.setItem('logistics_centers', JSON.stringify(centers));
+    delete locations[originalName];
+    locations[newName] = { address: newAddress, memo: newMemo };
+    localStorage.setItem('saved_locations', JSON.stringify(locations));
+    let records = JSON.parse(localStorage.getItem('records')) || [];
+    records = records.map(r => {
+        if (r.from === originalName) r.from = newName;
+        if (r.to === originalName) r.to = newName;
+        return r;
+    });
+    localStorage.setItem('records', JSON.stringify(records));
+    refreshCenterUI();
+    updateAllDisplays();
+}
+function refreshCenterUI() {
+    displayCenterList();
+    populateCenterDatalist();
+}
+function updateCentersFromRecords() {
+    const records = JSON.parse(localStorage.getItem('records')) || [];
+    if (records.length === 0) return;
+    const centers = getCenters();
+    const centerSet = new Set(centers);
+    let needsUpdate = false;
+    records.forEach(r => {
+        if (r.from && !centerSet.has(r.from)) { centerSet.add(r.from); centers.push(r.from); needsUpdate = true }
+        if (r.to && !centerSet.has(r.to)) { centerSet.add(r.to); centers.push(r.to); needsUpdate = true }
+    });
+    if (needsUpdate) localStorage.setItem('logistics_centers', JSON.stringify(centers));
+}
+
+function saveFormState() {
+    const state = { date: dateInput.value, time: timeInput.value, type: typeSelect.value, from: fromCenterInput.value, to: toCenterInput.value, manualDistance: manualDistanceInput.value, fuelUnitPrice: fuelUnitPriceInput.value, fuelLiters: fuelLitersInput.value, fuelBrand: fuelBrandSelect.value, ureaUnitPrice: ureaUnitPriceInput.value, ureaLiters: ureaLitersInput.value, ureaStation: ureaStationInput.value, supplyItem: supplyItemInput.value, supplyMileage: supplyMileageInput.value, cost: costInput.value, income: incomeInput.value };
+    sessionStorage.setItem('unsavedRecordForm', JSON.stringify(state));
+}
+function loadFormState() {
+    const savedStateJSON = sessionStorage.getItem('unsavedRecordForm');
+    if (!savedStateJSON) return;
+    const state = JSON.parse(savedStateJSON);
+    if (!state) return;
+    dateInput.value = state.date; timeInput.value = state.time; typeSelect.value = state.type; fromCenterInput.value = state.from; toCenterInput.value = state.to; manualDistanceInput.value = state.manualDistance; fuelUnitPriceInput.value = state.fuelUnitPrice; fuelLitersInput.value = state.fuelLiters; fuelBrandSelect.value = state.fuelBrand; ureaUnitPriceInput.value = state.ureaUnitPrice; ureaLitersInput.value = state.ureaLiters; ureaStationInput.value = state.ureaStation; supplyItemInput.value = state.supplyItem; supplyMileageInput.value = state.supplyMileage; costInput.value = state.cost; incomeInput.value = state.income;
+    toggleUI(typeSelect.value);
+    updateAddressDisplay();
+}
 
 recordForm.addEventListener("submit", function(event) {
     event.preventDefault();
@@ -810,19 +983,17 @@ recordForm.addEventListener("submit", function(event) {
     let records = JSON.parse(localStorage.getItem('records')) || [];
     let toastMessage = '';
 
-    if (editingId) { // 수정 모드일 때
+    if (editingId) {
         const recordIndex = records.findIndex(r => r.id === editingId);
         if (recordIndex > -1) {
             const originalRecord = records[recordIndex];
             const formData = getFormData();
             
-            // '수정' 버튼은 시간 정보를 보존
             if (action === 'edit') {
                 formData.date = originalRecord.date;
                 formData.time = originalRecord.time;
                 toastMessage = '기록이 수정되었습니다.';
             } 
-            // '운행 종료' 버튼은 현재 시간으로 덮어쓰기
             else if (action === 'end-edit') {
                 formData.date = getTodayString();
                 formData.time = getCurrentTimeString();
@@ -830,7 +1001,7 @@ recordForm.addEventListener("submit", function(event) {
             }
             records[recordIndex] = { ...formData, id: editingId };
         }
-    } else { // 새 기록 모드일 때
+    } else {
         dateInput.value = getTodayString();
         timeInput.value = getCurrentTimeString();
         
@@ -1038,7 +1209,7 @@ centerListContainer.addEventListener("click", e => {
     if (e.target.classList.contains("delete-btn")) deleteCenter(e.target.closest(".center-item").dataset.centerName);
     if (e.target.classList.contains("edit-btn")) handleCenterEdit(e)
 });
-[toggleCenterManagementBtn, toggleBatchApplyBtn, toggleSubsidyManagementBtn, toggleMileageManagementBtn, toggleDataManagementBtn].forEach(header => {
+[toggleCenterManagementBtn, toggleBatchApplyBtn, toggleSubsidyManagementBtn, toggleMileageManagementBtn, toggleDataManagementBtn, togglePrintManagementBtn].forEach(header => {
     if (header) {
         header.addEventListener("click", () => {
             const body = header.nextElementSibling;
@@ -1098,4 +1269,94 @@ function displaySubsidyRecords(loadMore = false) {
         loadMoreContainer.innerHTML = '';
     }
 }
+
+function generatePrintView(year, month, period) {
+    const allRecords = JSON.parse(localStorage.getItem('records')) || [];
+    const startDate = (period === 'first') ? 1 : 16;
+    const endDate = (period === 'first') ? 15 : 31;
+    const periodStr = `${startDate}일 ~ ${period === 'first' ? 15 : '말'}일`;
+    
+    const filteredRecords = allRecords.filter(r => {
+        const recordDate = new Date(r.date + "T00:00:00");
+        const recordDay = recordDate.getDate();
+        return r.date.startsWith(`${year}-${month}`) &&
+               ['화물운송', '공차이동'].includes(r.type) &&
+               recordDay >= startDate && recordDay <= endDate;
+    }).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+    let totalIncome = 0;
+    let totalDistance = 0;
+
+    filteredRecords.forEach(r => {
+        totalIncome += r.income || 0;
+        totalDistance += r.distance || 0;
+    });
+
+    const printWindow = window.open('', '_blank');
+    const html = `
+        <html>
+            <head>
+                <title>운송 내역 출력 (${year}년 ${month}월)</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 20px; }
+                    h1, h2 { text-align: center; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+                    th { background-color: #f2f2f2; }
+                    .summary { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; }
+                    .summary p { margin: 5px 0; }
+                    .print-btn { display: block; margin: 20px auto; padding: 10px 20px; font-size: 16px; }
+                    @media print {
+                        .print-btn { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <button class="print-btn" onclick="window.print()">이 페이지 인쇄하기</button>
+                <h1>운송 내역</h1>
+                <h2>기간: ${year}년 ${month}월 ${periodStr}</h2>
+
+                <div class="summary">
+                    <p><strong>총 운행 건수:</strong> ${filteredRecords.length} 건</p>
+                    <p><strong>총 운행 거리:</strong> ${totalDistance.toFixed(1)} km</p>
+                    <p><strong>총 운임 수입:</strong> ${totalIncome.toLocaleString('ko-KR')} 원</p>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>구분</th>
+                            <th>상/하차 정보</th>
+                            <th>거리(km)</th>
+                            <th>운임(원)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredRecords.map(r => `
+                            <tr>
+                                <td>${r.date}</td>
+                                <td>${r.type}</td>
+                                <td>${r.from} → ${r.to}</td>
+                                <td>${r.distance}</td>
+                                <td>${(r.income || 0).toLocaleString('ko-KR')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </body>
+        </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+}
+
+printFirstHalfBtn.addEventListener('click', () => {
+    generatePrintView(printYearSelect.value, printMonthSelect.value, 'first');
+});
+
+printSecondHalfBtn.addEventListener('click', () => {
+    generatePrintView(printYearSelect.value, printMonthSelect.value, 'second');
+});
+
 document.addEventListener("DOMContentLoaded", initialSetup);

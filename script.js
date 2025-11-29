@@ -1,4 +1,4 @@
-/** 버전: 8.0 | 최종 수정일: 2025-11-18 (시간 고정 및 운행종료 로직 완벽 수정) */
+/** 버전: 8.1 | 최종 수정일: 2025-11-18 (시간 고정, 운행종료, 주소복사 완벽 해결) */
 
 // --- DOM 요소 ---
 const recordForm = document.getElementById('record-form');
@@ -153,7 +153,8 @@ function getSavedLocations() {
 function saveLocationData(centerName, data) {
     if (!centerName || centerName.trim() === '') return false;
     const locations = getSavedLocations();
-    locations[centerName] = data;
+    // 기존 데이터가 있으면 유지하면서 업데이트
+    locations[centerName] = { ...locations[centerName], ...data };
     localStorage.setItem('saved_locations', JSON.stringify(locations));
     return true;
 }
@@ -164,14 +165,16 @@ function addCenter(newCenter, address = '', memo = '') {
     if (!centers.includes(trimmedCenter)) {
         centers.push(trimmedCenter);
         localStorage.setItem('logistics_centers', JSON.stringify(centers));
+    }
+    // 주소나 메모가 있는 경우 저장 (이미 존재해도 업데이트)
+    if (address || memo) {
         saveLocationData(trimmedCenter, {
             address: address.trim(),
             memo: memo.trim()
         });
-        populateCenterDatalist();
-        return true;
     }
-    return false;
+    populateCenterDatalist();
+    return true;
 }
 function populateCenterDatalist() {
     const centers = getCenters();
@@ -180,23 +183,32 @@ function populateCenterDatalist() {
 }
 
 function toggleUI(type) {
+    // 기본적으로 모든 섹션 숨김
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, fuelActions, editActions].forEach(el => el.classList.add('hidden'));
     
+    // 수정 모드인지 확인
+    const isEditMode = !editModeIndicator.classList.contains('hidden');
+
     if (type === '화물운송' || type === '이동취소' || type === '공차이동') {
         transportDetails.classList.remove('hidden');
-        tripActions.classList.remove('hidden');
+        if (!isEditMode) tripActions.classList.remove('hidden');
     } else if (type === '주유소') {
         fuelDetails.classList.remove('hidden');
         costInfoFieldset.classList.remove('hidden');
-        fuelActions.classList.remove('hidden');
+        if (!isEditMode) fuelActions.classList.remove('hidden');
     } else if (type === '소모품') {
         supplyDetails.classList.remove('hidden');
         costInfoFieldset.classList.remove('hidden');
-        tripActions.classList.remove('hidden');
+        if (!isEditMode) tripActions.classList.remove('hidden');
     } else if (type === '지출') {
         expenseDetails.classList.remove('hidden');
         costInfoFieldset.classList.remove('hidden');
-        tripActions.classList.remove('hidden');
+        if (!isEditMode) tripActions.classList.remove('hidden');
+    }
+
+    // 수정 모드일 경우 수정 버튼 그룹 강제 표시
+    if (isEditMode) {
+        editActions.classList.remove('hidden');
     }
 
     incomeWrapper.classList.toggle('hidden', type !== '화물운송');
@@ -232,10 +244,12 @@ function copyAddressToClipboard(centerName) {
     if (!centerName) return;
     const locations = getSavedLocations();
     const locationData = locations[centerName];
+    
+    // 주소가 있으면 주소 복사, 없으면 이름 복사 (수정된 로직)
     if (locationData && locationData.address) {
-        copyTextToClipboard(locationData.address, '주소가 복사되었습니다.');
+        copyTextToClipboard(locationData.address, `'${centerName}' 주소가 복사되었습니다.`);
     } else {
-        showToast(`'${centerName}'에 등록된 주소가 없습니다.`);
+        copyTextToClipboard(centerName, `'${centerName}' 이름이 복사되었습니다.`);
     }
 }
 
@@ -301,19 +315,19 @@ function toggleAllSummaryValues(gridElement) {
 }
 
 function calculateTotalDuration(records) {
-    // '운행종료'를 포함하여 계산을 위해 정렬
+    // 시간 계산을 위해 정렬
     const sortedRecords = [...records].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     
     let totalMinutes = 0;
     if (sortedRecords.length < 2) return '0h 0m';
 
     for (let i = 1; i < sortedRecords.length; i++) {
-        // '운행종료' 기록은 계산의 기준점이 됨 (이전 기록의 종료 시점)
-        // 단, '운행종료' 기록 자체에서 시작하는 시간은 없으므로, 
-        // 두 기록 사이의 간격을 더하는 방식이 유효함
         const currentTime = new Date(`${sortedRecords[i].date}T${sortedRecords[i].time}`);
         const prevTime = new Date(`${sortedRecords[i-1].date}T${sortedRecords[i-1].time}`);
-        totalMinutes += (currentTime - prevTime) / 60000;
+        // 이전 기록이 운행종료가 아닐 때만 시간 더하기 (운행종료는 구간의 끝점 역할만 함)
+        if (sortedRecords[i-1].type !== '운행종료') {
+            totalMinutes += (currentTime - prevTime) / 60000;
+        }
     }
     
     const hours = Math.floor(totalMinutes / 60);
@@ -328,13 +342,13 @@ function displayTodayRecords() {
     
     todayTbody.innerHTML = '';
     
-    // 화면 표시용: '운행종료', '주유소', '소모품', '지출' 제외
-    // 단, 시간 계산을 위해서는 '운행종료'도 포함된 전체 리스트가 필요함
+    // 시간 계산을 위해 해당 날짜의 모든 '시점' 기록(운행, 종료 등)을 가져와 정렬
     const allTimeRecords = filteredRecords.filter(r => ['화물운송', '공차이동', '이동취소', '운행종료'].includes(r.type))
                                           .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     
+    // 화면에 표시할 기록 (운행종료 등 제외)
     const recordsToDisplay = filteredRecords.filter(r => !['주유소', '소모품', '지출', '운행종료'].includes(r.type))
-                                            .sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time));
+                                            .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     
     recordsToDisplay.forEach(r => {
         const tr = document.createElement('tr');
@@ -342,12 +356,15 @@ function displayTodayRecords() {
 
         let detailsCell = '', moneyCell = '';
         
-        // 시간 및 소요시간 계산
+        // 시작/종료 시간 및 소요시간 계산 로직
         let startTime = r.time;
         let endTime = '진행중';
         let duration = '-';
 
+        // 전체 타임라인에서 현재 기록의 위치 찾기
         const currentIndex = allTimeRecords.findIndex(item => item.id === r.id);
+        
+        // 다음 기록이 있다면 그 시간을 종료 시간으로 사용
         if (currentIndex > -1 && currentIndex < allTimeRecords.length - 1) {
             const nextRecord = allTimeRecords[currentIndex + 1];
             endTime = nextRecord.time;
@@ -406,10 +423,9 @@ function displayDailyRecords() {
     
     Object.keys(recordsByDate).sort().reverse().forEach(date => {
         const dayData = recordsByDate[date];
-        // 소요시간 계산을 위해 운행종료 포함한 운송 관련 기록 전체 사용
+        // 소요시간 계산용: 운행종료 포함
         const transportRecords = dayData.records.filter(r => ['화물운송', '공차이동', '운행종료'].includes(r.type));
-        
-        // 통계 계산용 (운행종료 제외)
+        // 통계용: 운행종료 제외
         const validRecords = dayData.records.filter(r => ['화물운송', '공차이동'].includes(r.type));
         
         validRecords.forEach(r => {
@@ -833,34 +849,36 @@ recordForm.addEventListener("submit", function(event) {
             const originalRecord = records[recordIndex];
             const formData = getFormData();
             
+            // '수정' 액션일 경우, 기존 시간 정보를 무조건 유지
             if (action === 'edit') {
-                // 수정 시에는 기존 시간 정보를 강제로 유지 (중요!)
                 formData.date = originalRecord.date;
                 formData.time = originalRecord.time;
                 toastMessage = '기록이 수정되었습니다.';
             } 
+            // '운행 종료' 액션일 경우, 현재 시간으로 강제 업데이트
             else if (action === 'end-edit') {
                 formData.date = getTodayString();
                 formData.time = getCurrentTimeString();
                 toastMessage = '운행이 종료 기록되었습니다.';
             }
+            // 수정된 데이터로 덮어쓰기
             records[recordIndex] = { ...formData, id: editingId };
         }
     } else {
-        // '운행 종료' 버튼은 '운행종료' 타입의 새로운 기록을 생성
+        // 새 기록의 경우
         if (action === 'end') {
+            // 운행 종료 버튼: 운행종료 레코드 생성
             const endRecord = {
                 id: Date.now(),
                 date: getTodayString(),
                 time: getCurrentTimeString(),
                 type: '운행종료',
-                // 기타 필요한 빈 필드 초기화
                 distance: 0, cost: 0, income: 0
             };
             records.push(endRecord);
             toastMessage = '운행이 종료되었습니다.';
         } else {
-            // '운행 시작' 또는 기타 기록
+            // 운행 시작 및 기타: 현재 시간으로 기록 생성
             dateInput.value = getTodayString();
             timeInput.value = getCurrentTimeString();
             
@@ -1138,7 +1156,7 @@ function generatePrintView(year, month, period, isDetailed) {
                recordDay >= startDate && recordDay <= endDate;
     }).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
 
-    const transportRecords = filteredRecords.filter(r => ['화물운송', '공차이동'].includes(r.type));
+    const transportRecords = filteredRecords.filter(r => ['화물운송'].includes(r.type));
     let totalIncome = 0;
     let totalExpense = 0;
     let totalDistance = 0;
@@ -1146,7 +1164,7 @@ function generatePrintView(year, month, period, isDetailed) {
     filteredRecords.forEach(r => {
         totalIncome += r.income || 0;
         totalExpense += r.cost || 0;
-        if (['화물운송', '공차이동'].includes(r.type)) {
+        if (['화물운송'].includes(r.type)) {
             totalDistance += r.distance || 0;
         }
     });

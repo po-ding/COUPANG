@@ -1,4 +1,4 @@
-/** 버전: 12.1 Full | 최종 수정일: 2025-11-29 (동일 상하차지 운행거리 자동 입력 기능 추가) */
+/** 버전: 12.2 Full | 최종 수정일: 2025-11-29 (경로별 거리/금액 자동입력 강화) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -51,6 +51,7 @@ const settingsPage = document.getElementById('settings-page');
 const goToSettingsBtn = document.getElementById('go-to-settings-btn');
 const backToMainBtn = document.getElementById('back-to-main-btn');
 const refreshBtn = document.getElementById('refresh-btn');
+
 const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
 
@@ -252,21 +253,26 @@ function copyTextToClipboard(text, msg) {
     .catch(err => console.log('복사 실패:', err));
 }
 
-// 상하차지 입력 이벤트 (주소 자동 복사, 운임 및 거리 자동 채우기)
+// MODIFIED: 상하차지 입력 시 주소 자동 복사 + 운임/거리 자동 입력 기능
 [fromCenterInput, toCenterInput].forEach(input => {
     input.addEventListener('input', () => {
-        if(typeSelect.value === '화물운송') {
-            const k = `${fromCenterInput.value.trim()}-${toCenterInput.value.trim()}`;
-            
-            // 1. 운임 자동 채우기
-            const f = JSON.parse(localStorage.getItem('saved_fares')) || {};
-            if(f[k]) incomeInput.value = (f[k]/10000).toFixed(2);
+        const from = fromCenterInput.value.trim();
+        const to = toCenterInput.value.trim();
 
-            // 2. 거리 자동 채우기 (NEW)
-            const d = JSON.parse(localStorage.getItem('saved_distances')) || {};
-            if(d[k]) manualDistanceInput.value = d[k];
+        // 1. 운임 및 거리 자동 채우기
+        if(typeSelect.value === '화물운송' && from && to) {
+            const key = `${from}-${to}`;
+            
+            // 운임 불러오기
+            const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+            if(fares[key]) incomeInput.value = (fares[key]/10000).toFixed(2);
+
+            // 거리 불러오기 (NEW)
+            const distances = JSON.parse(localStorage.getItem('saved_distances')) || {};
+            if(distances[key]) manualDistanceInput.value = distances[key];
         }
         
+        // 2. 주소 표시 업데이트
         updateAddressDisplay();
         
         // 3. 주소 자동 복사
@@ -341,7 +347,7 @@ btnWaiting.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [운행 시작] (거리 및 운임 저장 로직 추가)
+// [운행 시작] (거리 및 운임 자동 저장 추가)
 btnStartTrip.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     const newRecord = {
@@ -413,7 +419,7 @@ btnSaveGeneral.addEventListener('click', () => {
     updateAllDisplays();
 });
 
-// [수정 완료] (거리 및 운임 저장 로직 추가)
+// [수정 완료] (거리/운임 업데이트 반영)
 btnUpdateRecord.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     if (!id) return;
@@ -425,12 +431,20 @@ btnUpdateRecord.addEventListener('click', () => {
         const original = records[index];
         const newData = getFormDataWithoutTime();
         
-        // 수정 시에도 거리 정보 업데이트 (NEW)
-        if (newData.type === '화물운송' && newData.distance > 0) {
+        // 수정 시에도 거리/운임 정보 업데이트 (NEW)
+        if (newData.type === '화물운송' && newData.from && newData.to) {
             const routeKey = `${newData.from}-${newData.to}`;
-            const distances = JSON.parse(localStorage.getItem('saved_distances')) || {};
-            distances[routeKey] = newData.distance;
-            localStorage.setItem('saved_distances', JSON.stringify(distances));
+            
+            if (newData.distance > 0) {
+                const distances = JSON.parse(localStorage.getItem('saved_distances')) || {};
+                distances[routeKey] = newData.distance;
+                localStorage.setItem('saved_distances', JSON.stringify(distances));
+            }
+            if (newData.income > 0) {
+                const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
+                fares[routeKey] = newData.income;
+                localStorage.setItem('saved_fares', JSON.stringify(fares));
+            }
         }
 
         records[index] = {

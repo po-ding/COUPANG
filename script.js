@@ -1,4 +1,4 @@
-/** 버전: 11.2 Full | 최종 수정일: 2025-11-29 (상하차 분리 및 탭 간격 오토) */
+/** 버전: 11.3 Full | 최종 수정일: 2025-11-29 (출력 시 상하차지 너비 400px 고정) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -13,6 +13,7 @@ const centerDatalist = document.getElementById('center-list');
 const manualDistanceInput = document.getElementById('manual-distance');
 const addressDisplay = document.getElementById('address-display');
 
+// 상세 입력 섹션
 const transportDetails = document.getElementById('transport-details');
 const fuelDetails = document.getElementById('fuel-details');
 const expenseDetails = document.getElementById('expense-details');
@@ -21,6 +22,7 @@ const costInfoFieldset = document.getElementById('cost-info-fieldset');
 const costWrapper = document.getElementById('cost-wrapper');
 const incomeWrapper = document.getElementById('income-wrapper');
 
+// 입력 필드들
 const fuelUnitPriceInput = document.getElementById('fuel-unit-price');
 const fuelLitersInput = document.getElementById('fuel-liters');
 const fuelBrandSelect = document.getElementById('fuel-brand');
@@ -30,10 +32,12 @@ const supplyMileageInput = document.getElementById('supply-mileage');
 const costInput = document.getElementById('cost');
 const incomeInput = document.getElementById('income');
 
+// 버튼 그룹
 const tripActions = document.getElementById('trip-actions');
 const generalActions = document.getElementById('general-actions');
 const editActions = document.getElementById('edit-actions');
 
+// 실제 실행 버튼들
 const btnStartTrip = document.getElementById('btn-start-trip');
 const btnEndTrip = document.getElementById('btn-end-trip');
 const btnSaveGeneral = document.getElementById('btn-save-general');
@@ -42,9 +46,11 @@ const btnUpdateRecord = document.getElementById('btn-update-record');
 const btnDeleteRecord = document.getElementById('btn-delete-record');
 const btnCancelEdit = document.getElementById('btn-cancel-edit');
 
+// 상태 표시 및 ID
 const editModeIndicator = document.getElementById('edit-mode-indicator');
 const editIdInput = document.getElementById('edit-id');
 
+// 페이지 및 탭
 const mainPage = document.getElementById('main-page');
 const settingsPage = document.getElementById('settings-page');
 const goToSettingsBtn = document.getElementById('go-to-settings-btn');
@@ -53,12 +59,14 @@ const refreshBtn = document.getElementById('refresh-btn');
 const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
 
+// 조회 관련
 const todayDatePicker = document.getElementById('today-date-picker');
 const todaySummaryDiv = document.getElementById('today-summary');
 const todayTbody = document.querySelector('#today-records-table tbody');
 const prevDayBtn = document.getElementById('prev-day-btn');
 const nextDayBtn = document.getElementById('next-day-btn');
 
+// 통계/설정 관련 DOM
 const dailyYearSelect = document.getElementById('daily-year-select');
 const dailyMonthSelect = document.getElementById('daily-month-select');
 const dailySummaryDiv = document.getElementById('daily-summary');
@@ -71,6 +79,7 @@ const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyYearlySummaryDiv = document.getElementById('monthly-yearly-summary');
 const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
 
+// 설정 페이지 요소
 const toggleCenterManagementBtn = document.getElementById('toggle-center-management');
 const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
@@ -114,6 +123,7 @@ const importJsonBtn = document.getElementById('import-json-btn');
 const importFileInput = document.getElementById('import-file-input');
 const clearBtn = document.getElementById('clear-btn');
 
+// 통계 카드 요소들
 const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
 const currentMonthTripCount = document.getElementById('current-month-trip-count');
@@ -272,16 +282,24 @@ function resetForm() {
 
 btnStartTrip.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
-    const newRecord = { id: Date.now(), date: getTodayString(), time: getCurrentTimeString(), ...formData };
+    const newRecord = {
+        id: Date.now(),
+        date: getTodayString(),
+        time: getCurrentTimeString(),
+        ...formData
+    };
+    
     if (formData.type === '화물운송' && formData.income > 0) {
         const fareKey = `${formData.from}-${formData.to}`;
         const fares = JSON.parse(localStorage.getItem('saved_fares')) || {};
         fares[fareKey] = formData.income;
         localStorage.setItem('saved_fares', JSON.stringify(fares));
     }
+
     const records = getRecords();
     records.push(newRecord);
     saveRecords(records);
+    
     showToast('운행 시작!');
     resetForm();
     updateAllDisplays();
@@ -289,18 +307,32 @@ btnStartTrip.addEventListener('click', () => {
 
 btnEndTrip.addEventListener('click', () => {
     const records = getRecords();
-    records.push({ id: Date.now(), date: getTodayString(), time: getCurrentTimeString(), type: '운행종료', distance: 0, cost: 0, income: 0 });
+    records.push({
+        id: Date.now(),
+        date: getTodayString(),
+        time: getCurrentTimeString(),
+        type: '운행종료',
+        distance: 0, cost: 0, income: 0
+    });
     saveRecords(records);
+    
     showToast('운행 종료!');
     updateAllDisplays();
 });
 
 btnSaveGeneral.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
-    const newRecord = { id: Date.now(), date: getTodayString(), time: getCurrentTimeString(), ...formData };
+    const newRecord = {
+        id: Date.now(),
+        date: getTodayString(),
+        time: getCurrentTimeString(),
+        ...formData
+    };
+    
     const records = getRecords();
     records.push(newRecord);
     saveRecords(records);
+    
     showToast('기록 저장됨.');
     resetForm();
     updateAllDisplays();
@@ -309,13 +341,21 @@ btnSaveGeneral.addEventListener('click', () => {
 btnUpdateRecord.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     if (!id) return;
+
     let records = getRecords();
     const index = records.findIndex(r => r.id === id);
+    
     if (index !== -1) {
         const original = records[index];
         const newData = getFormDataWithoutTime();
-        // 시간 정보 유지!
-        records[index] = { ...original, ...newData, date: original.date, time: original.time };
+        
+        records[index] = {
+            ...original,
+            ...newData,
+            date: original.date,
+            time: original.time
+        };
+        
         saveRecords(records);
         showToast('수정 완료.');
         resetForm();
@@ -324,13 +364,33 @@ btnUpdateRecord.addEventListener('click', () => {
 });
 
 btnEditEndTrip.addEventListener('click', () => {
-    const records = getRecords();
-    records.push({ id: Date.now(), date: getTodayString(), time: getCurrentTimeString(), type: '운행종료', distance: 0, cost: 0, income: 0 });
+    const id = parseInt(editIdInput.value);
+    let records = getRecords();
+    const nowTime = getCurrentTimeString();
+    const nowDate = getTodayString();
+
+    const index = records.findIndex(r => r.id === id);
+
+    if (index !== -1 && records[index].type === '운행종료') {
+        records[index].date = nowDate;
+        records[index].time = nowTime;
+        showToast('해당 종료 기록이 현재 시간으로 수정되었습니다.');
+    } else {
+        records.push({
+            id: Date.now(),
+            date: nowDate,
+            time: nowTime,
+            type: '운행종료',
+            distance: 0, cost: 0, income: 0
+        });
+        showToast('현재 시간으로 운행이 종료되었습니다.');
+    }
+
     saveRecords(records);
-    showToast('현재 시간으로 종료 처리되었습니다.');
     resetForm();
     updateAllDisplays();
 });
+
 
 btnDeleteRecord.addEventListener('click', () => {
     if(confirm('정말 삭제하시겠습니까?')) {
@@ -338,6 +398,7 @@ btnDeleteRecord.addEventListener('click', () => {
         let records = getRecords();
         records = records.filter(r => r.id !== id);
         saveRecords(records);
+        
         resetForm();
         updateAllDisplays();
     }
@@ -345,6 +406,10 @@ btnDeleteRecord.addEventListener('click', () => {
 
 btnCancelEdit.addEventListener('click', resetForm);
 
+
+// ===============================================================
+// 6. 조회 및 표시 로직
+// ===============================================================
 
 function calculateTotalDuration(records) {
     const sortedRecords = [...records].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
@@ -376,11 +441,12 @@ function changeDateBy(offset) {
     displayTodayRecords();
 }
 
-// --- Display Logic (상하차 분리 적용) ---
 function displayTodayRecords() {
     const records = getRecords();
     const selectedDate = todayDatePicker.value;
-    const dayRecords = records.filter(r => r.date === selectedDate).sort((a, b) => a.time.localeCompare(b.time));
+    
+    const dayRecords = records.filter(r => r.date === selectedDate)
+                              .sort((a, b) => a.time.localeCompare(b.time));
     
     todayTbody.innerHTML = '';
     
@@ -403,7 +469,6 @@ function displayTodayRecords() {
             duration = h > 0 ? `${h}h ${m}m` : `${m}m`;
         }
 
-        // 상/하차/비고 셀 분리
         let fromCell = '-', toCell = '-', noteCell = '';
         
         if(r.type === '화물운송') {
@@ -468,6 +533,7 @@ function createSummaryHTML(title, records) {
     return `<strong>${title}</strong><div class="summary-toggle-grid" onclick="toggleAllSummaryValues(this)">${itemsHtml}</div>`;
 }
 
+// 일별 조회
 function displayDailyRecords() {
     const records = getRecords();
     const selectedPeriod = `${dailyYearSelect.value}-${dailyMonthSelect.value}`;
@@ -495,23 +561,28 @@ function displayDailyRecords() {
             if(r.type === '화물운송') { dist += (r.distance||0); count++; }
         });
         
+        const day = date.substring(8, 10);
+        const dailyNet = inc - exp;
+        const duration = calculateTotalDuration(transport);
+        
         const tr = document.createElement('tr');
         if(date === getTodayString()) tr.style.fontWeight = 'bold';
         
         tr.innerHTML = `
-            <td>${parseInt(date.substring(8,10))}일</td>
+            <td>${parseInt(day)}일</td>
             <td><span class="income">${formatToManwon(inc)}</span></td>
             <td><span class="cost">${formatToManwon(exp)}</span></td>
-            <td><strong>${formatToManwon(inc-exp)}</strong></td>
+            <td><strong>${formatToManwon(dailyNet)}</strong></td>
             <td>${dist.toFixed(1)}</td>
             <td>${count}</td>
-            <td>${calculateTotalDuration(transport)}</td>
+            <td>${duration}</td>
             <td><button class="edit-btn" onclick="viewDateDetails('${date}')">상세</button></td>
         `;
         dailyTbody.appendChild(tr);
     });
 }
 
+// 주별 조회
 function displayWeeklyRecords() {
     const records = getRecords();
     const selectedPeriod = `${weeklyYearSelect.value}-${weeklyMonthSelect.value}`;
@@ -547,6 +618,7 @@ function displayWeeklyRecords() {
     });
 }
 
+// 월별 조회
 function displayMonthlyRecords() {
     const records = getRecords();
     const year = monthlyYearSelect.value;
@@ -583,6 +655,10 @@ function viewDateDetails(date) {
     document.getElementById("today-view").classList.add("active");
     displayTodayRecords();
 }
+
+// ===============================================================
+// 7. 기타 설정 및 초기화
+// ===============================================================
 
 function editRecord(id) {
     const r = getRecords().find(x => x.id === id);
@@ -647,6 +723,7 @@ todayDatePicker.addEventListener('change', displayTodayRecords);
 prevDayBtn.addEventListener('click', () => changeDateBy(-1));
 nextDayBtn.addEventListener('click', () => changeDateBy(1));
 
+// 프린트 (상/하차지 분리, 좌측 정렬, 굵은 구분선, 폭 400px 고정)
 function generatePrintView(year, month, period, isDetailed) {
     const records = getRecords();
     const sDay = period === 'first' ? 1 : 16;
@@ -667,13 +744,18 @@ function generatePrintView(year, month, period, isDetailed) {
 
     let h = `<html><head><title>운송내역</title>
     <style>
-        body{font-family:sans-serif;margin:20px} table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:6px;text-align:center} th{background:#eee} .summary{border:1px solid #ddd;padding:15px;margin-bottom:20px}
+        body{font-family:sans-serif;margin:20px} 
+        table{width:100%;border-collapse:collapse;font-size:12px; table-layout:fixed;} 
+        th,td{border:1px solid #ccc;padding:6px;text-align:center; word-wrap:break-word;} 
+        th{background:#eee} 
+        .summary{border:1px solid #ddd;padding:15px;margin-bottom:20px}
         .date-border { border-top: 2px solid #000 !important; }
         .left-align { text-align: left; padding-left: 5px; }
+        .col-location { width: 400px; }
     </style>
     </head><body><h2>${year}년 ${month}월 ${period === 'first'?'1~15일':'16~말일'} 운송내역</h2>
     <div class="summary"><p>건수: ${transport.length}건 | 거리: ${dist.toFixed(1)}km | 수입: ${formatToManwon(inc)}만 | 지출: ${formatToManwon(exp)}만 | 순수익: ${formatToManwon(inc-exp)}만</p></div>
-    <table><thead><tr>${isDetailed?'<th>시간</th>':''}<th>날짜</th><th>상차지</th><th>하차지</th><th>내용</th>${isDetailed?'<th>거리</th><th>수입</th><th>지출</th>':''}</tr></thead><tbody>`;
+    <table><thead><tr>${isDetailed?'<th>시간</th>':''}<th>날짜</th><th class="col-location">상차지</th><th class="col-location">하차지</th><th>내용</th>${isDetailed?'<th>거리</th><th>수입</th><th>지출</th>':''}</tr></thead><tbody>`;
     
     (isDetailed ? target : transport).forEach(r => {
         let borderClass = '';
@@ -701,6 +783,7 @@ function generatePrintView(year, month, period, isDetailed) {
     h += `</tbody></table><button onclick="window.print()">인쇄</button></body></html>`;
     w.document.write(h); w.document.close();
 }
+
 printFirstHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', false));
 printSecondHalfBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'second', false));
 printFirstHalfDetailBtn.addEventListener('click', () => generatePrintView(printYearSelect.value, printMonthSelect.value, 'first', true));

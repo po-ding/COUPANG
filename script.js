@@ -1,4 +1,4 @@
-/** 버전: 14.3 Full | 최종 수정일: 2025-12-02 (오늘의 기록 상하차 메모 표시 추가) */
+/** 버전: 14.4 Full | 최종 수정일: 2025-12-02 (운송 지역 추가 시 리스트 미갱신 오류 해결) */
 
 // ===============================================================
 // 1. DOM 요소 선택
@@ -179,11 +179,9 @@ function loadAllData() {
     MEM_DISTANCES = JSON.parse(localStorage.getItem('saved_distances')) || {};
     MEM_COSTS = JSON.parse(localStorage.getItem('saved_costs')) || {};
     
-    // 데이터 정렬
     MEM_CENTERS.sort();
     MEM_RECORDS.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     
-    // 과거 데이터 자동 학습
     syncHistoryToAutocompleteDB();
 }
 
@@ -218,6 +216,7 @@ function updateLocationData(name, address, memo) {
     populateCenterDatalist();
 }
 
+// MODIFIED: 센터 추가 로직 수정 (리스트 갱신 추가)
 function addCenter(newCenter, address = '', memo = '') {
     const trimmed = newCenter?.trim();
     if (!trimmed) return false;
@@ -229,6 +228,7 @@ function addCenter(newCenter, address = '', memo = '') {
         updated = true;
     }
 
+    // 주소나 메모가 있으면 업데이트
     if (address || memo) {
         MEM_LOCATIONS[trimmed] = { 
             address: address.trim(), 
@@ -240,9 +240,18 @@ function addCenter(newCenter, address = '', memo = '') {
     if (updated) {
         saveData();
         populateCenterDatalist();
-        displayCenterList(); // 리스트 갱신
+        displayCenterList(); // 리스트 즉시 갱신
         return true;
     }
+    
+    // 이미 있어도 입력된 값이 있다면 저장 시도
+    if(address || memo) {
+        MEM_LOCATIONS[trimmed] = { address: address.trim(), memo: memo.trim() };
+        saveData();
+        displayCenterList();
+        return true;
+    }
+
     return false; 
 }
 
@@ -307,10 +316,10 @@ function updateAddressDisplay() {
     const fromData = MEM_LOCATIONS[fromValue] || {};
     const toData = MEM_LOCATIONS[toValue] || {};
     let addressHtml = '';
-    if (fromData.address) addressHtml += `<div class="address-clickable" data-address="${fromData.address}">${fromData.address}</div>`;
-    if (fromData.memo) addressHtml += `<div class="memo-display">${fromData.memo}</div>`;
-    if (toData.address) addressHtml += `<div class="address-clickable" data-address="${toData.address}">${toData.address}</div>`;
-    if (toData.memo) html += `<div class="memo-display">${toData.memo}</div>`;
+    if (fromData.address) addressHtml += `<div class="address-clickable" data-address="${fromData.address}">[상] ${fromData.address}</div>`;
+    if (fromData.memo) addressHtml += `<div class="memo-display">[상] ${fromData.memo}</div>`;
+    if (toData.address) addressHtml += `<div class="address-clickable" data-address="${toData.address}">[하] ${toData.address}</div>`;
+    if (toData.memo) addressHtml += `<div class="memo-display">[하] ${toData.memo}</div>`;
     addressDisplay.innerHTML = addressHtml;
 }
 
@@ -342,6 +351,7 @@ addressDisplay.addEventListener('click', (e) => {
 function getFormDataWithoutTime() {
     const fromValue = fromCenterInput.value.trim();
     const toValue = toCenterInput.value.trim();
+    
     updateLocationData(fromValue);
     updateLocationData(toValue);
 
@@ -510,11 +520,10 @@ function displayTodayRecords() {
             duration = h > 0 ? `${h}h ${m}m` : `${m}m`;
         }
         let fromCell = '-', toCell = '-', noteCell = '';
-        
         if(r.type === '화물운송' || r.type === '대기') {
             const fromVal = (r.from||'').replace(/"/g, '&quot;');
             const toVal = (r.to||'').replace(/"/g, '&quot;');
-            // MODIFIED: 주소가 있으면 이름 밑에 작게 표시 (링크 없음)
+            // MODIFIED: 상하차지 아래 메모 출력
             const fromLoc = MEM_LOCATIONS[r.from] || {};
             const toLoc = MEM_LOCATIONS[r.to] || {};
             const fromMemo = fromLoc.memo ? `<div style="font-size:0.8em; color:#666;">${fromLoc.memo}</div>` : '';
@@ -522,7 +531,6 @@ function displayTodayRecords() {
 
             fromCell = `<span class="location-clickable" data-center="${fromVal}">${r.from || ''}</span>${fromMemo}`;
             toCell = `<span class="location-clickable" data-center="${toVal}">${r.to || ''}</span>${toMemo}`;
-            
             if(r.distance) noteCell = `<span class="note">${r.distance} km</span>`;
             if(r.type === '대기') noteCell = `<span class="note">대기중</span>`;
         } else {
@@ -536,8 +544,6 @@ function displayTodayRecords() {
     });
     todaySummaryDiv.innerHTML = createSummaryHTML('오늘의 기록', dayRecords);
 }
-
-// ... (통계 함수, createSummaryHTML 등 기존과 동일. 생략 없음)
 function createSummaryHTML(title, records) {
     const validRecords = records.filter(r => r.type !== '이동취소' && r.type !== '운행종료');
     let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0, totalFuelCost = 0, totalFuelLiters = 0;
@@ -583,7 +589,6 @@ function displayDailyRecords() {
         dailyTbody.appendChild(tr);
     });
 }
-
 function displayWeeklyRecords() {
     const selectedPeriod = `${weeklyYearSelect.value}-${weeklyMonthSelect.value}`;
     const monthRecords = MEM_RECORDS.filter(r => r.date.startsWith(selectedPeriod));
@@ -677,8 +682,56 @@ importFileInput.addEventListener('change', (e) => { if(!confirm('덮어쓰시겠
 clearBtn.addEventListener('click', () => { if(confirm('전체삭제?')) { localStorage.clear(); location.reload(); }});
 
 [toggleCenterManagementBtn, toggleBatchApplyBtn, toggleSubsidyManagementBtn, toggleMileageManagementBtn, toggleDataManagementBtn, togglePrintManagementBtn].forEach(header => { header.addEventListener("click", () => { const body = header.nextElementSibling; header.classList.toggle("active"); body.classList.toggle("hidden"); if (header.id === 'toggle-subsidy-management' && !body.classList.contains('hidden')) { displaySubsidyRecords(false); } }); });
-goToSettingsBtn.addEventListener("click", () => { mainPage.classList.add("hidden"); settingsPage.classList.remove("hidden"); goToSettingsBtn.classList.add("hidden"); backToMainBtn.classList.remove("hidden"); displayCumulativeData(); displayCurrentMonthData(); });
+goToSettingsBtn.addEventListener("click", () => { mainPage.classList.add("hidden"); settingsPage.classList.remove("hidden"); goToSettingsBtn.classList.add("hidden"); backToMainBtn.classList.remove("hidden"); displayCenterList(); displayCumulativeData(); displayCurrentMonthData(); });
 backToMainBtn.addEventListener("click", () => { mainPage.classList.remove("hidden"); settingsPage.classList.add("hidden"); goToSettingsBtn.classList.remove("hidden"); backToMainBtn.classList.add("hidden"); updateAllDisplays(); });
+
+// MODIFIED: 운송 지역 관리 기능 (리스트 갱신 로직 포함)
+addCenterBtn.addEventListener("click", () => {
+    const newName = newCenterNameInput.value;
+    const newAddress = newCenterAddressInput.value;
+    const newMemo = newCenterMemoInput.value;
+    if (addCenter(newName, newAddress, newMemo)) {
+        newCenterNameInput.value = ""; newCenterAddressInput.value = ""; newCenterMemoInput.value = "";
+        alert("지역이 추가되었습니다.");
+    } else {
+        alert("지역 이름을 입력하거나, 이미 존재하거나 변경사항이 없습니다.");
+    }
+});
+function displayCenterList() {
+    centerListContainer.innerHTML = "";
+    MEM_CENTERS.forEach(center => {
+        const loc = MEM_LOCATIONS[center] || {};
+        const item = document.createElement("div");
+        item.className = "center-item";
+        item.dataset.centerName = center;
+        item.innerHTML = `<div class="info"><span class="center-name">${center}</span><div class="action-buttons"><button class="edit-btn">수정</button><button class="delete-btn">삭제</button></div></div>${loc.address?`<span class="note">주소: ${loc.address}</span>`:""}${loc.memo?`<span class="note">메모: ${loc.memo}</span>`:""}`;
+        centerListContainer.appendChild(item);
+    });
+}
+centerListContainer.addEventListener("click", e => {
+    const item = e.target.closest(".center-item");
+    if(!item) return;
+    const name = item.dataset.centerName;
+    if (e.target.classList.contains("delete-btn")) {
+        if(confirm(`${name} 삭제?`)) {
+            MEM_CENTERS = MEM_CENTERS.filter(c => c !== name);
+            delete MEM_LOCATIONS[name];
+            saveData();
+            displayCenterList();
+        }
+    } else if (e.target.classList.contains("edit-btn")) {
+        const loc = MEM_LOCATIONS[name] || {};
+        item.innerHTML = `<div class="edit-form"><input type="text" class="edit-input" value="${name}" readonly><input type="text" class="edit-address-input" value="${loc.address||''}" placeholder="주소"><input type="text" class="edit-memo-input" value="${loc.memo||''}" placeholder="메모"><div class="action-buttons"><button class="setting-save-btn">저장</button><button class="cancel-edit-btn">취소</button></div></div>`;
+        item.querySelector(".setting-save-btn").onclick = () => {
+            const addr = item.querySelector(".edit-address-input").value;
+            const memo = item.querySelector(".edit-memo-input").value;
+            updateLocationData(name, addr, memo);
+            displayCenterList();
+        };
+        item.querySelector(".cancel-edit-btn").onclick = () => displayCenterList();
+    }
+});
+
 batchApplyBtn.addEventListener("click", () => { const from = batchFromCenterInput.value.trim(); const to = batchToCenterInput.value.trim(); const income = parseFloat(batchIncomeInput.value) || 0; if (!from || !to || income <= 0) { alert("값을 확인해주세요."); return; } if (confirm(`${from}->${to} 구간 미정산 기록을 ${income}만원으로 일괄 적용할까요?`)) { let count = 0; MEM_RECORDS = MEM_RECORDS.map(r => { if (r.type === '화물운송' && r.from === from && r.to === to && r.income === 0) { count++; return { ...r, income: income * 10000 }; } return r; }); saveData(); batchStatus.textContent = `${count}건 적용됨`; setTimeout(() => batchStatus.textContent = "", 3000); } });
 subsidySaveBtn.addEventListener('click', () => { localStorage.setItem('fuel_subsidy_limit', subsidyLimitInput.value); showToast('저장됨'); });
 mileageCorrectionSaveBtn.addEventListener('click', () => { localStorage.setItem('mileage_correction', mileageCorrectionInput.value); showToast('저장됨'); displayCumulativeData(); });

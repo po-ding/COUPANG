@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="container">
-        <!-- ... (이전 코드 동일) ... -->
+
         <div class="page-nav">
             <h1 class="logo">cargo<span class="logo-point">note</span></h1>
             <div class="nav-buttons">
@@ -24,8 +24,7 @@
 
         <div id="main-page">
             <form id="record-form">
-               <!-- ... (이전과 동일한 폼 내용) ... -->
-               <fieldset id="datetime-info-fieldset">
+                <fieldset id="datetime-info-fieldset">
                     <legend>기록 일시</legend>
                     <div class="input-group row">
                         <input type="date" id="date" required>
@@ -88,7 +87,8 @@
                 <!-- 비용 공통 -->
                 <fieldset id="cost-info-fieldset">
                     <legend>금액 정보</legend>
-                    <div id="cost-wrapper">
+                    <!-- MODIFIED: 지출 금액 기본 숨김 처리 -->
+                    <div id="cost-wrapper" class="hidden">
                         <input type="number" id="cost" step="0.01" placeholder="지출 금액 (만원)">
                     </div>
                     <div id="income-wrapper">
@@ -121,7 +121,6 @@
                 <input type="hidden" id="edit-id">
             </form>
 
-             <!-- 뷰 섹션 -->
             <div class="view-section">
                 <h2>기록 조회</h2>
                 <div class="view-tabs">
@@ -192,10 +191,9 @@
             
         </div>
 
-        <!-- 설정 페이지 -->
+        <!-- 설정 페이지 (기존과 동일) -->
         <div id="settings-page" class="hidden">
-            <!-- (데이터 요약, 마일리지 등 기존 내용은 유지) -->
-             <div class="data-summary-section">
+            <div class="data-summary-section">
                 <h2>데이터 요약</h2>
                 <div id="current-month-summary-container">
                     <h4 id="current-month-title"></h4>
@@ -257,7 +255,6 @@
                 </fieldset>
                 <fieldset>
                     <legend>등록된 지역 목록</legend>
-                    <!-- MODIFIED: 검색 입력창 추가 -->
                     <input type="text" id="center-search-input" placeholder="지역 검색..." style="margin-bottom: 0.5em;">
                     <div id="center-list-container"></div>
                 </fieldset>

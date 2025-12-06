@@ -1,4 +1,4 @@
-/** 버전: 15.0 | 최종 수정일: 2025-12-06 */
+/** 버전: 16.0 | 최종 수정일: 2025-12-06 (지역관리 리스트 스크롤 및 검색 스타일 추가) */
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; margin: 0; padding: 0.5em; background-color: #f5f5f5; }
 .container { max-width: 600px; margin: auto; background-color: white; padding: 0.8em; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -25,11 +25,7 @@ button:hover { opacity: 0.8; }
 .page-nav button { padding: 0.5em 1em; font-size: 0.9em; width: auto; background-color: #6c757d; }
 
 #edit-mode-indicator { background-color: #fd7e14; color: white; text-align: center; padding: 0.5em; font-weight: bold; border-radius: 4px; margin-bottom: 1em; }
-
-/* MODIFIED: 주소 표시창 클릭 가능하게 스타일 변경 */
-#address-display { 
-    text-align: center; background-color: #e9f5ff; padding: 0.8em; border-radius: 4px; line-height: 1.6; margin-top: 0.5em; font-size: 0.9em; cursor: pointer; 
-}
+#address-display { text-align: center; background-color: #e9f5ff; padding: 0.8em; border-radius: 4px; line-height: 1.6; margin-top: 0.5em; font-size: 0.9em; cursor: pointer; }
 #address-display:hover { background-color: #d6e9ff; }
 #address-display:empty { display: none; }
 #address-display div:last-child { margin-bottom: 0; }
@@ -74,7 +70,17 @@ button:hover { opacity: 0.8; }
 .collapsible-body.hidden { display: none; }
 h2.collapsible-header { border-bottom: 1px solid #ddd; text-align: left; }
 
-#center-list-container { display: flex; flex-direction: column; gap: 0.5em; }
+/* MODIFIED: 리스트 스크롤 기능 추가 */
+#center-list-container { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 0.5em; 
+    max-height: 350px; /* 리스트 최대 높이 설정 */
+    overflow-y: auto;  /* 세로 스크롤 생성 */
+    border: 1px solid #eee;
+    padding: 5px;
+    border-radius: 4px;
+}
 .center-item { display: flex; flex-direction: column; background-color: #f8f9fa; padding: 0.8em; border: 1px solid #eee; border-radius: 4px; gap: 0.5em; }
 .center-item .info { display: flex; justify-content: space-between; align-items: center; }
 .center-item .center-name { flex-grow: 1; font-weight: 500; }
@@ -144,7 +150,6 @@ th { background-color: #f2f2f2; }
 #today-records-table tbody tr { cursor: pointer; }
 #today-records-table tbody tr:hover { background-color: #f8f9fa; }
 
-/* MODIFIED: Auto layout for the Today table */
 .responsive-table.auto-layout th, 
 .responsive-table.auto-layout td {
     white-space: nowrap; 

@@ -1,4 +1,4 @@
-/** 버전: 11.2 | 최종 수정일: 2025-11-29 */
+/** 버전: 15.0 | 최종 수정일: 2025-12-06 */
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; margin: 0; padding: 0.5em; background-color: #f5f5f5; }
 .container { max-width: 600px; margin: auto; background-color: white; padding: 0.8em; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -25,8 +25,14 @@ button:hover { opacity: 0.8; }
 .page-nav button { padding: 0.5em 1em; font-size: 0.9em; width: auto; background-color: #6c757d; }
 
 #edit-mode-indicator { background-color: #fd7e14; color: white; text-align: center; padding: 0.5em; font-weight: bold; border-radius: 4px; margin-bottom: 1em; }
-#address-display { text-align: center; background-color: #e9f5ff; padding: 0.8em; border-radius: 4px; line-height: 1.6; margin-top: 0.5em; font-size: 0.9em; }
+
+/* MODIFIED: 주소 표시창 클릭 가능하게 스타일 변경 */
+#address-display { 
+    text-align: center; background-color: #e9f5ff; padding: 0.8em; border-radius: 4px; line-height: 1.6; margin-top: 0.5em; font-size: 0.9em; cursor: pointer; 
+}
+#address-display:hover { background-color: #d6e9ff; }
 #address-display:empty { display: none; }
+#address-display div:last-child { margin-bottom: 0; }
 
 .edit-btn { background-color: #fd7e14; }
 .delete-btn { background-color: #dc3545; }

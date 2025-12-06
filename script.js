@@ -1,7 +1,17 @@
-/** 버전: 16.0 Full | 최종 수정일: 2025-12-06 (운행취소 버튼 변경 및 위치 이동) */
+/** 버전: 16.2 Full | 최종 수정일: 2025-12-06 (기능 통합 및 안정화 완료) */
 
 // ===============================================================
-// 1. DOM 요소 선택
+// 1. 전역 변수 (메모리 캐싱)
+// ===============================================================
+let MEM_RECORDS = [];
+let MEM_LOCATIONS = {};
+let MEM_FARES = {};
+let MEM_CENTERS = [];
+let MEM_DISTANCES = {};
+let MEM_COSTS = {};
+
+// ===============================================================
+// 2. DOM 요소 선택
 // ===============================================================
 const recordForm = document.getElementById('record-form');
 const dateInput = document.getElementById('date');
@@ -13,6 +23,7 @@ const centerDatalist = document.getElementById('center-list');
 const manualDistanceInput = document.getElementById('manual-distance');
 const addressDisplay = document.getElementById('address-display');
 
+// 상세 입력 섹션
 const transportDetails = document.getElementById('transport-details');
 const fuelDetails = document.getElementById('fuel-details');
 const expenseDetails = document.getElementById('expense-details');
@@ -21,6 +32,7 @@ const costInfoFieldset = document.getElementById('cost-info-fieldset');
 const costWrapper = document.getElementById('cost-wrapper');
 const incomeWrapper = document.getElementById('income-wrapper');
 
+// 입력 필드들
 const fuelUnitPriceInput = document.getElementById('fuel-unit-price');
 const fuelLitersInput = document.getElementById('fuel-liters');
 const fuelBrandSelect = document.getElementById('fuel-brand');
@@ -30,12 +42,13 @@ const supplyMileageInput = document.getElementById('supply-mileage');
 const costInput = document.getElementById('cost');
 const incomeInput = document.getElementById('income');
 
+// 버튼 그룹
 const tripActions = document.getElementById('trip-actions');
 const generalActions = document.getElementById('general-actions');
 const editActions = document.getElementById('edit-actions');
 
-// MODIFIED: 버튼 변수 변경 (대기 -> 취소)
-const btnCancelTrip = document.getElementById('btn-cancel-trip'); 
+// 실제 실행 버튼들
+const btnWaiting = document.getElementById('btn-waiting');
 const btnStartTrip = document.getElementById('btn-start-trip');
 const btnEndTrip = document.getElementById('btn-end-trip');
 const btnSaveGeneral = document.getElementById('btn-save-general');
@@ -44,9 +57,11 @@ const btnUpdateRecord = document.getElementById('btn-update-record');
 const btnDeleteRecord = document.getElementById('btn-delete-record');
 const btnCancelEdit = document.getElementById('btn-cancel-edit');
 
+// 상태 표시 및 ID
 const editModeIndicator = document.getElementById('edit-mode-indicator');
 const editIdInput = document.getElementById('edit-id');
 
+// 페이지 및 탭
 const mainPage = document.getElementById('main-page');
 const settingsPage = document.getElementById('settings-page');
 const goToSettingsBtn = document.getElementById('go-to-settings-btn');
@@ -56,12 +71,14 @@ const refreshBtn = document.getElementById('refresh-btn');
 const tabBtns = document.querySelectorAll('.tab-btn');
 const viewContents = document.querySelectorAll('.view-content');
 
+// 조회 관련
 const todayDatePicker = document.getElementById('today-date-picker');
 const todaySummaryDiv = document.getElementById('today-summary');
 const todayTbody = document.querySelector('#today-records-table tbody');
 const prevDayBtn = document.getElementById('prev-day-btn');
 const nextDayBtn = document.getElementById('next-day-btn');
 
+// 통계/설정 관련 DOM
 const dailyYearSelect = document.getElementById('daily-year-select');
 const dailyMonthSelect = document.getElementById('daily-month-select');
 const dailySummaryDiv = document.getElementById('daily-summary');
@@ -74,6 +91,7 @@ const monthlyYearSelect = document.getElementById('monthly-year-select');
 const monthlyYearlySummaryDiv = document.getElementById('monthly-yearly-summary');
 const monthlyTbody = document.querySelector('#monthly-summary-table tbody');
 
+// 설정 페이지 요소
 const toggleCenterManagementBtn = document.getElementById('toggle-center-management');
 const centerManagementBody = document.getElementById('center-management-body');
 const centerListContainer = document.getElementById('center-list-container');
@@ -120,6 +138,7 @@ const importJsonBtn = document.getElementById('import-json-btn');
 const importFileInput = document.getElementById('import-file-input');
 const clearBtn = document.getElementById('clear-btn');
 
+// 통계 카드 요소들
 const currentMonthTitle = document.getElementById('current-month-title');
 const currentMonthOperatingDays = document.getElementById('current-month-operating-days');
 const currentMonthTripCount = document.getElementById('current-month-trip-count');
@@ -142,7 +161,7 @@ const SUBSIDY_PAGE_SIZE = 10;
 let displayedSubsidyCount = 0;
 
 // ===============================================================
-// 2. 유틸리티 함수
+// 3. 유틸리티 함수
 // ===============================================================
 const getTodayString = () => {
     const d = new Date();
@@ -168,15 +187,8 @@ function showToast(msg) {
 }
 
 // ===============================================================
-// 3. 데이터 관리 함수 (메모리 캐싱)
+// 4. 데이터 로드 및 저장
 // ===============================================================
-let MEM_RECORDS = [];
-let MEM_LOCATIONS = {};
-let MEM_FARES = {};
-let MEM_CENTERS = [];
-let MEM_DISTANCES = {};
-let MEM_COSTS = {};
-
 function loadAllData() {
     MEM_RECORDS = JSON.parse(localStorage.getItem('records')) || [];
     MEM_LOCATIONS = JSON.parse(localStorage.getItem('saved_locations')) || {};
@@ -186,6 +198,7 @@ function loadAllData() {
     MEM_DISTANCES = JSON.parse(localStorage.getItem('saved_distances')) || {};
     MEM_COSTS = JSON.parse(localStorage.getItem('saved_costs')) || {};
     
+    // 과거 기록을 바탕으로 자동완성 DB 업데이트
     syncHistoryToAutocompleteDB();
 }
 
@@ -207,7 +220,11 @@ function updateLocationData(name, address, memo) {
         MEM_CENTERS.sort();
     }
     if (address || memo) {
-        MEM_LOCATIONS[trimmed] = { ...(MEM_LOCATIONS[trimmed] || {}), address: address || (MEM_LOCATIONS[trimmed]?.address || ''), memo: memo || (MEM_LOCATIONS[trimmed]?.memo || '') };
+        MEM_LOCATIONS[trimmed] = { 
+            ...(MEM_LOCATIONS[trimmed] || {}), 
+            address: address || (MEM_LOCATIONS[trimmed]?.address || ''),
+            memo: memo || (MEM_LOCATIONS[trimmed]?.memo || '')
+        };
     }
     saveData();
     populateCenterDatalist();
@@ -231,8 +248,14 @@ function syncHistoryToAutocompleteDB() {
     if (updated) saveData();
 }
 
+function addCenter(newCenter, address = '', memo = '') {
+    const trimmed = newCenter?.trim();
+    if (!trimmed) return;
+    updateLocationData(trimmed, address, memo);
+}
+
 // ===============================================================
-// 4. UI 제어 및 폼 로직
+// 5. UI 제어 및 입력 로직
 // ===============================================================
 function toggleUI() {
     const type = typeSelect.value;
@@ -240,8 +263,8 @@ function toggleUI() {
 
     [transportDetails, fuelDetails, supplyDetails, expenseDetails, costInfoFieldset, tripActions, generalActions, editActions].forEach(el => el.classList.add('hidden'));
     
-    // MODIFIED: 화물운송 또는 이동취소(과거 대기)일 때
-    if (type === '화물운송' || type === '이동취소') {
+    // 운행 대기, 화물 운송
+    if (type === '화물운송' || type === '대기') {
         transportDetails.classList.remove('hidden');
         costInfoFieldset.classList.remove('hidden');
         costWrapper.classList.remove('hidden'); 
@@ -249,7 +272,8 @@ function toggleUI() {
         
         if (!isEditMode) {
             tripActions.classList.remove('hidden');
-            if(type === '화물운송') btnCancelTrip.classList.remove('hidden'); // 취소 버튼 보이기
+            // 대기 버튼은 화물운송 탭에서만 보이게 처리
+            if(type === '화물운송') btnWaiting.classList.remove('hidden');
         }
     } else {
         costInfoFieldset.classList.remove('hidden');
@@ -270,6 +294,7 @@ function toggleUI() {
 
     if (isEditMode) {
         editActions.classList.remove('hidden');
+        // 수정 모드일 때 운행 종료 버튼 처리
         if (type === '주유소' || type === '소모품' || type === '지출') {
             btnEditEndTrip.classList.add('hidden');
         } else {
@@ -293,36 +318,44 @@ function updateAddressDisplay() {
 }
 
 function copyTextToClipboard(text, msg) {
-    navigator.clipboard.writeText(text).then(() => showToast(msg))
-    .catch(err => console.log('복사 실패:', err));
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        if(msg) showToast(msg);
+    }).catch(err => console.log('복사 실패:', err));
 }
 
-// 상하차지 입력 이벤트
-[fromCenterInput, toCenterInput].forEach(input => {
-    input.addEventListener('input', () => {
-        const from = fromCenterInput.value.trim();
-        const to = toCenterInput.value.trim();
+// [핵심] 상하차지 입력 시 자동 채우기 및 주소 복사
+function handleLocationInput(input) {
+    const from = fromCenterInput.value.trim();
+    const to = toCenterInput.value.trim();
 
-        if((typeSelect.value === '화물운송' || typeSelect.value === '이동취소') && from && to) {
-            const key = `${from}-${to}`;
-            if(MEM_FARES[key]) incomeInput.value = (MEM_FARES[key]/10000).toFixed(2);
-            if(MEM_DISTANCES[key]) manualDistanceInput.value = MEM_DISTANCES[key];
-            if(MEM_COSTS[key]) costInput.value = (MEM_COSTS[key]/10000).toFixed(2);
+    // 1. 값 자동 채우기 (거리, 운임, 비용)
+    if((typeSelect.value === '화물운송' || typeSelect.value === '대기') && from && to) {
+        const key = `${from}-${to}`;
+        if(MEM_FARES[key]) incomeInput.value = (MEM_FARES[key]/10000).toFixed(2);
+        if(MEM_DISTANCES[key]) manualDistanceInput.value = MEM_DISTANCES[key];
+        if(MEM_COSTS[key]) costInput.value = (MEM_COSTS[key]/10000).toFixed(2);
+    }
+    
+    // 2. 주소 표시창 업데이트
+    updateAddressDisplay();
+    
+    // 3. 주소 자동 복사 (입력하는 곳의 주소가 있으면)
+    const val = input.value.trim();
+    if(val) {
+        const loc = MEM_LOCATIONS[val];
+        if(loc && loc.address) {
+            // 메시지 없이 조용히 복사
+            copyTextToClipboard(loc.address, null);
         }
-        
-        updateAddressDisplay();
-        
-        const val = input.value.trim();
-        if(val) {
-            const loc = MEM_LOCATIONS[val];
-            if(loc && loc.address) {
-                // 자동 복사 (조용히)
-                navigator.clipboard.writeText(loc.address).catch(()=>{});
-            }
-        }
-    });
+    }
+}
+
+[fromCenterInput, toCenterInput].forEach(el => {
+    el.addEventListener('input', () => handleLocationInput(el));
 });
 
+// 주소 표시창 클릭 시 복사
 addressDisplay.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
     if(e.target.classList.contains('address-clickable')) {
@@ -368,12 +401,14 @@ function resetForm() {
 }
 
 function addRecord(record) {
-    if (record.type === '화물운송' && record.from && record.to) {
+    // 운행일 경우 경로 데이터 자동 학습
+    if ((record.type === '화물운송' || record.type === '대기') && record.from && record.to) {
         const key = `${record.from}-${record.to}`;
         if(record.income > 0) MEM_FARES[key] = record.income;
         if(record.distance > 0) MEM_DISTANCES[key] = record.distance;
         if(record.cost > 0) MEM_COSTS[key] = record.cost;
     }
+    
     MEM_RECORDS.push(record);
     saveData();
     showToast('저장되었습니다.');
@@ -382,20 +417,20 @@ function addRecord(record) {
 }
 
 // ===============================================================
-// 5. 버튼 이벤트 핸들러
+// 6. 버튼 이벤트 핸들러
 // ===============================================================
 
-// [운행 취소] (구 대기 버튼)
-btnCancelTrip.addEventListener('click', () => {
+// [운행 대기]
+btnWaiting.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     addRecord({
         id: Date.now(),
         date: getTodayString(),
         time: getCurrentTimeString(),
         ...formData,
-        type: '이동취소'
+        type: '대기'
     });
-    showToast('운행 취소 등록!');
+    showToast('운행 대기 등록!');
 });
 
 // [운행 시작]
@@ -433,15 +468,20 @@ btnSaveGeneral.addEventListener('click', () => {
     });
 });
 
-// [수정 완료]
+// [수정 완료] (시간 변경 없음)
 btnUpdateRecord.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
-    const index = MEM_RECORDS.findIndex(r => r.id === id);
-    if (index > -1) {
-        const original = MEM_RECORDS[index];
+    if (!id) return;
+
+    let records = MEM_RECORDS;
+    const index = records.findIndex(r => r.id === id);
+    
+    if (index !== -1) {
+        const original = records[index];
         const formData = getFormDataWithoutTime();
         
-        if (formData.type === '화물운송' && formData.from && formData.to) {
+        // 경로 정보 업데이트
+        if ((formData.type === '화물운송' || formData.type === '대기') && formData.from && formData.to) {
             const key = `${formData.from}-${formData.to}`;
             if(formData.distance > 0) MEM_DISTANCES[key] = formData.distance;
             if(formData.income > 0) MEM_FARES[key] = formData.income;
@@ -451,6 +491,7 @@ btnUpdateRecord.addEventListener('click', () => {
         MEM_RECORDS[index] = {
             ...original,
             ...formData,
+            // 날짜와 시간은 원본 그대로 유지
             date: original.date,
             time: original.time
         };
@@ -461,7 +502,7 @@ btnUpdateRecord.addEventListener('click', () => {
     }
 });
 
-// [수정 모드에서 종료]
+// [수정 모드에서 종료] (현재 시간으로 덮어쓰기 or 추가)
 btnEditEndTrip.addEventListener('click', () => {
     const id = parseInt(editIdInput.value);
     const index = MEM_RECORDS.findIndex(r => r.id === id);
@@ -497,17 +538,17 @@ btnDeleteRecord.addEventListener('click', () => {
         updateAllDisplays();
     }
 });
-
 btnCancelEdit.addEventListener('click', resetForm);
 
 // ===============================================================
-// 6. 조회 및 표시 로직
+// 7. 조회 및 표시 로직
 // ===============================================================
 
 function calculateTotalDuration(records) {
     const sorted = [...records].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     let totalMinutes = 0;
     if (sorted.length < 2) return '0h 0m';
+
     for (let i = 1; i < sorted.length; i++) {
         const curr = new Date(`${sorted[i].date}T${sorted[i].time}`);
         const prev = new Date(`${sorted[i-1].date}T${sorted[i-1].time}`);
@@ -559,12 +600,13 @@ function displayTodayRecords() {
         }
 
         let fromCell = '-', toCell = '-', noteCell = '';
-        if(r.type === '화물운송' || r.type === '이동취소') {
+        if(r.type === '화물운송' || r.type === '대기' || r.type === '이동취소') {
             const fromVal = (r.from||'').replace(/"/g, '&quot;');
             const toVal = (r.to||'').replace(/"/g, '&quot;');
             fromCell = `<span class="location-clickable" data-center="${fromVal}">${r.from || ''}</span>`;
             toCell = `<span class="location-clickable" data-center="${toVal}">${r.to || ''}</span>`;
             if(r.distance) noteCell = `<span class="note">${r.distance} km</span>`;
+            if(r.type === '대기') noteCell = `<span class="note">대기</span>`;
             if(r.type === '이동취소') noteCell = `<span class="note cancelled">취소됨</span>`;
         } else {
             noteCell = `<strong>${r.type}</strong><br><span class="note">${r.expenseItem || r.supplyItem || r.brand || ''}</span>`;
@@ -595,11 +637,11 @@ todayTbody.addEventListener('click', (e) => {
     const target = e.target.closest('.location-clickable');
     if(target) {
         e.stopPropagation();
-        const center = target.getAttribute('data-center');
-        if(center) {
-            const loc = MEM_LOCATIONS[center];
-            if(loc && loc.address) copyTextToClipboard(loc.address, '주소 복사됨');
-            else copyTextToClipboard(center, '이름 복사됨');
+        const centerName = target.getAttribute('data-center');
+        if(centerName) {
+            const loc = MEM_LOCATIONS[centerName];
+            if(loc && loc.address) copyTextToClipboard(loc.address, `'${centerName}' 주소 복사됨`);
+            else copyTextToClipboard(centerName, `'${centerName}' 복사됨`);
         }
     }
 });
@@ -628,9 +670,6 @@ function createSummaryHTML(title, records) {
     return `<strong>${title}</strong><div class="summary-toggle-grid" onclick="toggleAllSummaryValues(this)">${itemsHtml}</div>`;
 }
 
-// ... (일별/주별/월별/프린트 등 나머지 함수들은 이전 11.6 버전과 동일하게 유지)
-// (아래에 그대로 붙여넣습니다)
-
 function displayDailyRecords() {
     const selectedPeriod = `${dailyYearSelect.value}-${dailyMonthSelect.value}`;
     const monthRecords = MEM_RECORDS.filter(r => r.date.startsWith(selectedPeriod));
@@ -644,7 +683,7 @@ function displayDailyRecords() {
     });
     Object.keys(recordsByDate).sort().reverse().forEach(date => {
         const dayData = recordsByDate[date];
-        const transport = dayData.records.filter(r => ['화물운송', '공차이동', '이동취소', '운행종료'].includes(r.type));
+        const transport = dayData.records.filter(r => ['화물운송', '공차이동', '대기', '운행종료'].includes(r.type));
         let inc = 0, exp = 0, dist = 0, count = 0;
         dayData.records.forEach(r => {
             if(r.type !== '운행종료' && r.type !== '이동취소') { inc += (r.income||0); exp += (r.cost||0); }
@@ -656,6 +695,7 @@ function displayDailyRecords() {
         dailyTbody.appendChild(tr);
     });
 }
+
 function displayWeeklyRecords() {
     const selectedPeriod = `${weeklyYearSelect.value}-${weeklyMonthSelect.value}`;
     const monthRecords = MEM_RECORDS.filter(r => r.date.startsWith(selectedPeriod));
@@ -670,7 +710,7 @@ function displayWeeklyRecords() {
     });
     Object.keys(weeks).forEach(w => {
         const data = weeks[w];
-        const transport = data.filter(r => ['화물운송', '공차이동', '이동취소', '운행종료'].includes(r.type));
+        const transport = data.filter(r => ['화물운송', '공차이동', '대기', '운행종료'].includes(r.type));
         let inc = 0, exp = 0, dist = 0, count = 0;
         data.forEach(r => { if(r.type!=='운행종료'&&r.type!=='이동취소'){inc+=(r.income||0);exp+=(r.cost||0);} if(r.type==='화물운송'){dist+=(r.distance||0);count++;} });
         const dates = data.map(r => new Date(r.date).getDate());
@@ -688,7 +728,7 @@ function displayMonthlyRecords() {
     yearRecords.forEach(r => { const m=r.date.substring(0,7); if(!months[m]) months[m]={records:[]}; months[m].records.push(r); });
     Object.keys(months).sort().reverse().forEach(m => {
         const data = months[m];
-        const transport = data.records.filter(r => ['화물운송', '공차이동', '이동취소', '운행종료'].includes(r.type));
+        const transport = data.records.filter(r => ['화물운송', '공차이동', '대기', '운행종료'].includes(r.type));
         let inc=0,exp=0,dist=0,count=0;
          data.records.forEach(r => { if(r.type!=='운행종료'&&r.type!=='이동취소'){inc+=(r.income||0);exp+=(r.cost||0);} if(r.type==='화물운송'){dist+=(r.distance||0);count++;} });
         const tr = document.createElement('tr');
@@ -719,7 +759,7 @@ nextDayBtn.addEventListener('click', () => changeDateBy(1));
 function generatePrintView(year, month, period, isDetailed) {
     const sDay = period === 'second' ? 16 : 1; const eDay = period === 'first' ? 15 : 31; const periodStr = period === 'full' ? '1일 ~ 말일' : `${sDay}일 ~ ${eDay===15?15:'말'}일`;
     const target = MEM_RECORDS.filter(r => { const d = new Date(r.date); return r.date.startsWith(`${year}-${month}`) && d.getDate() >= sDay && d.getDate() <= eDay; }).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
-    const transport = target.filter(r => ['화물운송', '이동취소'].includes(r.type));
+    const transport = target.filter(r => ['화물운송', '대기'].includes(r.type));
     let inc=0, exp=0, dist=0; target.forEach(r => { inc += (r.income||0); exp += (r.cost||0); }); transport.forEach(r => dist += (r.distance||0));
     const w = window.open('','_blank');
     let lastDate = '';
@@ -728,7 +768,7 @@ function generatePrintView(year, month, period, isDetailed) {
         let borderClass = ''; if(lastDate !== '' && lastDate !== r.date) borderClass = 'class="date-border"'; lastDate = r.date;
         let from = '', to = '', desc = r.type;
         if(r.from || r.to) { from = r.from || ''; to = r.to || ''; desc = ''; } else { from = r.expenseItem || r.supplyItem || r.brand || ''; }
-        if(r.type === '이동취소') desc = '취소됨';
+        if(r.type === '대기') desc = '대기';
         h += `<tr ${borderClass}>${isDetailed?`<td>${r.time}</td>`:''}<td>${r.date.substring(5)}</td><td class="left-align">${from}</td><td class="left-align">${to}</td><td>${desc}</td>${isDetailed?`<td>${r.distance||'-'}</td><td>${formatToManwon(r.income)}</td><td>${formatToManwon(r.cost)}</td>`:''}</tr>`;
     });
     h += `</tbody></table><button onclick="window.print()">인쇄</button></body></html>`;

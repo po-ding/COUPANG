@@ -1,4 +1,6 @@
-/** 버전: 16.1 Full | 최종 수정일: 2025-12-06 (0원 표기 및 테이블 레이아웃 수정) */
+--- START OF FILE script.js ---
+
+/** 버전: 16.2 Full | 수정: displaySubsidyRecords 함수 복구 */
 
 // ... (DOM 요소 선택 등 앞부분은 동일)
 const recordForm = document.getElementById('record-form');
@@ -701,6 +703,23 @@ function displayCumulativeData() { const records = MEM_RECORDS.filter(r => r.typ
 function displayCurrentMonthData() { const now = new Date(); const currentPeriod = now.toISOString().slice(0, 7); const monthRecords = MEM_RECORDS.filter(r => r.date.startsWith(currentPeriod) && r.type !== '이동취소' && r.type !== '운행종료'); currentMonthTitle.textContent = `${now.getMonth() + 1}월 실시간 요약`; let inc = 0, exp = 0, count = 0, dist = 0, liters = 0; monthRecords.forEach(r => { inc += (r.income||0); exp += (r.cost||0); if(r.type === '화물운송') { count++; dist += (r.distance||0); } if(r.type === '주유소') liters += (r.liters||0); }); const days = new Set(monthRecords.map(r => r.date)).size; const net = inc - exp; const avg = liters > 0 && dist > 0 ? (dist/liters).toFixed(2) : 0; const costKm = dist > 0 ? Math.round(exp/dist) : 0; currentMonthOperatingDays.textContent = `${days} 일`; currentMonthTripCount.textContent = `${count} 건`; currentMonthTotalMileage.textContent = `${dist.toFixed(1)} km`; currentMonthIncome.textContent = `${formatToManwon(inc)} 만원`; currentMonthExpense.textContent = `${formatToManwon(exp)} 만원`; currentMonthNetIncome.textContent = `${formatToManwon(net)} 만원`; currentMonthAvgEconomy.textContent = `${avg} km/L`; currentMonthCostPerKm.textContent = `${costKm.toLocaleString()} 원`; const limit = parseFloat(localStorage.getItem("fuel_subsidy_limit")) || 0; const remain = limit - liters; const pct = limit > 0 ? Math.min(100, 100 * liters / limit).toFixed(1) : 0; subsidySummaryDiv.innerHTML = `<div class="progress-label">월 한도: ${limit.toLocaleString()} L | 사용: ${liters.toFixed(1)} L | 잔여: ${remain.toFixed(1)} L</div><div class="progress-bar-container"><div class="progress-bar progress-bar-used" style="width: ${pct}%;"></div></div>`; }
 function renderMileageSummary(period = 'monthly') { const validRecords = MEM_RECORDS.filter(r => ['화물운송'].includes(r.type)); let summaryData = {}; if (period === 'monthly') { for (let i = 11; i >= 0; i--) { const d = new Date(); d.setMonth(d.getMonth() - i); const k = d.toISOString().slice(0, 7); summaryData[k] = 0; } validRecords.forEach(r => { const k = r.date.substring(0, 7); if (summaryData.hasOwnProperty(k)) summaryData[k]++; }); } else { for (let i = 11; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - (i * 7)); const k = d.toISOString().slice(0, 10); summaryData[k] = 0; } validRecords.forEach(r => { const d = new Date(r.date); d.setDate(d.getDate() - d.getDay() + 1); const k = d.toISOString().slice(0, 10); if (summaryData.hasOwnProperty(k)) summaryData[k]++; }); } let h = ''; for (const k in summaryData) { h += `<div class="metric-card"><span class="metric-label">${k}</span><span class="metric-value">${summaryData[k]} 건</span></div>`; } mileageSummaryCards.innerHTML = h; }
 function updateAllDisplays() { displayTodayRecords(); displayDailyRecords(); displayWeeklyRecords(); displayMonthlyRecords(); }
+
+// [추가된 부분] 주유 내역 표시 함수
+function displaySubsidyRecords(append = false) {
+    const fuelRecords = MEM_RECORDS.filter(r => r.type === '주유소').sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    if (!append) { displayedSubsidyCount = 0; subsidyRecordsList.innerHTML = ''; }
+    if (fuelRecords.length === 0) { subsidyRecordsList.innerHTML = '<p class="note" style="text-align:center; padding:1em;">주유 내역이 없습니다.</p>'; subsidyLoadMoreContainer.innerHTML = ''; return; }
+    const nextBatch = fuelRecords.slice(displayedSubsidyCount, displayedSubsidyCount + SUBSIDY_PAGE_SIZE);
+    nextBatch.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'center-item'; div.style.marginBottom = '5px';
+        div.innerHTML = `<div class="info"><span class="center-name">${r.date} <span class="note">(${r.brand || '기타'})</span></span><span style="font-weight:bold;">${formatToManwon(r.cost)} 만원</span></div><div style="display:flex; justify-content:space-between; margin-top:4px; font-size:0.9em; color:#555;"><span>주유량: ${parseFloat(r.liters).toFixed(2)} L</span><span>단가: ${r.unitPrice} 원</span></div>`;
+        subsidyRecordsList.appendChild(div);
+    });
+    displayedSubsidyCount += nextBatch.length;
+    if (displayedSubsidyCount < fuelRecords.length) { subsidyLoadMoreContainer.innerHTML = '<button class="load-more-btn" style="margin-top:10px; padding:10px;">▼ 더 보기</button>'; subsidyLoadMoreContainer.querySelector('button').onclick = () => displaySubsidyRecords(true); } else { subsidyLoadMoreContainer.innerHTML = ''; }
+}
+
 function initialSetup() {
     loadAllData();
     populateCenterDatalist();

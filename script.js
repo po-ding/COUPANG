@@ -1,8 +1,8 @@
---- START OF FILE script.js ---
+/** 버전: 16.3 Full | 최종 수정: 초기화 시 날짜/시간 자동 입력 및 주유내역 함수 통합 */
 
-/** 버전: 16.2 Full | 수정: displaySubsidyRecords 함수 복구 */
-
-// ... (DOM 요소 선택 등 앞부분은 동일)
+// ==========================================
+// 1. DOM 요소 선택 (변수 선언)
+// ==========================================
 const recordForm = document.getElementById('record-form');
 const dateInput = document.getElementById('date');
 const timeInput = document.getElementById('time');
@@ -140,7 +140,9 @@ const cumulativeCostPerKm = document.getElementById('cumulative-cost-per-km');
 const SUBSIDY_PAGE_SIZE = 10;
 let displayedSubsidyCount = 0;
 
-// ... (유틸리티 및 데이터 관리 함수들 동일)
+// ==========================================
+// 2. 유틸리티 함수
+// ==========================================
 const getTodayString = () => {
     const d = new Date();
     const year = d.getFullYear();
@@ -164,6 +166,9 @@ function showToast(msg) {
     setTimeout(() => toast.classList.remove('show'), 1500);
 }
 
+// ==========================================
+// 3. 데이터 로드 및 저장
+// ==========================================
 let MEM_RECORDS = [];
 let MEM_LOCATIONS = {};
 let MEM_FARES = {};
@@ -228,7 +233,9 @@ function syncHistoryToAutocompleteDB() {
     if (updated) saveData();
 }
 
-// UI 제어
+// ==========================================
+// 4. UI 및 폼 제어
+// ==========================================
 function toggleUI() {
     const type = typeSelect.value;
     const isEditMode = !editModeIndicator.classList.contains('hidden');
@@ -345,12 +352,16 @@ function getFormDataWithoutTime() {
     };
 }
 
+// 폼 초기화 함수 (날짜, 시간 자동 세팅 포함)
 function resetForm() {
     recordForm.reset();
     editIdInput.value = '';
     editModeIndicator.classList.add('hidden');
+    
+    // 여기가 날짜/시간 자동 설정의 핵심입니다
     dateInput.value = getTodayString();
     timeInput.value = getCurrentTimeString();
+    
     dateInput.disabled = false;
     timeInput.disabled = false;
     addressDisplay.innerHTML = '';
@@ -371,7 +382,9 @@ function addRecord(record) {
     updateAllDisplays();
 }
 
-// 버튼 핸들러
+// ==========================================
+// 5. 버튼 이벤트 핸들러
+// ==========================================
 btnWaiting.addEventListener('click', () => {
     const formData = getFormDataWithoutTime();
     addRecord({ id: Date.now(), date: getTodayString(), time: getCurrentTimeString(), ...formData, type: '대기' });
@@ -440,7 +453,9 @@ btnDeleteRecord.addEventListener('click', () => {
 });
 btnCancelEdit.addEventListener('click', resetForm);
 
-// 조회 로직
+// ==========================================
+// 6. 조회 및 통계 표시
+// ==========================================
 function calculateTotalDuration(records) {
     const sorted = [...records].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     let totalMinutes = 0;
@@ -495,7 +510,6 @@ function displayTodayRecords() {
             duration = h > 0 ? `${h}h ${m}m` : `${m}m`;
         }
 
-        // MODIFIED: 상/하차/비고 분리 및 0원 표기
         let fromCell = '-', toCell = '-', noteCell = '';
         if(r.type === '화물운송' || r.type === '대기') {
             const fromVal = (r.from||'').replace(/"/g, '&quot;');
@@ -511,7 +525,7 @@ function displayTodayRecords() {
         let money = '';
         if(r.income > 0) money += `<span class="income">+${formatToManwon(r.income)}</span> `;
         if(r.cost > 0) money += `<span class="cost">-${formatToManwon(r.cost)}</span>`;
-        if(money === '') money = '0'; // MODIFIED: 0원 표기
+        if(money === '') money = '0'; 
 
         tr.innerHTML = `
             <td data-label="시작">${r.time}</td>
@@ -542,7 +556,6 @@ todayTbody.addEventListener('click', (e) => {
     }
 });
 
-// ... (이하 통계, 프린트, 데이터 관리 함수들은 동일)
 function createSummaryHTML(title, records) {
     const validRecords = records.filter(r => r.type !== '이동취소' && r.type !== '운행종료');
     let totalIncome = 0, totalExpense = 0, totalDistance = 0, totalTripCount = 0;
@@ -567,7 +580,6 @@ function createSummaryHTML(title, records) {
     return `<strong>${title}</strong><div class="summary-toggle-grid" onclick="toggleAllSummaryValues(this)">${itemsHtml}</div>`;
 }
 
-// ... (일별/주별/월별 조회 함수들 생략 없이 사용)
 function displayDailyRecords() {
     const selectedPeriod = `${dailyYearSelect.value}-${dailyMonthSelect.value}`;
     const monthRecords = MEM_RECORDS.filter(r => r.date.startsWith(selectedPeriod));
@@ -593,6 +605,7 @@ function displayDailyRecords() {
         dailyTbody.appendChild(tr);
     });
 }
+
 function displayWeeklyRecords() {
     const selectedPeriod = `${weeklyYearSelect.value}-${weeklyMonthSelect.value}`;
     const monthRecords = MEM_RECORDS.filter(r => r.date.startsWith(selectedPeriod));
@@ -616,6 +629,7 @@ function displayWeeklyRecords() {
         weeklyTbody.appendChild(tr);
     });
 }
+
 function displayMonthlyRecords() {
     const year = monthlyYearSelect.value;
     const yearRecords = MEM_RECORDS.filter(r => r.date.startsWith(year));
@@ -646,6 +660,8 @@ function editRecord(id) {
     dateInput.disabled = true; timeInput.disabled = true;
     toggleUI(); window.scrollTo(0,0);
 }
+
+// 이벤트 리스너들
 fuelUnitPriceInput.addEventListener('input', () => { const p=parseFloat(fuelUnitPriceInput.value)||0, l=parseFloat(fuelLitersInput.value)||0; if(p&&l) costInput.value=(p*l/10000).toFixed(2); });
 fuelLitersInput.addEventListener('input', () => { const p=parseFloat(fuelUnitPriceInput.value)||0, l=parseFloat(fuelLitersInput.value)||0; if(p&&l) costInput.value=(p*l/10000).toFixed(2); });
 typeSelect.addEventListener('change', toggleUI);
@@ -653,6 +669,10 @@ refreshBtn.addEventListener('click', () => { resetForm(); location.reload(); });
 todayDatePicker.addEventListener('change', displayTodayRecords);
 prevDayBtn.addEventListener('click', () => changeDateBy(-1));
 nextDayBtn.addEventListener('click', () => changeDateBy(1));
+
+// ==========================================
+// 7. 프린트 및 내보내기/가져오기
+// ==========================================
 function generatePrintView(year, month, period, isDetailed) {
     const sDay = period === 'second' ? 16 : 1;
     const eDay = period === 'first' ? 15 : 31;
@@ -704,7 +724,7 @@ function displayCurrentMonthData() { const now = new Date(); const currentPeriod
 function renderMileageSummary(period = 'monthly') { const validRecords = MEM_RECORDS.filter(r => ['화물운송'].includes(r.type)); let summaryData = {}; if (period === 'monthly') { for (let i = 11; i >= 0; i--) { const d = new Date(); d.setMonth(d.getMonth() - i); const k = d.toISOString().slice(0, 7); summaryData[k] = 0; } validRecords.forEach(r => { const k = r.date.substring(0, 7); if (summaryData.hasOwnProperty(k)) summaryData[k]++; }); } else { for (let i = 11; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - (i * 7)); const k = d.toISOString().slice(0, 10); summaryData[k] = 0; } validRecords.forEach(r => { const d = new Date(r.date); d.setDate(d.getDate() - d.getDay() + 1); const k = d.toISOString().slice(0, 10); if (summaryData.hasOwnProperty(k)) summaryData[k]++; }); } let h = ''; for (const k in summaryData) { h += `<div class="metric-card"><span class="metric-label">${k}</span><span class="metric-value">${summaryData[k]} 건</span></div>`; } mileageSummaryCards.innerHTML = h; }
 function updateAllDisplays() { displayTodayRecords(); displayDailyRecords(); displayWeeklyRecords(); displayMonthlyRecords(); }
 
-// [추가된 부분] 주유 내역 표시 함수
+// [복구됨] 주유 내역 표시 함수
 function displaySubsidyRecords(append = false) {
     const fuelRecords = MEM_RECORDS.filter(r => r.type === '주유소').sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     if (!append) { displayedSubsidyCount = 0; subsidyRecordsList.innerHTML = ''; }
@@ -720,19 +740,37 @@ function displaySubsidyRecords(append = false) {
     if (displayedSubsidyCount < fuelRecords.length) { subsidyLoadMoreContainer.innerHTML = '<button class="load-more-btn" style="margin-top:10px; padding:10px;">▼ 더 보기</button>'; subsidyLoadMoreContainer.querySelector('button').onclick = () => displaySubsidyRecords(true); } else { subsidyLoadMoreContainer.innerHTML = ''; }
 }
 
+// ==========================================
+// 8. 초기화 함수
+// ==========================================
 function initialSetup() {
     loadAllData();
     populateCenterDatalist();
+    
+    // 날짜 선택기(셀렉트박스) 옵션 생성
     const y = new Date().getFullYear();
     const yrs = []; for(let i=0; i<5; i++) yrs.push(`<option value="${y-i}">${y-i}년</option>`);
     [dailyYearSelect, weeklyYearSelect, monthlyYearSelect, printYearSelect].forEach(el => el.innerHTML = yrs.join(''));
+    
     const ms = []; for(let i=1; i<=12; i++) ms.push(`<option value="${i.toString().padStart(2,'0')}">${i}월</option>`);
-    [dailyMonthSelect, weeklyMonthSelect, printMonthSelect].forEach(el => { el.innerHTML = ms.join(''); el.value = (new Date().getMonth()+1).toString().padStart(2,'0'); });
+    [dailyMonthSelect, weeklyMonthSelect, printMonthSelect].forEach(el => { 
+        el.innerHTML = ms.join(''); 
+        el.value = (new Date().getMonth()+1).toString().padStart(2,'0'); 
+    });
+
     mileageCorrectionInput.value = localStorage.getItem('mileage_correction') || 0;
     subsidyLimitInput.value = localStorage.getItem('fuel_subsidy_limit') || 0;
     todayDatePicker.value = getTodayString();
+    
+    // 폼 초기화 및 현재 시간 강제 설정
     resetForm();
+    
+    // 혹시 resetForm에서 덮어쓰여질 수 있으니 안전하게 한 번 더 설정
+    if(!dateInput.value) dateInput.value = getTodayString();
+    if(!timeInput.value) timeInput.value = getCurrentTimeString();
+
     updateAllDisplays();
 }
+
 document.addEventListener("DOMContentLoaded", initialSetup);
 function toggleAllSummaryValues(gridElement) { const items = gridElement.querySelectorAll('.summary-item'); const isShowing = gridElement.classList.toggle('active'); items.forEach(item => { const valueEl = item.querySelector('.summary-value'); if(isShowing) { item.classList.add('active'); valueEl.classList.remove('hidden'); } else { item.classList.remove('active'); valueEl.classList.add('hidden'); } }); }
